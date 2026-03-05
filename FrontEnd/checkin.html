@@ -1,0 +1,252 @@
+<div class="form-header">
+  <h1>Registrar <em>novo</em><br>check-in corporal</h1>
+  <p>Preencha os dados que você mediu. Campos vazios serão ignorados.</p>
+  <div class="form-date">
+    <span>📅</span>
+    <input type="date" id="f-data" style="
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 12px;
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.8rem;
+      cursor: pointer;
+    ">
+  </div>
+</div>
+
+<div class="form-grid">
+
+  <!-- Bioimpedância -->
+  <div class="form-section">
+    <div class="section-label">Bioimpedância</div>
+    <div class="fields-row">
+      <div class="field">
+        <label>Água</label>
+        <div class="field-wrap">
+          <input type="number" id="f-agua" placeholder="2.5" step="0.1">
+          <span class="field-unit">kg</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Massa Muscular</label>
+        <div class="field-wrap">
+          <input type="number" id="f-massa-muscular" placeholder="50" step="1">
+          <span class="field-unit">kg</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Peso</label>
+        <div class="field-wrap">
+          <input type="number" id="f-peso" placeholder="72.5" step="0.1">
+          <span class="field-unit">kg</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Gordura</label>
+        <div class="field-wrap">
+          <input type="number" id="f-gordura" placeholder="18.5" step="0.1">
+          <span class="field-unit">%</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Gordura Visceral</label>
+        <div class="field-wrap">
+          <input type="number" id="f-gordura-visceral" placeholder="10" step="0.1">
+          <span class="field-unit"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dobras Cutâneas -->
+  <div class="form-section">
+    <div class="section-label">Dobras Cutâneas</div>
+    <div class="fields-row">
+      <div class="field">
+        <label>Tríceps</label>
+        <div class="field-wrap">
+          <input type="number" id="db-trip" placeholder="15" step="0.5">
+          <span class="field-unit">mm</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Supra Espinal</label>
+        <div class="field-wrap">
+          <input type="number" id="db-supra" placeholder="12" step="0.5">
+          <span class="field-unit">mm</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Panturrilha</label>
+        <div class="field-wrap">
+          <input type="number" id="db-pant" placeholder="10" step="0.5">
+          <span class="field-unit">mm</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Bíceps</label>
+        <div class="field-wrap">
+          <input type="number" id="db-biceps" placeholder="8" step="0.5">
+          <span class="field-unit">mm</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Coxa</label>
+        <div class="field-wrap">
+          <input type="number" id="db-coxa" placeholder="18" step="0.5">
+          <span class="field-unit">mm</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Supra Ilíaca</label>
+        <div class="field-wrap">
+          <input type="number" id="db-supra-iliaca" placeholder="14" step="0.5">
+          <span class="field-unit">mm</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Axilar Medial</label>
+        <div class="field-wrap">
+          <input type="number" id="db-axilar-medial" placeholder="12" step="0.5">
+          <span class="field-unit">mm</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Abdome</label>
+        <div class="field-wrap">
+          <input type="number" id="db-abdome" placeholder="20" step="0.5">
+          <span class="field-unit">mm</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Circunferências -->
+  <div class="form-section">
+    <div class="section-label">Circunferência</div>
+    <div class="fields-row">
+      <div class="field">
+        <label>Punho</label>
+        <div class="field-wrap">
+          <input type="number" id="f-punho" placeholder="17" step="0.5">
+          <span class="field-unit">cm</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Coxa</label>
+        <div class="field-wrap">
+          <input type="number" id="f-coxa" placeholder="58" step="0.5">
+          <span class="field-unit">cm</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Braço</label>
+        <div class="field-wrap">
+          <input type="number" id="f-braco" placeholder="34" step="0.5">
+          <span class="field-unit">cm</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Abdominal</label>
+        <div class="field-wrap">
+          <input type="number" id="f-abdominal" placeholder="88" step="0.5">
+          <span class="field-unit">cm</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Panturrilha</label>
+        <div class="field-wrap">
+          <input type="number" id="f-panturrilha" placeholder="38" step="0.5">
+          <span class="field-unit">cm</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Cintura</label>
+        <div class="field-wrap">
+          <input type="number" id="f-cintura" placeholder="82" step="0.5">
+          <span class="field-unit">cm</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Tórax</label>
+        <div class="field-wrap">
+          <input type="number" id="f-torax" placeholder="100" step="0.5">
+          <span class="field-unit">cm</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Tornozelo</label>
+        <div class="field-wrap">
+          <input type="number" id="f-tornozelo" placeholder="22" step="0.5">
+          <span class="field-unit">cm</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Quadril</label>
+        <div class="field-wrap">
+          <input type="number" id="f-quadril" placeholder="96" step="0.5">
+          <span class="field-unit">cm</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Antebraço</label>
+        <div class="field-wrap">
+          <input type="number" id="f-antebraco" placeholder="28" step="0.5">
+          <span class="field-unit">cm</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Calorimetria e Bem-estar -->
+  <div class="form-section">
+    <div class="section-label">Calorimetria e Bem-estar</div>
+    <div class="fields-row">
+      <div class="field">
+        <label>RMR</label>
+        <div class="field-wrap">
+          <input type="number" id="f-rmr" placeholder="1800" step="1">
+          <span class="field-unit">kcal</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>VO2</label>
+        <div class="field-wrap">
+          <input type="number" id="f-vo2" placeholder="40" step="1">
+          <span class="field-unit">mL/kg/min</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Média Sono</label>
+        <div class="field-wrap">
+          <input type="number" id="f-sono" placeholder="7" step="0.5">
+          <span class="field-unit">hrs</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Média Movimento</label>
+        <div class="field-wrap">
+          <input type="number" id="f-movimento" placeholder="400" step="1">
+          <span class="field-unit">kcal</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Média Exercício</label>
+        <div class="field-wrap">
+          <input type="number" id="f-exercicio" placeholder="45" step="1">
+          <span class="field-unit">min</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="form-actions">
+  <button class="btn-secondary" onclick="clearForm()">Limpar</button>
+  <button class="btn-primary" id="btn-salvar" onclick="saveEntry()">
+    <span>💾</span> Salvar check-in
+  </button>
+</div>

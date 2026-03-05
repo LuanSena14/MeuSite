@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BodyLog — Seu Dashboard Corporal</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="logo">Body<span>Log</span></div>
+  <div class="tab-bar">
+    <button class="tab active" onclick="switchView('form', event)">Registrar</button>
+    <button class="tab"        onclick="switchView('dash', event)">Dashboard</button>
+  </div>
+</header>
+
+<main>
+  <!-- ── VIEW: FORMULÁRIO DE CHECK-IN ── -->
+  <div class="view active" id="view-form">
+    <!-- checkin.html é incluído aqui via fetch no app.js -->
+  </div>
+
+  <!-- ── VIEW: DASHBOARD ── -->
+  <div class="view" id="view-dash">
+    <!-- dashboard.html é incluído aqui via fetch no app.js -->
+  </div>
+</main>
+
+<div class="success-toast" id="toast">✓ Check-in salvo com sucesso!</div>
+<div class="success-toast" id="toast-erro" style="background:var(--danger);color:#fff">✗ Erro ao salvar. Veja o console.</div>
+
+<!-- Carrega os módulos JS na ordem certa -->
+<script src="js/api.js"></script>
+<script src="js/checkin.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
