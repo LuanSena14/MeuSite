@@ -84,7 +84,22 @@ def get_checkins():
             por_data[d] = {"date": d}
         por_data[d][medida.descricao] = checkin.valor
 
-    return list(por_data.values())
+    # Campos "persistentes" (ex: altura) podem ser informados uma única vez.
+    # Ao buscar os check-ins, propagamos o último valor conhecido para frente.
+    persistentes = ["altura"]
+    altura_atual = {campo: None for campo in persistentes}
+
+    resultado = []
+    for data in sorted(por_data.keys()):
+        registro = por_data[data]
+        for campo in persistentes:
+            if registro.get(campo) is not None:
+                altura_atual[campo] = registro[campo]
+            elif altura_atual[campo] is not None:
+                registro[campo] = altura_atual[campo]
+        resultado.append(registro)
+
+    return resultado
 
 @app.post("/api/checkins")
 def post_checkin(body: CheckinInput):

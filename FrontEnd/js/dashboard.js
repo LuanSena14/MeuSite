@@ -5,6 +5,7 @@
 let entries = []      // array com todos os check-ins carregados da API
 let chartPeso = null  // referência ao gráfico de peso (para destruir antes de recriar)
 let chartComp = null  // referência ao gráfico de composição
+let alturaFixa = max(altura)      // altura do usuário
 
 // ── HELPERS ──────────────────────────────────────────────────────────────────
 
@@ -14,6 +15,37 @@ function formatDate(iso) {
   return new Date(y, m - 1, d).toLocaleDateString('pt-BR', {
     day: '2-digit', month: 'short', year: 'numeric'
   })
+}
+
+function CalculaImc(peso) {
+  if (!peso || !alturaFixa) return null
+  const imc = peso / ((alturaFixa / 100) ** 2)
+  return imc.toFixed(1)
+}
+
+function CalculaGordura(dobra_triceps, dobra_subescapular, dobra_suprailiaca, dobra_abdominal) {
+  if ([dobra_triceps, dobra_subescapular, dobra_suprailiaca, dobra_abdominal].some(d => d == null)) return null
+  const soma = dobra_triceps + dobra_subescapular + dobra_suprailiaca + dobra_abdominal
+  const gordura = (soma * 0.153 + 5.783)
+  return gordura.toFixed(1)
+}
+
+function CalculaMassaMuscular(peso){
+  const gordura = CalculaGordura(
+    document.getElementById('input-triceps').value,
+    document.getElementById('input-subescapular').value,
+    document.getElementById('input-suprailiaca').value,
+    document.getElementById('input-abdominal').value
+  )
+  if (gordura == null) return null
+  const massa_muscular = peso * (1 - gordura / 100)
+  return massa_muscular.toFixed(1)
+}
+function CalculaFFMI() {
+  const massaMuscular = CalculaMassaMuscular(document.getElementById('input-peso').value)
+  if (massaMuscular == null || alturaFixa == null) return null
+  const ffmi = massaMuscular / ((alturaFixa / 100) ** 2))
+  return ffmi.toFixed(1)
 }
 
 // Calcula a diferença entre dois valores e retorna HTML colorido
@@ -26,6 +58,7 @@ function delta(curr, prev, unit = '') {
   const sign = diff > 0 ? '+' : ''
   return `<span class="${cls}">${sign}${diff}${unit} vs anterior</span>`
 }
+
 
 // ── RENDERIZAÇÃO PRINCIPAL ────────────────────────────────────────────────────
 
@@ -55,9 +88,9 @@ function renderDash() {
     prev ? delta(last.peso, prev.peso, ' kg') : ''
 
   document.getElementById('kpi-gordura').innerHTML =
-    (last.gordura ?? '—') + '<span class="kpi-unit">%</span>'
+    (last.gordura ?? '—') + '<span class="kpi-unit">kg</span>'
   document.getElementById('kpi-gordura-delta').innerHTML =
-    prev ? delta(last.gordura, prev.gordura, '%') : ''
+    prev ? delta(last.gordura, prev.gordura, ' kg') : ''
 
   document.getElementById('kpi-musculo').innerHTML =
     (last.massa_muscular ?? '—') + '<span class="kpi-unit">kg</span>'
@@ -182,7 +215,7 @@ function renderHistory() {
     <tr>
       <td>${formatDate(e.date)}</td>
       <td>${e.peso           != null ? e.peso + ' kg'           : '—'}</td>
-      <td>${e.gordura        != null ? e.gordura + '%'          : '—'}</td>
+      <td>${e.gordura        != null ? e.gordura + ' Kg'          : '—'}</td>
       <td>${e.massa_muscular != null ? e.massa_muscular + ' kg' : '—'}</td>
       <td>${e.cintura        != null ? e.cintura + ' cm'        : '—'}</td>
       <td>${e.circ_abdominal != null ? e.circ_abdominal + ' cm': '—'}</td>
