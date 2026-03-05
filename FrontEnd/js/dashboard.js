@@ -5,7 +5,6 @@
 let entries = []      // array com todos os check-ins carregados da API
 let chartPeso = null  // referência ao gráfico de peso (para destruir antes de recriar)
 let chartComp = null  // referência ao gráfico de composição
-let alturaFixa = max(altura)      // altura do usuário
 
 // ── HELPERS ──────────────────────────────────────────────────────────────────
 
@@ -18,8 +17,8 @@ function formatDate(iso) {
 }
 
 function CalculaImc(peso) {
-  if (!peso || !alturaFixa) return null
-  const imc = peso / ((alturaFixa / 100) ** 2)
+  if (!peso || !altura) return null
+  const imc = peso / ((altura / 100) ** 2)
   return imc.toFixed(1)
 }
 
@@ -43,8 +42,8 @@ function CalculaMassaMuscular(peso){
 }
 function CalculaFFMI() {
   const massaMuscular = CalculaMassaMuscular(document.getElementById('input-peso').value)
-  if (massaMuscular == null || alturaFixa == null) return null
-  const ffmi = massaMuscular / ((alturaFixa / 100) ** 2))
+  if (massaMuscular == null || altura == null) return null
+  const ffmi = massaMuscular / ((altura / 100) ** 2))
   return ffmi.toFixed(1)
 }
 
