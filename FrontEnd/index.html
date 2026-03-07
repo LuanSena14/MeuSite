@@ -13,19 +13,19 @@
 <header>
   <div class="logo">Body<span>Log</span></div>
   <div class="tab-bar">
-    <button class="tab active" onclick="switchView('form', event)">Registrar</button>
-    <button class="tab"        onclick="switchView('dash', event)">Dashboard</button>
+    <button class="tab active"        onclick="switchView('dash', event)">Dashboard</button>
+    <button class="tab" onclick="switchView('form', event)">Registrar</button>
   </div>
 </header>
 
 <main>
   <!-- ── VIEW: FORMULÁRIO DE CHECK-IN ── -->
-  <div class="view active" id="view-form">
+  <div class="view" id="view-form">
     <!-- checkin.html é incluído aqui via fetch no app.js -->
   </div>
 
   <!-- ── VIEW: DASHBOARD ── -->
-  <div class="view" id="view-dash">
+  <div class="view active" id="view-dash">
     <!-- dashboard.html é incluído aqui via fetch no app.js -->
   </div>
 </main>
@@ -34,6 +34,7 @@
 <div class="success-toast" id="toast-erro" style="background:var(--danger);color:#fff">✗ Erro ao salvar. Veja o console.</div>
 
 <!-- Carrega os módulos JS na ordem certa -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="js/api.js"></script>
 <script src="js/checkin.js"></script>
 <script src="js/dashboard.js"></script>

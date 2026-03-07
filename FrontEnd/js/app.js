@@ -1,17 +1,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// app.js — inicialização da aplicação e navegação entre views
-// Este é o ponto de entrada, carregado por último no index.html
+// app.js — inicialização e navegação
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Carrega o HTML de um arquivo externo e injeta numa div
-// Isso permite manter checkin.html e dashboard.html separados
 async function loadView(file, targetId) {
   const response = await fetch(file)
   const html = await response.text()
   document.getElementById(targetId).innerHTML = html
 }
 
-// Troca a view ativa (formulário ↔ dashboard)
 async function switchView(view, event) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'))
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
@@ -20,16 +16,20 @@ async function switchView(view, event) {
 
   if (view === 'dash') {
     try {
-      entries = await fetchCheckins()  // fetchCheckins está em api.js
+      // Carrega em paralelo: mais rápido que sequencial
+      [entries, medidas] = await Promise.all([
+        fetchCheckins(),   // api.js
+        fetchMedidas(),    // api.js
+      ])
     } catch (err) {
       console.error('Erro ao carregar dados:', err)
       entries = []
+      medidas = []
     }
-    renderDash()  // renderDash está em dashboard.js
+    renderDash()  // dashboard.js
   }
 }
 
-// Mostra um toast de sucesso ou erro
 function showToast(id = 'toast') {
   const t = document.getElementById(id)
   t.classList.add('show')
@@ -39,13 +39,23 @@ function showToast(id = 'toast') {
 // ── INICIALIZAÇÃO ─────────────────────────────────────────────────────────────
 
 async function init() {
-  // Carrega os HTMLs das views nos seus containers
-  await loadView('checkin.html',  'view-form')
-  await loadView('dashboard.html', 'view-dash')
+  await loadView('./dashboard.html', 'view-dash')
+  await loadView('./checkin.html', 'view-form')
 
-  // Define a data de hoje no campo de data do formulário
   document.getElementById('f-data').value = new Date().toISOString().split('T')[0]
+
+  // Carrega dados iniciais e renderiza o dashboard (que abre primeiro)
+  try {
+    [entries, medidas] = await Promise.all([
+      fetchCheckins(),
+      fetchMedidas(),
+    ])
+  } catch (err) {
+    console.error('Erro ao carregar dados iniciais:', err)
+    entries = []
+    medidas = []
+  }
+  renderDash()
 }
 
-// Roda quando a página termina de carregar
 init()

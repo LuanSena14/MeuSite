@@ -17,8 +17,8 @@
       <div class="kpi-delta" id="kpi-peso-delta"></div>
     </div>
     <div class="kpi-card" style="--kpi-color: var(--accent2)">
-      <div class="kpi-label">Gordura</div>
-      <div class="kpi-value" id="kpi-gordura">—<span class="kpi-unit">kg</span></div>
+      <div class="kpi-label">% Gordura</div>
+      <div class="kpi-value" id="kpi-gordura">—<span class="kpi-unit">%</span></div>
       <div class="kpi-delta" id="kpi-gordura-delta"></div>
     </div>
     <div class="kpi-card" style="--kpi-color: #f5d742">
@@ -28,12 +28,12 @@
     </div>
     <div class="kpi-card" style="--kpi-color: var(--accent3)">
       <div class="kpi-label">FFMI</div>
-      <div class="kpi-value" id="kpi-ffmi">0</div>
-      <div class="kpi-delta delta-neu" id="kpi-ffmi-delta"></div>
+      <div class="kpi-value" id="kpi-ffmi">—</div>
+      <div class="kpi-delta" id="kpi-ffmi-delta"></div>
     </div>
   </div>
 
-  <!-- Gráficos -->
+  <!-- Gráficos fixos -->
   <div class="charts-grid">
     <div class="chart-card">
       <div class="chart-title">Evolução do Peso (kg)</div>
@@ -43,6 +43,27 @@
       <div class="chart-title">Composição Corporal</div>
       <canvas id="chart-composicao" height="120"></canvas>
     </div>
+  </div>
+
+  <!-- Gráfico dinâmico por métrica -->
+  <div class="chart-card" style="margin-bottom:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:16px">
+      <div class="chart-title" style="margin:0;white-space:nowrap">Evolução por Métrica</div>
+      <select id="metric-selector" onchange="onMetricChange()" style="
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 6px 12px;
+        color: var(--text);
+        font-family: 'DM Mono', monospace;
+        font-size: 0.75rem;
+        cursor: pointer;
+        outline: none;
+        max-width: 280px;
+        width: 100%;
+      "></select>
+    </div>
+    <canvas id="chart-metrica" height="100"></canvas>
   </div>
 
   <!-- Cards de medidas -->

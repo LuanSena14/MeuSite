@@ -1,6 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // api.js — toda comunicação com o backend fica aqui
-// Se mudar de servidor, só muda este arquivo
 // ─────────────────────────────────────────────────────────────────────────────
 
 const API = 'http://localhost:8001'
@@ -12,8 +11,15 @@ async function fetchCheckins() {
   return response.json()
 }
 
+// Busca a árvore de grupos e medidas do banco
+// Retorna: [{ id, descricao, filhos: [{ id, descricao, unidade }] }]
+async function fetchMedidas() {
+  const response = await fetch(`${API}/api/medidas`)
+  if (!response.ok) throw new Error(`Erro ao buscar medidas: ${response.status}`)
+  return response.json()
+}
+
 // Salva um novo check-in no banco
-// Recebe: date (string 'YYYY-MM-DD') e medidas (objeto com os valores)
 async function postCheckin(date, medidas) {
   const response = await fetch(`${API}/api/checkins`, {
     method: 'POST',
