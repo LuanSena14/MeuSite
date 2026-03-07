@@ -2,8 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from database import Session, engine
-from models import Base, Checkin, CodigoMedida, UnidadeMedida
+from backend.database import engine, Session
+from backend.models import Base, Checkin, CodigoMedida, UnidadeMedida
 from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
