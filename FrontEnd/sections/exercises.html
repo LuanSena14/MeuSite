@@ -1,0 +1,247 @@
+<!-- ── CHIPS DE SELEÇÃO ATIVA ── -->
+<div id="ex-active-chips" class="ex-active-chips" style="display:none"></div>
+
+<div id="ex-empty" class="empty-state" style="display:none">
+  <div class="empty-icon">◇</div>
+  <h3>Nenhum treino encontrado</h3>
+  <p>Tente ajustar os filtros ou adicione um novo treino.</p>
+  <button class="btn-add" style="margin-top:20px" onclick="openExModal()">+ Adicionar treino</button>
+</div>
+
+<div id="ex-content">
+
+  <!-- KPIs -->
+  <div class="kpi-grid">
+    <div class="kpi-card" style="--kpi-color: var(--accent)">
+      <div class="kpi-label">Treinos no período</div>
+      <div class="kpi-value" id="ex-kpi-total">—</div>
+      <div class="kpi-delta" id="ex-kpi-total-delta"></div>
+    </div>
+    <div class="kpi-card" style="--kpi-color: var(--accent2)">
+      <div class="kpi-label">Duração média</div>
+      <div class="kpi-value" id="ex-kpi-media">—<span class="kpi-unit">min</span></div>
+      <div class="kpi-delta" id="ex-kpi-media-delta"></div>
+    </div>
+    <div class="kpi-card" style="--kpi-color: #f5d742">
+      <div class="kpi-label">Tempo total</div>
+      <div class="kpi-value" id="ex-kpi-tempo">—<span class="kpi-unit">min</span></div>
+    </div>
+    <div class="kpi-card" style="--kpi-color: var(--accent3)">
+      <div class="kpi-label">Esforço médio</div>
+      <div class="kpi-value" id="ex-kpi-esforco">—<span class="kpi-unit">/10</span></div>
+    </div>
+  </div>
+
+  <!-- Gráfico de barras (meses → dias) -->
+  <div class="chart-card ex-chart-mes-card" style="margin-bottom:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="chart-title" style="margin:0" id="ex-bar-title">Treinos por mês</span>
+        <span class="ex-chart-hint" id="ex-bar-hint">clique numa barra para ver os dias</span>
+      </div>
+      <!-- breadcrumb drill -->
+      <div id="ex-bar-breadcrumb" style="display:none">
+        <button class="ex-drill-back" onclick="exDrillBack()">← voltar aos meses</button>
+      </div>
+    </div>
+    <div class="ex-chart-mes-scroll">
+      <canvas id="ex-chart-freq"></canvas>
+    </div>
+  </div>
+
+  <!-- Rosca (grupo → exercício) + período lado a lado -->
+  <div class="ex-charts-row" style="margin-bottom:16px">
+    <div class="chart-card ex-chart-half">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="chart-title" style="margin:0" id="ex-rosca-title">Por grupo muscular</span>
+          <span class="ex-chart-hint" id="ex-rosca-hint">clique para ver exercícios</span>
+        </div>
+        <div id="ex-rosca-breadcrumb" style="display:none">
+          <button class="ex-drill-back" onclick="exRoscaDrillBack()">← grupos</button>
+        </div>
+      </div>
+      <div style="height:260px;position:relative">
+        <canvas id="ex-chart-tipo"></canvas>
+      </div>
+    </div>
+    <div class="chart-card ex-chart-half">
+      <div class="chart-title">Treinos por período do dia</div>
+      <div style="height:260px;position:relative">
+        <canvas id="ex-chart-periodo"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Histórico -->
+  <div class="history-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div class="chart-title" style="margin:0">Histórico de Treinos</div>
+      <span id="ex-history-count" style="font-size:11px;color:#555f59;font-family:'DM Mono',monospace"></span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Data</th><th>Hora</th><th>Exercício</th>
+          <th>Grupo</th><th>Duração</th><th>Esforço</th>
+        </tr>
+      </thead>
+      <tbody id="ex-history-body"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<style>
+/* ── Topbar compacta ── */
+.ex-topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0 14px 0;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.ex-topbar-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.ex-topbar-filters {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+  background: #111513;
+  border: 1px solid #2a2e2c;
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+
+.ex-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ex-filter-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #3a4a3e;
+}
+
+.ex-filter-input {
+  background: transparent;
+  border: 1px solid #2a2e2c;
+  border-radius: 6px;
+  color: #c8d4cb;
+  font-size: 11px;
+  padding: 4px 8px;
+  outline: none;
+  font-family: 'DM Mono', monospace;
+  transition: border-color 0.15s;
+  height: 28px;
+  box-sizing: border-box;
+}
+.ex-filter-input:focus, .ex-filter-input:hover { border-color: #b5f54260; }
+.ex-filter-input option { background: #1a1e1c; }
+
+.ex-filter-clear {
+  height: 28px;
+  width: 28px;
+  background: transparent;
+  border: 1px solid #2a2e2c;
+  border-radius: 6px;
+  color: #3a4a3e;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+  align-self: flex-end;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ex-filter-clear:hover { border-color: #f55a4260; color: #f55a42; }
+
+/* ── Chips cross-filter ── */
+.ex-active-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.ex-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  background: #b5f54215;
+  border: 1px solid #b5f54250;
+  border-radius: 20px;
+  font-size: 11px;
+  color: #b5f542;
+  font-family: 'DM Mono', monospace;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.ex-chip:hover { background: #b5f54230; }
+.ex-chip .ex-chip-x { opacity: 0.6; font-size: 10px; }
+
+/* ── Drill-down back button ── */
+.ex-drill-back {
+  font-size: 10px;
+  font-family: 'DM Mono', monospace;
+  color: #b5f542;
+  background: #b5f54215;
+  border: 1px solid #b5f54240;
+  border-radius: 6px;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.ex-drill-back:hover { background: #b5f54230; }
+
+/* ── Side-by-side charts ── */
+.ex-charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 700px) { .ex-charts-row { grid-template-columns: 1fr; } }
+.ex-chart-half { min-width: 0; }
+
+/* ── Monthly chart scroll ── */
+.ex-chart-mes-card { width: 100%; box-sizing: border-box; }
+.ex-chart-mes-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #3a3e3c #1a1e1c;
+  padding-bottom: 6px;
+  cursor: grab;
+}
+.ex-chart-mes-scroll:active { cursor: grabbing; }
+.ex-chart-mes-scroll::-webkit-scrollbar { height: 4px; }
+.ex-chart-mes-scroll::-webkit-scrollbar-track { background: #1a1e1c; border-radius: 2px; }
+.ex-chart-mes-scroll::-webkit-scrollbar-thumb { background: #3a3e3c; border-radius: 2px; }
+.ex-chart-mes-scroll::-webkit-scrollbar-thumb:hover { background: #b5f54260; }
+#ex-chart-freq { display: block; }
+
+/* ── Chart title/hint ── */
+.ex-chart-hint {
+  font-size: 10px;
+  color: #3a4a3e;
+  font-weight: 400;
+  font-family: 'DM Mono', monospace;
+  text-transform: none;
+  letter-spacing: 0;
+}
+</style>

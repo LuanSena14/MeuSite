@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, String, Date, ForeignKey
+from sqlalchemy import Column, Integer, Float, String, Date, ForeignKey, Time
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.orm import backref
 
@@ -38,3 +38,33 @@ class Checkin(Base):
     date      = Column(Date, nullable=False)
     cd_medida = Column(Integer, ForeignKey("codigo_medida.id"), nullable=False)
     valor     = Column(Float, nullable=False)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ADICIONE ao models.py — modelos de exercício
+# Cole este bloco no final do seu models.py
+# ─────────────────────────────────────────────────────────────────────────────
+
+class CodigoExercicio(Base):
+    __tablename__ = "codigo_exercicio"
+
+    id        = Column(Integer, primary_key=True, autoincrement=True)
+    descricao = Column(String, nullable=False)
+    cd_pai    = Column(Integer, ForeignKey("codigo_exercicio.id"), nullable=True)
+
+    filhos    = relationship(
+        "CodigoExercicio",
+        backref="pai",
+        foreign_keys=[cd_pai],
+        remote_side="CodigoExercicio.id"
+    )
+
+
+class EntradaExercicio(Base):
+    __tablename__ = "entrada_exercicio"
+
+    id           = Column(Integer, primary_key=True, autoincrement=True)
+    data         = Column(Date,    nullable=False)
+    hora         = Column(Time,    nullable=False)
+    cd_exercicio = Column(Integer, ForeignKey("codigo_exercicio.id"), nullable=False)
+    duracao      = Column(Integer, nullable=True)
+    esforco      = Column(Integer, nullable=True)   # 1–10

@@ -11,9 +11,14 @@ let chartMetrica = null
 // ── HELPERS DE DATA ───────────────────────────────────────────────────────────
 
 function formatDate(iso) {
-  const [y, m, d] = iso.split('T')[0].split('-')
-  return new Date(y, m - 1, d).toLocaleDateString('pt-BR', {
-    day: '2-digit', month: 'short', year: 'numeric'
+  if (!iso) return ''
+
+  const date = new Date(iso)
+
+  return date.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
   })
 }
 

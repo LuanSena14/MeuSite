@@ -1,0 +1,111 @@
+<div class="modal-overlay" id="ex-modal-overlay" onclick="closeExModalOutside(event)">
+  <div class="modal" id="modal-exercise">
+
+    <div class="modal-header">
+      <div>
+        <h2 class="modal-title">Novo treino</h2>
+        <p class="modal-subtitle">Registre seu exercício de hoje</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="form-date">
+          <span>📅</span>
+          <input type="date" id="ex-data" style="
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 6px 12px;
+            color: var(--text);
+            font-family: 'DM Mono', monospace;
+            font-size: 0.8rem;
+            cursor: pointer;
+            outline: none;
+          ">
+        </div>
+        <button class="modal-close" onclick="closeExModal()">✕</button>
+      </div>
+    </div>
+
+    <div class="modal-body">
+      <div class="ex-form-grid">
+
+        <!-- Exercício -->
+        <div class="form-section" style="grid-column: 1 / -1">
+          <div class="section-label">Exercício</div>
+          <div class="fields-row" style="grid-template-columns: 1fr 1fr">
+
+            <div class="field">
+              <label>Grupo</label>
+              <div class="field-wrap" style="border-radius:10px">
+                <select id="ex-grupo" onchange="onGrupoChange()" style="
+                  flex:1; background:transparent; border:none; outline:none;
+                  padding:10px 12px; color:var(--text);
+                  font-family:'DM Mono',monospace; font-size:0.9rem; cursor:pointer;
+                ">
+                  <option value="">Selecione um grupo...</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field">
+              <label>Exercício</label>
+              <div class="field-wrap" style="border-radius:10px">
+                <select id="ex-exercicio" style="
+                  flex:1; background:transparent; border:none; outline:none;
+                  padding:10px 12px; color:var(--text);
+                  font-family:'DM Mono',monospace; font-size:0.9rem; cursor:pointer;
+                " disabled>
+                  <option value="">Selecione um grupo primeiro...</option>
+                </select>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Detalhes -->
+        <div class="form-section" style="grid-column: 1 / -1">
+          <div class="section-label">Detalhes</div>
+          <div class="fields-row" style="grid-template-columns: repeat(3, 1fr)">
+
+            <div class="field">
+              <label>Hora</label>
+              <div class="field-wrap">
+                <input type="time" id="ex-hora" style="
+                  flex:1; background:transparent; border:none; outline:none;
+                  padding:10px 12px; color:var(--text);
+                  font-family:'DM Mono',monospace; font-size:0.9rem;
+                ">
+              </div>
+            </div>
+
+            <div class="field">
+              <label>Duração</label>
+              <div class="field-wrap">
+                <input type="number" id="ex-duracao" placeholder="45" min="1" max="480">
+                <span class="field-unit">min</span>
+              </div>
+            </div>
+
+            <div class="field">
+              <label>Nível de esforço</label>
+              <div class="field-wrap">
+                <input type="number" id="ex-esforco" placeholder="7" min="1" max="10" step="1">
+                <span class="field-unit">/ 10</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="clearExForm()">Limpar</button>
+      <button class="btn-primary" id="ex-btn-salvar" onclick="saveExercise()">
+        <span>💾</span> Salvar treino
+      </button>
+    </div>
+
+  </div>
+</div>
