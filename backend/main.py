@@ -242,4 +242,4 @@ def post_exercicio(body: ExercicioInput):
 
 # ── STATIC ────────────────────────────────────────────────────────────────────
 
-app.mount("/app", StaticFiles(directory="../frontend", html=True))
+# app.mount("/app", StaticFiles(directory="../frontend", html=True))
