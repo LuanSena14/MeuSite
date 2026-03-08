@@ -2,7 +2,8 @@
 // api.js — toda comunicação com o backend fica aqui
 // ─────────────────────────────────────────────────────────────────────────────
 
-const API = 'http://localhost:8001'
+// const API = 'http://localhost:8001'
+const API = "https://meusite-3.onrender.com"
 
 // Busca todos os check-ins do banco
 async function fetchCheckins() {
