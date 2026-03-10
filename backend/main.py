@@ -243,6 +243,13 @@ def post_exercicio(body: ExercicioInput):
 def health():
     return {"status": "ok"}
 
+@app.get("/api/goals")
+def get_goals():
+    db = Session()
+    goals = db.query(Goal).all()
+    db.close()
+    return [{"id": g.id, "descricao": g.descricao, "valor": g.valor} for g in goals]
+
 # ── STATIC ────────────────────────────────────────────────────────────────────
 
 # app.mount("/app", StaticFiles(directory="../frontend", html=True))

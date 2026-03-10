@@ -54,3 +54,10 @@ async function postExercise(entry) {
   if (!response.ok) throw new Error(`Erro ao salvar: ${response.status}`)
   return response.json()
 }
+
+// Busca lista de goals
+async function fetchGoals() {
+  const response = await fetch(`${API}/api/goals`)
+  if (!response.ok) throw new Error(`Erro ao buscar goals: ${response.status}`)
+  return response.json()
+}

@@ -14,6 +14,7 @@ const SECTIONS = {
   body:      'sections/body.html',
   finances:  'sections/finances.html',
   exercises: 'sections/exercises.html',
+  goals:     'sections/goals.html',
 }
 
 const loadedSections = new Set()
@@ -32,6 +33,7 @@ window.addEventListener('sectionchange', async e => {
 
   if (section === 'body')      renderDash()
   if (section === 'exercises') initExSection()
+  if (section === 'goals')     initGoalsSection()
 })
 
 // ── MODAL BODY ────────────────────────────────────────────────────────────────
@@ -84,6 +86,18 @@ async function initExSection() {
   if (exercicios.length > 0) {
     renderExDash()
   }
+}
+
+// ── INIT GOALS ───────────────────────────────────────────────────────────────
+async function initGoalsSection() {
+  try {
+    window.goals = await fetchGoals()
+    console.log('goals:', goals)
+  } catch (err) {
+    console.error('Erro ao carregar goals:', err)
+    goals = []
+  } 
+  renderGoals()
 }
 
 // ── INICIALIZAÇÃO ─────────────────────────────────────────────────────────────
