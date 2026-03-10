@@ -1,38 +1,3 @@
-<div class="page-header">
-  <div class="page-header-left">
-    <h1 class="page-title">Exercises <em>tracker</em></h1>
-    <span class="last-update" id="ex-last-update-label"></span>
-  </div>
-  <button class="btn-add" onclick="openExModal()">
-    <span>+</span> Novo treino
-  </button>
-</div>
-
-<div class="filter-bar">
-  <div class="filter-group">
-    <label class="filter-label">De</label>
-    <input type="date" id="ex-filter-de" class="filter-input" oninput="applyExFilters()">
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Até</label>
-    <input type="date" id="ex-filter-ate" class="filter-input" oninput="applyExFilters()">
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Grupo</label>
-    <select id="ex-filter-grupo" class="filter-input" onchange="applyExFilters()">
-      <option value="">Todos</option>
-    </select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Exercício</label>
-    <select id="ex-filter-exercicio" class="filter-input" onchange="applyExFilters()">
-      <option value="">Todos</option>
-    </select>
-  </div>
-  <input type="month" id="ex-filter-mes" style="display:none" oninput="applyExFilters()">
-  <button class="filter-clear" onclick="clearExFilters()" title="Limpar">✕</button>
-</div>
-
 <!-- ── CHIPS DE SELEÇÃO ATIVA ── -->
 <div id="ex-active-chips" class="ex-active-chips" style="display:none"></div>
 

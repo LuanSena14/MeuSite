@@ -8,31 +8,104 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
   <link rel="stylesheet" href="style.css">
-
-
 </head>
 <body>
 
-<header>
-  <div class="logo">Body<span>Log</span></div>
-  <nav class="section-tabs">
-    <button class="section-tab active" data-section="body" onclick="switchSection('body')">
-      <span class="tab-icon">◎</span> Body
+<!-- OVERLAY MOBILE -->
+<div id="sidebar-overlay" onclick="closeMobileSidebar()"></div>
+
+<!-- SIDEBAR -->
+<aside id="sidebar">
+  <div class="sidebar-logo">
+    <div class="sidebar-logo-icon">B</div>
+    <span class="sidebar-logo-text">Body<span>Log</span></span>
+  </div>
+
+  <button class="sidebar-toggle" onclick="toggleSidebar()" title="Colapsar menu">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+      <path d="M9 2L4 7l5 5"/>
+    </svg>
+  </button>
+
+  <div class="sidebar-divider"></div>
+
+  <nav class="sidebar-nav">
+    <button class="sidebar-item active" data-section="body" data-label="Body" onclick="switchSection('body')">
+      <span class="sidebar-item-icon">◎</span>
+      <span class="sidebar-item-label">Body</span>
     </button>
-    <button class="section-tab" data-section="finances" onclick="switchSection('finances')">
-      <span class="tab-icon">◈</span> Finances
+    <button class="sidebar-item" data-section="finances" data-label="Finances" onclick="switchSection('finances')">
+      <span class="sidebar-item-icon">◈</span>
+      <span class="sidebar-item-label">Finances</span>
     </button>
-    <button class="section-tab" data-section="exercises" onclick="switchSection('exercises')">
-      <span class="tab-icon">◇</span> Exercises
+    <button class="sidebar-item" data-section="exercises" data-label="Exercises" onclick="switchSection('exercises')">
+      <span class="sidebar-item-icon">◇</span>
+      <span class="sidebar-item-label">Exercises</span>
     </button>
   </nav>
-</header>
 
-<main>
-  <section class="section active" id="section-body"></section>
-  <section class="section"        id="section-finances"></section>
-  <section class="section"        id="section-exercises"></section>
-</main>
+  <div class="sidebar-context" id="sidebar-context"></div>
+
+  <div class="sidebar-footer">
+    <div class="sidebar-footer-label" id="last-update-label"></div>
+    <div class="sidebar-footer-label" id="ex-last-update-label" style="display:none"></div>
+  </div>
+</aside>
+
+<!-- APP WRAPPER -->
+<div id="app-wrapper">
+
+  <!-- Topbar: mobile sempre visível; desktop só em Exercises -->
+  <div id="topbar">
+    <button id="topbar-hamburger" onclick="openMobileSidebar()">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <path d="M2 4h14M2 9h14M2 14h14"/>
+      </svg>
+    </button>
+    <span id="topbar-section-title">Body metrics</span>
+    <button id="topbar-filter-toggle" onclick="toggleExFilters()" title="Filtros" style="display:none">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M1 3h13M4 7.5h7M6.5 12h2"/>
+      </svg>
+    </button>
+    <div id="topbar-action"></div>
+  </div>
+
+  <!-- Filtros collapsíveis (Exercises) -->
+  <div id="ex-filters-bar">
+    <div class="ex-filters-inner">
+      <div class="ex-filter-group">
+        <label class="ex-filter-label">De</label>
+        <input type="date" id="ex-filter-de" class="ex-filter-input" oninput="applyExFilters()">
+      </div>
+      <div class="ex-filter-group">
+        <label class="ex-filter-label">Até</label>
+        <input type="date" id="ex-filter-ate" class="ex-filter-input" oninput="applyExFilters()">
+      </div>
+      <div class="ex-filter-group">
+        <label class="ex-filter-label">Grupo</label>
+        <select id="ex-filter-grupo" class="ex-filter-input" onchange="applyExFilters()">
+          <option value="">Todos</option>
+        </select>
+      </div>
+      <div class="ex-filter-group">
+        <label class="ex-filter-label">Exercício</label>
+        <select id="ex-filter-exercicio" class="ex-filter-input" onchange="applyExFilters()">
+          <option value="">Todos</option>
+        </select>
+      </div>
+      <input type="month" id="ex-filter-mes" style="display:none" oninput="applyExFilters()">
+      <button class="ex-filter-clear" onclick="clearExFilters()" title="Limpar">✕</button>
+    </div>
+  </div>
+
+  <div id="main-content">
+    <section class="section active" id="section-body"></section>
+    <section class="section"        id="section-finances"></section>
+    <section class="section"        id="section-exercises"></section>
+  </div>
+
+</div>
 
 <div id="modal-container"></div>
 <div id="modal-container-ex"></div>
@@ -40,20 +113,119 @@
 <div class="success-toast" id="toast">✓ Check-in salvo com sucesso!</div>
 <div class="success-toast" id="toast-erro" style="background:var(--danger);color:#fff">✗ Erro ao salvar. Veja o console.</div>
 
-<nav class="mobile-nav">
-  <button class="mobile-nav-tab active" data-section="body" onclick="switchSection('body')">
-    <span class="mobile-nav-icon">◎</span>
-    <span class="mobile-nav-label">Body</span>
-  </button>
-  <button class="mobile-nav-tab" data-section="finances" onclick="switchSection('finances')">
-    <span class="mobile-nav-icon">◈</span>
-    <span class="mobile-nav-label">Finances</span>
-  </button>
-  <button class="mobile-nav-tab" data-section="exercises" onclick="switchSection('exercises')">
-    <span class="mobile-nav-icon">◇</span>
-    <span class="mobile-nav-label">Exercises</span>
-  </button>
-</nav>
+<script>
+const SECTION_META = {
+  body:      { title: 'Body metrics',      action: { label: 'Novo check-in', fn: 'openModal()' },   filters: false },
+  finances:  { title: 'Finances overview', action: null,                                              filters: false },
+  exercises: { title: 'Exercises tracker', action: { label: 'Novo treino',   fn: 'openExModal()' }, filters: true  },
+}
+
+let _currentSection = 'body'
+let _filtersOpen = false
+
+function _syncSidebarNav(name) {
+  document.querySelectorAll('.sidebar-item').forEach(el =>
+    el.classList.toggle('active', el.dataset.section === name)
+  )
+}
+
+function _renderSidebarContext(meta) {
+  const el = document.getElementById('sidebar-context')
+  if (!el) return
+  el.innerHTML = meta.action ? `
+    <div class="sidebar-context-title">Ação rápida</div>
+    <button class="sidebar-btn" onclick="${meta.action.fn}">
+      <span>+</span> ${meta.action.label}
+    </button>` : ''
+}
+
+function _renderTopbarAction(meta) {
+  const el = document.getElementById('topbar-action')
+  if (!el) return
+  el.innerHTML = meta.action ? `
+    <button class="btn-add" onclick="${meta.action.fn}"
+      style="padding:7px 14px;font-size:0.8rem;border-radius:8px;white-space:nowrap">
+      <span>+</span> ${meta.action.label}
+    </button>` : ''
+}
+
+function _syncTopbar(meta) {
+  const topbar = document.getElementById('topbar')
+  const toggle = document.getElementById('topbar-filter-toggle')
+  const title  = document.getElementById('topbar-section-title')
+  if (title)  title.textContent = meta.title
+  if (toggle) toggle.style.display = meta.filters ? 'flex' : 'none'
+  // Desktop: topbar só aparece na aba Exercises (por causa dos filtros)
+  if (topbar) topbar.classList.toggle('has-content', !!meta.filters)
+}
+
+function _syncLastUpdate(name) {
+  const body = document.getElementById('last-update-label')
+  const ex   = document.getElementById('ex-last-update-label')
+  if (body) body.style.display = name === 'body'      ? '' : 'none'
+  if (ex)   ex.style.display   = name === 'exercises' ? '' : 'none'
+}
+
+function switchSection(name) {
+  if (_currentSection === name && document.getElementById('section-' + name)?.classList.contains('active')) {
+    closeMobileSidebar()
+    return
+  }
+  _currentSection = name
+  const meta = SECTION_META[name] || {}
+
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'))
+  const target = document.getElementById('section-' + name)
+  if (target) target.classList.add('active')
+
+  _syncSidebarNav(name)
+  _renderSidebarContext(meta)
+  _renderTopbarAction(meta)
+  _syncTopbar(meta)
+  _syncLastUpdate(name)
+
+  if (!meta.filters) _closeFilters()
+
+  closeMobileSidebar()
+  window.dispatchEvent(new CustomEvent('sectionchange', { detail: { section: name } }))
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('collapsed')
+  document.body.classList.toggle('sidebar-collapsed')
+}
+
+function openMobileSidebar() {
+  document.getElementById('sidebar').classList.add('mobile-open')
+  document.getElementById('sidebar-overlay').classList.add('visible')
+  document.body.style.overflow = 'hidden'
+}
+function closeMobileSidebar() {
+  document.getElementById('sidebar').classList.remove('mobile-open')
+  document.getElementById('sidebar-overlay').classList.remove('visible')
+  document.body.style.overflow = ''
+}
+
+function toggleExFilters() {
+  _filtersOpen = !_filtersOpen
+  document.getElementById('ex-filters-bar').classList.toggle('open', _filtersOpen)
+  document.getElementById('topbar-filter-toggle').classList.toggle('active', _filtersOpen)
+}
+function _closeFilters() {
+  _filtersOpen = false
+  document.getElementById('ex-filters-bar')?.classList.remove('open')
+  document.getElementById('topbar-filter-toggle')?.classList.remove('active')
+}
+
+window.addEventListener('resize', () => {
+  const meta = SECTION_META[_currentSection] || {}
+  const topbar = document.getElementById('topbar')
+  if (topbar) topbar.classList.toggle('has-content', !!meta.filters)
+})
+
+_renderSidebarContext(SECTION_META['body'])
+_renderTopbarAction(SECTION_META['body'])
+</script>
 
 <script src="js/api.js"></script>
 <script src="js/checkin.js"></script>

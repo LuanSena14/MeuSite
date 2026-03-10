@@ -18,23 +18,21 @@ const SECTIONS = {
 
 const loadedSections = new Set()
 
-async function switchSection(section) {
-  // Sincroniza tabs do desktop e da mobile-nav
-  document.querySelectorAll('[data-section]').forEach(t => {
-    t.classList.toggle('active', t.dataset.section === section)
-  })
+// Ouve evento disparado pela sidebar (index.html)
+window.addEventListener('sectionchange', async e => {
+  const section = e.detail.section
 
   if (!loadedSections.has(section)) {
     await loadHTML(SECTIONS[section], 'section-' + section)
     loadedSections.add(section)
+    // Ativa a seção recém-carregada (sidebar já marcou .active no elemento)
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'))
+    document.getElementById('section-' + section).classList.add('active')
   }
-
-  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'))
-  document.getElementById('section-' + section).classList.add('active')
 
   if (section === 'body')      renderDash()
   if (section === 'exercises') initExSection()
-}
+})
 
 // ── MODAL BODY ────────────────────────────────────────────────────────────────
 
@@ -107,6 +105,7 @@ async function init() {
   catch (err) { medidas = [] }
 
   renderDash()
+  // Pré-carrega exercises em background (não bloqueia)
   initExSection()
 }
 
