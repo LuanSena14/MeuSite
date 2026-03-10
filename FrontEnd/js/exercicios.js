@@ -128,11 +128,22 @@ function getExFiltrados() {
   })
 }
 
-// Para o gráfico de barras: sem cross de mês (para não colapsar)
 function _barBase() {
   return exercicios.filter(e => {
     if (!_baseFilter(e)) return false
+
     if (exCross.grupo && e.grupo_nome !== exCross.grupo) return false
+
+    // aplicar também o filtro de mês quando existe
+    const [y,m,d] = e.data.split('T')[0].split('-').map(Number)
+    const date = new Date(y, m-1, d)
+
+    const key =
+      `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`
+
+    if (exDrill.barMode === 'dia' && exDrill.barMes && key !== exDrill.barMes)
+      return false
+
     return true
   })
 }
