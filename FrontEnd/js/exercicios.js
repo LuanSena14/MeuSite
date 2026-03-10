@@ -273,7 +273,7 @@ function renderExDash() {
 
   const filtrados = getExFiltrados()
   renderExKPIs(filtrados)
-  renderExChartBar(_barBase())
+  renderExChartBar(filtrados)
   renderExChartRosca(_roscaBase())
   renderExChartPeriodo(filtrados)
   renderExHistory(filtrados)
