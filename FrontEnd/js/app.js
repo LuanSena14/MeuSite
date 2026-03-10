@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// app.js — inicialização, navegação entre seções e controle do modal
+// app.js — inicialização da aplicação, carregamento de HTML e controle de modais
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function loadHTML(file, targetId) {
@@ -90,12 +90,12 @@ async function initExSection() {
 
 async function init() {
   await Promise.all([
-    loadHTML(SECTIONS.body, 'section-body'),
+    loadHTML(SECTIONS[DEFAULT_SECTION], 'section-' + DEFAULT_SECTION),
     loadHTML('modals/checkin-modal.html', 'modal-container'),
   ])
 
-  loadedSections.add('body')
-  document.getElementById('section-body').classList.add('active')
+  loadedSections.add(DEFAULT_SECTION)
+  document.getElementById('section-' + DEFAULT_SECTION).classList.add('active')
   document.getElementById('f-data').value = new Date().toISOString().split('T')[0]
 
   try { entries = await fetchCheckins() }
