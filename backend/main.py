@@ -239,6 +239,9 @@ def post_exercicio(body: ExercicioInput):
     db.close()
     return {"ok": True}
 
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
 # ── STATIC ────────────────────────────────────────────────────────────────────
 
