@@ -105,8 +105,7 @@ function exRoscaDrillBack() {
 // ── DADOS FILTRADOS ───────────────────────────────────────────────────────────
 
 function _baseFilter(e) {
-  const [y,m,dia] = e.data.split('T')[0].split('-')
-  const d = new Date(y, m-1, dia)
+  const d = new Date(e.data.split('T')[0] + 'T00:00:00')
   if (exFiltros.de  && d < exFiltros.de)  return false
   if (exFiltros.ate && d > exFiltros.ate) return false
   if (exFiltros.grupoNome && e.grupo_nome     !== exFiltros.grupoNome) return false
@@ -117,8 +116,7 @@ function _baseFilter(e) {
 function getExFiltrados() {
   return exercicios.filter(e => {
     if (!_baseFilter(e)) return false
-    const [y,m,dia] = e.data.split('T')[0].split('-')
-    const d = new Date(y, m-1, dia)
+    const d   = new Date(e.data.split('T')[0] + 'T00:00:00')
     const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
     if (exCross.mes   && key !== exCross.mes)        return false
     if (exCross.grupo && e.grupo_nome !== exCross.grupo) return false
@@ -128,22 +126,11 @@ function getExFiltrados() {
   })
 }
 
+// Para o gráfico de barras: sem cross de mês (para não colapsar)
 function _barBase() {
   return exercicios.filter(e => {
     if (!_baseFilter(e)) return false
-
     if (exCross.grupo && e.grupo_nome !== exCross.grupo) return false
-
-    // aplicar também o filtro de mês quando existe
-    const [y,m,d] = e.data.split('T')[0].split('-').map(Number)
-    const date = new Date(y, m-1, d)
-
-    const key =
-      `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`
-
-    if (exDrill.barMode === 'dia' && exDrill.barMes && key !== exDrill.barMes)
-      return false
-
     return true
   })
 }
@@ -334,32 +321,24 @@ function renderExChartBar(base) {
   const breadcrumb  = document.getElementById('ex-bar-breadcrumb')
   const isDrill     = exDrill.barMode === 'dia'
 
+  // ── Agrupa dados ──
   let keys, labels, data, accentKey
 
   if (!isDrill) {
-
+    // Nível mês
     const meses = {}
-
     base.forEach(e => {
-
-      const [y,m,d] = e.data.split('T')[0].split('-').map(Number)
-      const date = new Date(y, m-1, d)
-
-      const key = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`
-
-      meses[key] = (meses[key] || 0) + 1
+      const d   = new Date(e.data.split('T')[0])
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
+      meses[key] = (meses[key]||0) + 1
     })
-
-    keys = Object.keys(meses).sort()
-
+    keys   = Object.keys(meses).sort()
     labels = keys.map(k => {
-      const [y,m] = k.split('-').map(Number)
-      return new Date(y, m-1, 1)
+      const [y,m] = k.split('-')
+      return new Date(parseInt(y), parseInt(m)-1, 1)
         .toLocaleDateString('pt-BR', { month:'short', year:'2-digit' })
     })
-
-    data = keys.map(k => meses[k])
-
+    data      = keys.map(k => meses[k])
     accentKey = exCross.mes
 
     if (titleEl) titleEl.textContent = 'Treinos por mês'
@@ -367,55 +346,39 @@ function renderExChartBar(base) {
     if (breadcrumb) breadcrumb.style.display = 'none'
 
   } else {
-
+    // Nível dia (drill-down do mês selecionado)
     const [dy, dm] = exDrill.barMes.split('-').map(Number)
     const diasNoMes = new Date(dy, dm, 0).getDate()
+    const diasMap   = {}
+    for (let i = 1; i <= diasNoMes; i++) diasMap[String(i).padStart(2,'0')] = 0
 
-    const diasMap = {}
-
-    for (let i = 1; i <= diasNoMes; i++) {
-      diasMap[String(i).padStart(2,'0')] = 0
-    }
-
-    base.forEach(e => {
-
-      const [y,m,d] = e.data.split('T')[0].split('-').map(Number)
-      const date = new Date(y, m-1, d)
-
-      const key = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`
-
-      if (key === exDrill.barMes) {
-        const dia = String(date.getDate()).padStart(2,'0')
-        diasMap[dia] = (diasMap[dia] || 0) + 1
-      }
-
+    base.filter(e => {
+      const d   = new Date(e.data.split('T')[0])
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
+      return key === exDrill.barMes
+    }).forEach(e => {
+      const dia = e.data.split('T')[0].split('-')[2]
+      diasMap[dia] = (diasMap[dia]||0) + 1
     })
 
-    keys = Object.keys(diasMap).sort()
-
+    keys   = Object.keys(diasMap).sort()
     labels = keys.map(k => {
-      const mesNome = new Date(dy, dm-1, 1)
-        .toLocaleDateString('pt-BR', { month:'short' })
+      const mesNome = new Date(dy, dm-1, 1).toLocaleDateString('pt-BR', { month:'short' })
       return `${parseInt(k)} ${mesNome}`
     })
+    data      = keys.map(k => diasMap[k])
+    accentKey = null  // sem cross-filter no nível dia
 
-    data = keys.map(k => diasMap[k])
-
-    accentKey = null
-
-    const mesLabel = new Date(dy, dm-1, 1)
-      .toLocaleDateString('pt-BR', { month:'long', year:'numeric' })
-
+    const mesLabel = new Date(dy, dm-1, 1).toLocaleDateString('pt-BR', { month:'long', year:'numeric' })
     if (titleEl) titleEl.textContent = `Treinos em ${mesLabel}`
     if (hintEl)  hintEl.textContent  = ''
     if (breadcrumb) breadcrumb.style.display = 'block'
   }
 
-  const bgColors     = keys.map(k => k === accentKey ? '#b5f542' : '#b5f54222')
-  const borderColors = keys.map(k => k === accentKey ? '#b5f542' : '#b5f54270')
+  const bgColors     = keys.map(k => k === accentKey ? '#b5f542'   : '#b5f54222')
+  const borderColors = keys.map(k => k === accentKey ? '#b5f542'   : '#b5f54270')
 
   const totalWidth = Math.max(keys.length * BAR_W, container.clientWidth || 600)
-
   canvas.style.width  = totalWidth + 'px'
   canvas.style.height = '180px'
   canvas.width  = totalWidth
@@ -431,9 +394,9 @@ function renderExChartBar(base) {
       datasets: [{
         data,
         backgroundColor: bgColors,
-        borderColor: borderColors,
+        borderColor:     borderColors,
         borderWidth: 2,
-        borderRadius: 6
+        borderRadius: 6,
       }]
     },
     options: {
@@ -442,25 +405,48 @@ function renderExChartBar(base) {
       layout: { padding: { top: 22 } },
       plugins: {
         legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: ctx => `${ctx.parsed.y} treino${ctx.parsed.y!==1?'s':''}`
-          }
-        },
+        tooltip: { callbacks: { label: ctx => `${ctx.parsed.y} treino${ctx.parsed.y!==1?'s':''}` } },
         datalabels: {
-          anchor: 'end',
-          align: 'top',
-          color: '#b5f542',
+          anchor: 'end', align: 'top', offset: 0,
+          color: ctx => keys[ctx.dataIndex] === accentKey ? '#b5f542' : '#555f59',
           font: { size: 10, family: 'DM Mono', weight: '700' },
-          formatter: v => v > 0 ? v : null
+          formatter: v => v > 0 ? v : null,
         }
       },
+      onClick: (evt, elements) => {
+        if (!elements.length) return
+        const idx = elements[0].index
+        if (!isDrill) {
+          // primeiro clique: cross-filter; segundo clique no mesmo: drill
+          if (exCross.mes === keys[idx]) {
+            exDrillIntoMes(keys[idx])
+          } else {
+            setCrossMes(keys[idx])
+          }
+        }
+      },
+      onHover: (evt, elements) => {
+        canvas.style.cursor = (!isDrill && elements.length) ? 'pointer' : 'default'
+      },
       scales: {
-        x: { grid: { color:'#2a2e2c' }, ticks: { color:'#6b7570' } },
-        y: { grid: { color:'#2a2e2c' }, ticks: { stepSize:1 }, beginAtZero:true }
+        x: { grid: { color: '#2a2e2c' }, ticks: { color: '#6b7570', font: { size: 11 } } },
+        y: { grid: { color: '#2a2e2c' }, ticks: { color: '#6b7570', font: { size: 11 }, stepSize: 1 }, beginAtZero: true }
       }
     }
   })
+
+  setTimeout(() => {
+    if (!isDrill) {
+      if (exCross.mes) {
+        const idx = keys.indexOf(exCross.mes)
+        if (idx !== -1) container.scrollLeft = Math.max(0, idx*BAR_W - container.clientWidth/2)
+      } else {
+        container.scrollLeft = container.scrollWidth
+      }
+    } else {
+      container.scrollLeft = 0
+    }
+  }, 60)
 }
 
 // ── GRÁFICO ROSCA (grupo → exercício) ────────────────────────────────────────
@@ -519,7 +505,6 @@ function renderExChartRosca(base) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      animation: { duration: 600, easing: 'easeOutQuart' },
       cutout: '55%',
       layout: { padding: 16 },
       plugins: {
