@@ -105,7 +105,8 @@ function exRoscaDrillBack() {
 // ── DADOS FILTRADOS ───────────────────────────────────────────────────────────
 
 function _baseFilter(e) {
-  const d = new Date(e.data.split('T')[0] + 'T00:00:00')
+  const [y,m,dia] = e.data.split('T')[0].split('-')
+  const d = new Date(y, m-1, dia)
   if (exFiltros.de  && d < exFiltros.de)  return false
   if (exFiltros.ate && d > exFiltros.ate) return false
   if (exFiltros.grupoNome && e.grupo_nome     !== exFiltros.grupoNome) return false
@@ -116,7 +117,8 @@ function _baseFilter(e) {
 function getExFiltrados() {
   return exercicios.filter(e => {
     if (!_baseFilter(e)) return false
-    const d   = new Date(e.data.split('T')[0] + 'T00:00:00')
+    const [y,m,dia] = e.data.split('T')[0].split('-')
+    const d = new Date(y, m-1, dia)
     const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
     if (exCross.mes   && key !== exCross.mes)        return false
     if (exCross.grupo && e.grupo_nome !== exCross.grupo) return false
@@ -273,7 +275,7 @@ function renderExDash() {
 
   const filtrados = getExFiltrados()
   renderExKPIs(filtrados)
-  renderExChartBar(filtrados)
+  renderExChartBar(_barBase())
   renderExChartRosca(_roscaBase())
   renderExChartPeriodo(filtrados)
   renderExHistory(filtrados)
