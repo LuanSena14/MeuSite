@@ -328,8 +328,8 @@ function renderExChartBar(base) {
     // Nível mês
     const meses = {}
     base.forEach(e => {
-      const [y,m,d] = e.data.split('T')[0].split('-').map(Number)
-      const d = new Date(y, m-1, d)
+      const [y,m,day] = e.data.split('T')[0].split('-').map(Number)
+      const d = new Date(y, m-1, day)
       const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
       meses[key] = (meses[key]||0) + 1
     })
@@ -354,8 +354,8 @@ function renderExChartBar(base) {
     for (let i = 1; i <= diasNoMes; i++) diasMap[String(i).padStart(2,'0')] = 0
 
     base.filter(e => {
-      const [y,m,d] = e.data.split('T')[0].split('-').map(Number)
-      const d = new Date(y, m-1, d)
+      const [y,m,day] = e.data.split('T')[0].split('-').map(Number)
+      const d = new Date(y, m-1, day)
       const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
       return key === exDrill.barMes
     }).forEach(e => {
