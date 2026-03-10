@@ -97,12 +97,112 @@ main {
 .section { display: none; }
 .section.active { display: block; }
 
-/* ── SECTION HEADER ── */
+/* ── SECTION HEADER (legado, mantido por compat.) ── */
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 36px;
+}
+
+/* ── PAGE HEADER (padrão novo — usado em todas as seções) ── */
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.page-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.page-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.8rem;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+.page-title em { color: var(--accent); font-style: italic; }
+
+/* ── FILTER BAR (padrão — usado em Exercises e futuras seções) ── */
+.filter-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 24px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.filter-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  opacity: 0.55;
+  line-height: 1;
+}
+
+.filter-input {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 12px;
+  padding: 5px 10px;
+  outline: none;
+  font-family: 'DM Mono', monospace;
+  transition: border-color 0.15s, background 0.15s;
+  height: 32px;
+  box-sizing: border-box;
+}
+.filter-input:focus,
+.filter-input:hover {
+  border-color: #b5f54250;
+  background: var(--bg);
+}
+.filter-input option { background: var(--surface2); }
+
+.filter-clear {
+  height: 32px;
+  width: 32px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  flex-shrink: 0;
+  align-self: flex-end;
+  opacity: 0.5;
+}
+.filter-clear:hover {
+  border-color: #f55a4260;
+  color: var(--danger);
+  background: #f55a4210;
+  opacity: 1;
 }
 
 .section-title {
@@ -479,6 +579,47 @@ tbody td:first-child { color: var(--text); }
 .kpi-card:nth-child(3) { animation-delay: 0.15s; }
 .kpi-card:nth-child(4) { animation-delay: 0.2s; }
 
+/* ── MOBILE NAV (bottom navigation) ── */
+.mobile-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  justify-content: space-around;
+  background: rgba(20, 23, 22, 0.96);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border);
+  z-index: 200;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.mobile-nav-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 10px 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.2s;
+  min-height: 56px;
+}
+.mobile-nav-icon { font-size: 1.15rem; transition: transform 0.2s; }
+.mobile-nav-label {
+  font-size: 10px;
+  font-family: 'DM Mono', monospace;
+  letter-spacing: 0.05em;
+}
+.mobile-nav-tab.active { color: var(--accent); }
+.mobile-nav-tab.active .mobile-nav-icon { transform: translateY(-1px); }
+.mobile-nav-tab:not(.active):hover { color: var(--text-dim); }
+
 /* ── RESPONSIVE ── */
 @media (max-width: 900px) {
   header         { padding: 14px 20px; }
@@ -491,6 +632,23 @@ tbody td:first-child { color: var(--text); }
   .section-tab   { padding: 8px 12px; font-size: 0.8rem; }
   .modal         { max-height: 95vh; border-radius: 16px 16px 0 0; }
   .modal-overlay { align-items: flex-end; padding: 0; }
+}
+
+@media (max-width: 640px) {
+  /* Esconde tabs do header, mostra bottom nav */
+  .section-tabs  { display: none; }
+  .mobile-nav    { display: flex; }
+  /* Espaço para a bottom nav não cobrir conteúdo */
+  main           { padding: 20px 16px 90px; }
+  header         { padding: 14px 16px; }
+  .page-header   { flex-wrap: wrap; }
+  .kpi-grid      { grid-template-columns: 1fr 1fr; }
+  .filter-bar    { gap: 8px; padding: 10px 12px; }
+  .filter-group  { flex-shrink: 0; }
+  .filter-input  { font-size: 11px; height: 30px; }
+  .page-title    { font-size: 1.4rem; }
+  /* Toast acima da nav */
+  .success-toast { bottom: 80px; }
 }
 
 /* ── EXERCISE MODAL FORM ── */

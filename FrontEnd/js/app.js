@@ -18,9 +18,11 @@ const SECTIONS = {
 
 const loadedSections = new Set()
 
-async function switchSection(section, btn) {
-  document.querySelectorAll('.section-tab').forEach(t => t.classList.remove('active'))
-  btn.classList.add('active')
+async function switchSection(section) {
+  // Sincroniza tabs do desktop e da mobile-nav
+  document.querySelectorAll('[data-section]').forEach(t => {
+    t.classList.toggle('active', t.dataset.section === section)
+  })
 
   if (!loadedSections.has(section)) {
     await loadHTML(SECTIONS[section], 'section-' + section)
@@ -29,15 +31,6 @@ async function switchSection(section, btn) {
 
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'))
   document.getElementById('section-' + section).classList.add('active')
-
-  // Alterna logo / body-topbar / ex-topbar no mesmo slot do header
-  const logo      = document.getElementById('header-logo')
-  const bodyBar   = document.getElementById('body-topbar')
-  const exBar     = document.getElementById('ex-topbar')
-
-  if (logo)    logo.style.display    = section === 'finances' ? '' : 'none'
-  if (bodyBar) bodyBar.style.display = section === 'body'      ? 'flex' : 'none'
-  if (exBar)   exBar.style.display   = section === 'exercises' ? 'flex' : 'none'
 
   if (section === 'body')      renderDash()
   if (section === 'exercises') initExSection()
@@ -106,12 +99,6 @@ async function init() {
   loadedSections.add('body')
   document.getElementById('section-body').classList.add('active')
   document.getElementById('f-data').value = new Date().toISOString().split('T')[0]
-
-  // Body é a aba inicial — mostra body-topbar, esconde logo
-  const logo    = document.getElementById('header-logo')
-  const bodyBar = document.getElementById('body-topbar')
-  if (logo)    logo.style.display    = 'none'
-  if (bodyBar) bodyBar.style.display = 'flex'
 
   try { entries = await fetchCheckins() }
   catch (err) { entries = [] }

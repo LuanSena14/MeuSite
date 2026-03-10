@@ -1,3 +1,38 @@
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">Exercises <em>tracker</em></h1>
+    <span class="last-update" id="ex-last-update-label"></span>
+  </div>
+  <button class="btn-add" onclick="openExModal()">
+    <span>+</span> Novo treino
+  </button>
+</div>
+
+<div class="filter-bar">
+  <div class="filter-group">
+    <label class="filter-label">De</label>
+    <input type="date" id="ex-filter-de" class="filter-input" oninput="applyExFilters()">
+  </div>
+  <div class="filter-group">
+    <label class="filter-label">Até</label>
+    <input type="date" id="ex-filter-ate" class="filter-input" oninput="applyExFilters()">
+  </div>
+  <div class="filter-group">
+    <label class="filter-label">Grupo</label>
+    <select id="ex-filter-grupo" class="filter-input" onchange="applyExFilters()">
+      <option value="">Todos</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label class="filter-label">Exercício</label>
+    <select id="ex-filter-exercicio" class="filter-input" onchange="applyExFilters()">
+      <option value="">Todos</option>
+    </select>
+  </div>
+  <input type="month" id="ex-filter-mes" style="display:none" oninput="applyExFilters()">
+  <button class="filter-clear" onclick="clearExFilters()" title="Limpar">✕</button>
+</div>
+
 <!-- ── CHIPS DE SELEÇÃO ATIVA ── -->
 <div id="ex-active-chips" class="ex-active-chips" style="display:none"></div>
 
@@ -93,84 +128,6 @@
 </div>
 
 <style>
-/* ── Topbar compacta ── */
-.ex-topbar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 14px 0 14px 0;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-}
-
-.ex-topbar-left {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex-shrink: 0;
-}
-
-.ex-topbar-filters {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  flex-wrap: wrap;
-  flex: 1;
-  min-width: 0;
-  background: #111513;
-  border: 1px solid #2a2e2c;
-  border-radius: 10px;
-  padding: 8px 12px;
-}
-
-.ex-filter-group {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.ex-filter-label {
-  font-size: 9px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #3a4a3e;
-}
-
-.ex-filter-input {
-  background: transparent;
-  border: 1px solid #2a2e2c;
-  border-radius: 6px;
-  color: #c8d4cb;
-  font-size: 11px;
-  padding: 4px 8px;
-  outline: none;
-  font-family: 'DM Mono', monospace;
-  transition: border-color 0.15s;
-  height: 28px;
-  box-sizing: border-box;
-}
-.ex-filter-input:focus, .ex-filter-input:hover { border-color: #b5f54260; }
-.ex-filter-input option { background: #1a1e1c; }
-
-.ex-filter-clear {
-  height: 28px;
-  width: 28px;
-  background: transparent;
-  border: 1px solid #2a2e2c;
-  border-radius: 6px;
-  color: #3a4a3e;
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.15s;
-  align-self: flex-end;
-  font-family: inherit;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.ex-filter-clear:hover { border-color: #f55a4260; color: #f55a42; }
-
 /* ── Chips cross-filter ── */
 .ex-active-chips {
   display: flex;

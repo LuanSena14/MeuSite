@@ -9,187 +9,20 @@
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
   <link rel="stylesheet" href="style.css">
 
-  <style>
-  /* Logo e topbar ocupam o mesmo slot à esquerda do header */
-  #header-logo,
-  #ex-topbar {
-    /* flex-shrink 0 para não espremer as tabs */
-    flex-shrink: 0;
-  }
 
-  /* Topbar: mesma altura do header, alinhado ao centro */
-  #ex-topbar {
-    display: none; /* js controla */
-    align-items: center;
-    gap: 0;
-    /* largura máxima para não invadir as tabs */
-    max-width: calc(100% - 320px);
-    min-width: 0;
-  }
-
-  .ex-topbar-left {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 1px;
-    flex-shrink: 0;
-    white-space: nowrap;
-  }
-
-  /* Separador vertical fino entre título e filtros */
-  .ex-topbar-sep {
-    width: 1px;
-    height: 22px;
-    background: var(--border);
-    flex-shrink: 0;
-    margin: 0 16px;
-  }
-
-  .ex-topbar-filters {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
-    overflow: hidden;
-  }
-
-  .ex-filter-group {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    flex-shrink: 0;
-  }
-
-  .ex-filter-label {
-    font-size: 8px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--text-muted);
-    opacity: 0.45;
-    line-height: 1;
-  }
-
-  .ex-filter-input {
-    background: transparent;
-    border: 1px solid #1e2320;
-    border-radius: 6px;
-    color: #c8d4cb;
-    font-size: 11px;
-    padding: 3px 8px;
-    outline: none;
-    font-family: 'DM Mono', monospace;
-    transition: border-color 0.15s, background 0.15s;
-    height: 26px;
-    box-sizing: border-box;
-  }
-  .ex-filter-input:focus,
-  .ex-filter-input:hover {
-    border-color: #b5f54245;
-    background: #b5f54208;
-  }
-  .ex-filter-input option { background: #111513; }
-
-  .ex-filter-clear {
-    height: 26px;
-    width: 26px;
-    background: transparent;
-    border: 1px solid #1e2320;
-    border-radius: 6px;
-    color: var(--text-muted);
-    font-size: 10px;
-    cursor: pointer;
-    transition: all 0.15s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: inherit;
-    flex-shrink: 0;
-    opacity: 0.4;
-  }
-  .ex-filter-clear:hover {
-    border-color: #f55a4260;
-    color: #f55a42;
-    background: #f55a4210;
-    opacity: 1;
-  }
-
-  /* btn-add compacto — mesma escala do header */
-  #ex-topbar .btn-add {
-    padding: 8px 16px;
-    font-size: 0.82rem;
-    border-radius: 8px;
-    flex-shrink: 0;
-    margin-left: 16px;
-  }
-  #ex-topbar .btn-add span { font-size: 1rem; }
-  </style>
 </head>
 <body>
 
 <header>
-  <!-- Logo — some nas abas Body e Exercises -->
-  <div class="logo" id="header-logo">Body<span>Log</span></div>
-
-  <!-- Topbar Body — ocupa o lugar do logo na aba Body -->
-  <div id="body-topbar" style="display:none;align-items:center;gap:16px;flex-shrink:0">
-    <div style="display:flex;flex-direction:column;gap:1px">
-      <h1 class="section-title" style="margin:0;font-size:1rem;line-height:1.1">Body <em>metrics</em></h1>
-      <span class="last-update" id="last-update-label" style="font-size:9px;margin-top:1px"></span>
-    </div>
-    <div style="width:1px;height:22px;background:var(--border);flex-shrink:0"></div>
-    <button class="btn-add" onclick="openModal()" style="padding:8px 16px;font-size:0.82rem;border-radius:8px;white-space:nowrap">
-      <span>+</span> Novo check-in
-    </button>
-  </div>
-
-  <!-- Topbar Exercises — ocupa o lugar do logo na aba Exercises -->
-  <div id="ex-topbar">
-    <div class="ex-topbar-left">
-      <h1 class="section-title" style="margin:0;font-size:1rem;line-height:1.1">Exercises <em>tracker</em></h1>
-      <span class="last-update" id="ex-last-update-label" style="font-size:9px;margin-top:1px"></span>
-    </div>
-
-    <div class="ex-topbar-sep"></div>
-
-    <div class="ex-topbar-filters">
-      <div class="ex-filter-group">
-        <label class="ex-filter-label">De</label>
-        <input type="date" id="ex-filter-de" class="ex-filter-input" oninput="applyExFilters()">
-      </div>
-      <div class="ex-filter-group">
-        <label class="ex-filter-label">Até</label>
-        <input type="date" id="ex-filter-ate" class="ex-filter-input" oninput="applyExFilters()">
-      </div>
-      <div class="ex-filter-group">
-        <label class="ex-filter-label">Grupo</label>
-        <select id="ex-filter-grupo" class="ex-filter-input" onchange="applyExFilters()">
-          <option value="">Todos</option>
-        </select>
-      </div>
-      <div class="ex-filter-group">
-        <label class="ex-filter-label">Exercício</label>
-        <select id="ex-filter-exercicio" class="ex-filter-input" onchange="applyExFilters()">
-          <option value="">Todos</option>
-        </select>
-      </div>
-      <input type="month" id="ex-filter-mes" style="display:none" oninput="applyExFilters()">
-      <button class="ex-filter-clear" onclick="clearExFilters()" title="Limpar">✕</button>
-    </div>
-
-    <button class="btn-add" onclick="openExModal()">
-      <span>+</span> Novo treino
-    </button>
-  </div>
-
+  <div class="logo">Body<span>Log</span></div>
   <nav class="section-tabs">
-    <button class="section-tab active" onclick="switchSection('body', this)">
+    <button class="section-tab active" data-section="body" onclick="switchSection('body')">
       <span class="tab-icon">◎</span> Body
     </button>
-    <button class="section-tab" onclick="switchSection('finances', this)">
+    <button class="section-tab" data-section="finances" onclick="switchSection('finances')">
       <span class="tab-icon">◈</span> Finances
     </button>
-    <button class="section-tab" onclick="switchSection('exercises', this)">
+    <button class="section-tab" data-section="exercises" onclick="switchSection('exercises')">
       <span class="tab-icon">◇</span> Exercises
     </button>
   </nav>
@@ -206,6 +39,21 @@
 
 <div class="success-toast" id="toast">✓ Check-in salvo com sucesso!</div>
 <div class="success-toast" id="toast-erro" style="background:var(--danger);color:#fff">✗ Erro ao salvar. Veja o console.</div>
+
+<nav class="mobile-nav">
+  <button class="mobile-nav-tab active" data-section="body" onclick="switchSection('body')">
+    <span class="mobile-nav-icon">◎</span>
+    <span class="mobile-nav-label">Body</span>
+  </button>
+  <button class="mobile-nav-tab" data-section="finances" onclick="switchSection('finances')">
+    <span class="mobile-nav-icon">◈</span>
+    <span class="mobile-nav-label">Finances</span>
+  </button>
+  <button class="mobile-nav-tab" data-section="exercises" onclick="switchSection('exercises')">
+    <span class="mobile-nav-icon">◇</span>
+    <span class="mobile-nav-label">Exercises</span>
+  </button>
+</nav>
 
 <script src="js/api.js"></script>
 <script src="js/checkin.js"></script>
