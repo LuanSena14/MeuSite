@@ -7,7 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 
@@ -72,7 +72,7 @@
   </div>
 
   <!-- Filtros collapsíveis (Exercises) -->
-  <div id="ex-filters-bar">
+  <div id="ex-filters-bar" style="display:none">
     <div class="ex-filters-inner">
       <div class="ex-filter-group">
         <label class="ex-filter-label">De</label>
@@ -208,13 +208,17 @@ function closeMobileSidebar() {
 
 function toggleExFilters() {
   _filtersOpen = !_filtersOpen
-  document.getElementById('ex-filters-bar').classList.toggle('open', _filtersOpen)
-  document.getElementById('topbar-filter-toggle').classList.toggle('active', _filtersOpen)
+  const bar = document.getElementById('ex-filters-bar')
+  const btn = document.getElementById('topbar-filter-toggle')
+  if (bar) bar.style.display = _filtersOpen ? 'block' : 'none'
+  if (btn) btn.classList.toggle('active', _filtersOpen)
 }
 function _closeFilters() {
   _filtersOpen = false
-  document.getElementById('ex-filters-bar')?.classList.remove('open')
-  document.getElementById('topbar-filter-toggle')?.classList.remove('active')
+  const bar = document.getElementById('ex-filters-bar')
+  const btn = document.getElementById('topbar-filter-toggle')
+  if (bar) bar.style.display = 'none'
+  if (btn) btn.classList.remove('active')
 }
 
 window.addEventListener('resize', () => {
@@ -225,6 +229,7 @@ window.addEventListener('resize', () => {
 
 _renderSidebarContext(SECTION_META['body'])
 _renderTopbarAction(SECTION_META['body'])
+_syncTopbar(SECTION_META['body'])
 </script>
 
 <script src="js/api.js"></script>

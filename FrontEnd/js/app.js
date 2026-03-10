@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function loadHTML(file, targetId) {
-  const response = await fetch(file)
+  const response = await fetch(file + '?v=3', { cache: 'no-cache' })
   const html = await response.text()
   document.getElementById(targetId).innerHTML = html
 }
