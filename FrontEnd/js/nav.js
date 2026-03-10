@@ -2,7 +2,7 @@
 // nav.js — lógica de navegação da sidebar (seções, mobile drawer, filtros)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const DEFAULT_SECTION = 'exercises' // 'body' ou 'exercises'
+const DEFAULT_SECTION = 'body' // 'body' ou 'exercises'
 
 const SECTION_META = {
   body:      { title: 'Body metrics',      action: { label: 'Novo check-in', fn: 'openModal()' },   filters: false },
