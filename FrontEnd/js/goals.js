@@ -457,9 +457,25 @@ function _gRenderCalendar(mk, data) {
 async function initGoalsSection() {
   let erroApi = null
 
-  // Tenta até 3 vezes com 4s de espera (servidor Render pode estar dormindo)
-  for (let tentativa = 1; tentativa <= 3; tentativa++) {
+  // Mostra loading inicial
+  goalsShowOverview()
+  document.getElementById('goals-months-grid').innerHTML = `
+    <div style="text-align:center;padding:60px 20px;color:var(--text-muted)">
+      <div style="font-size:1.5rem;margin-bottom:12px">⏳</div>
+      <div style="font-size:0.9rem">Carregando dados…</div>
+    </div>`
+
+  // Tenta até 5 vezes — Render free tier pode demorar até 60s para acordar
+  const grid = document.getElementById('goals-months-grid')
+  for (let tentativa = 1; tentativa <= 5; tentativa++) {
     try {
+      if (tentativa > 1 && grid) {
+        grid.innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--text-muted)">
+          <div style="font-size:1.5rem;margin-bottom:12px">⏳</div>
+          <div style="font-size:0.9rem">Acordando o servidor… (tentativa ${tentativa}/5)</div>
+          <div style="font-size:0.78rem;color:var(--text-muted);margin-top:6px">Render free tier pode demorar até 60s</div>
+        </div>`
+      }
       const [codigos, metas, entradas] = await Promise.all([
         fetchGoalsCodigos(),
         fetchGoalsMetas(),
@@ -476,12 +492,10 @@ async function initGoalsSection() {
       break
     } catch (err) {
       erroApi = err.message || String(err)
-      console.warn(`[Goals] Tentativa ${tentativa}/3 falhou:`, erroApi)
-      if (tentativa < 3) await new Promise(r => setTimeout(r, 4000))
+      console.warn(`[Goals] Tentativa ${tentativa}/5 falhou:`, erroApi)
+      if (tentativa < 5) await new Promise(r => setTimeout(r, 15000))
     }
   }
-
-  goalsShowOverview()
 
   if (erroApi) {
     document.getElementById('goals-months-grid').innerHTML = `
