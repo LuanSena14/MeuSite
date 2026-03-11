@@ -173,7 +173,9 @@ function _gGetMeses() {
 
 function goalsRenderOverview() {
   const meses  = _gGetMeses()
+  console.log('[Goals] goalsRenderOverview — meses:', meses.length, meses)
   const scores = meses.map(mk => ({ mk, data: _gMonthScore(mk) })).filter(x => x.data)
+  console.log('[Goals] scores:', scores.length, scores.map(s => ({ mk: s.mk, pct: s.data?.pct })))
 
   if (window.goalsMetas.length === 0) {
     document.getElementById('goals-months-grid').innerHTML = `
@@ -255,7 +257,7 @@ function _gMonthCard(mk, data) {
         </div>
         <div class="g-month-info">
           <div class="g-grade-big" style="color:${g.color}">${g.label}</div>
-          <div class="g-days-info">${data.totalGanho}/${data.totalPossivel} pts</div>
+          <div class="g-days-info">${Math.round(data.totalGanho)}/${Math.round(data.totalPossivel)} pts</div>
           <div class="g-dots-row">${dots}</div>
         </div>
       </div>
@@ -293,7 +295,7 @@ function _gRenderDetail(mk) {
   ring.style.setProperty('--sc', g.color)
   document.getElementById('goals-det-pct').textContent = data.pct + '%'
   document.getElementById('goals-det-days').textContent =
-    `${data.totalGanho} de ${data.totalPossivel} pts possíveis`
+    `${Math.round(data.totalGanho)} de ${Math.round(data.totalPossivel)} pts possíveis`
 
   _gRenderWeightCard(mk, data)
   _gRenderBreakdown(data)
@@ -492,5 +494,15 @@ async function initGoalsSection() {
     return
   }
 
-  goalsRenderOverview()
+  try {
+    goalsRenderOverview()
+  } catch (err) {
+    console.error('[Goals] Erro em goalsRenderOverview:', err)
+    document.getElementById('goals-months-grid').innerHTML = `
+      <div style="text-align:center;padding:60px 20px;color:var(--danger)">
+        <div style="font-size:2rem;margin-bottom:12px">⚠</div>
+        <div style="font-size:0.95rem;margin-bottom:6px;color:var(--text-dim)">Erro ao renderizar</div>
+        <div style="font-size:0.78rem;color:var(--text-muted);font-family:'DM Mono',monospace">${err.message}</div>
+      </div>`
+  }
 }
