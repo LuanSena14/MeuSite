@@ -85,6 +85,7 @@ function _gMonthScore(mesKey) {
     const pts      = meta.pts ?? 1
 
     if (meta.tp_metrica === 'diario') {
+      // Cada dia do mês conta como 1 oportunidade
       const feitos   = entradas.filter(e => e.progresso >= 1).length
       const possivel = lastDay * pts
       const ganho    = feitos * pts
@@ -98,32 +99,20 @@ function _gMonthScore(mesKey) {
       })
 
     } else if (meta.tp_metrica === 'semanal') {
-      // Coleta todas as semanas que têm ao menos 1 dia neste mês
-      const weekSet = new Set()
-      for (let d = 1; d <= lastDay; d++) {
-        const ds = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`
-        weekSet.add(_gWeekKey(ds))
-      }
-      const weeks        = [...weekSet]
-      const totalWeeks   = weeks.length
-      let weeksPossivel  = totalWeeks * pts
-      let weeksGanho     = 0
-      let weeksDone      = 0
-
-      for (const wk of weeks) {
-        const count = entradas.filter(e => _gWeekKey(e.data) === wk && e.progresso >= 1).length
-        const frac  = meta.valor_alvo > 0 ? Math.min(count / meta.valor_alvo, 1) : 0
-        weeksGanho += frac * pts
-        if (frac >= 1) weeksDone++
-      }
-
-      totalPossivel += weeksPossivel
-      totalGanho    += weeksGanho
+      // Esperado no mês = lastDay × (valor_alvo / 7)
+      // Exemplo: valor_alvo=5, 28 dias → esperado = 20 dias (71,4%/dia)
+      // Score = min(feitos / esperado, 1) → pontos = score × pts
+      const esperado = lastDay * (meta.valor_alvo / 7)
+      const feitos   = entradas.filter(e => e.progresso >= 1).length
+      const rate     = esperado > 0 ? Math.min(feitos / esperado, 1) : 0
+      const ganho    = rate * pts
+      totalPossivel += pts
+      totalGanho    += ganho
       metaScores.push({
-        meta, feitos: weeksDone, total: totalWeeks,
-        ganho: weeksGanho, possivel: weeksPossivel,
-        pct: totalWeeks > 0 ? Math.round((weeksGanho / weeksPossivel) * 100) : 0,
-        label: `${weeksDone}/${totalWeeks} semanas (alvo: ${meta.valor_alvo}×/sem)`,
+        meta, feitos, total: Math.round(esperado),
+        ganho, possivel: pts,
+        pct: Math.round(rate * 100),
+        label: `${feitos}/${Math.round(esperado)} dias esperados (${meta.valor_alvo}×/sem)`,
       })
 
     } else if (meta.tp_metrica === 'mensal') {
