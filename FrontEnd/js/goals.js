@@ -24,7 +24,8 @@ window.goalsCodigos  = []   // árvore [{id, nome, filhos:[...]}]
 window.goalsMetas    = []   // [{id, data, tp_metrica, cd_goal, goal_nome, valor_alvo, pts}]
 window.goalsEntradas = []   // [{id, data, cd_goal, progresso}]
 
-let _goalsMesDetalhe = null   // 'YYYY-MM' — mês aberto no detalhe
+let _goalsMesDetalhe  = null   // 'YYYY-MM' — mês aberto no detalhe
+let _goalsCalFilter   = null   // null = todos | cd_goal = filtrado por 1 goal
 
 // ── HELPERS DE DATA ───────────────────────────────────────────────────────────
 
@@ -268,6 +269,7 @@ function _gMonthCard(mk, data) {
 
 function goalsShowDetail(mk) {
   _goalsMesDetalhe = mk
+  _goalsCalFilter   = null
   document.getElementById('goals-overview').style.display = 'none'
   document.getElementById('goals-detail').style.display   = ''
   _gRenderDetail(mk)
@@ -396,60 +398,95 @@ function _gRenderCalendar(mk, data) {
   const isCurMonth  = y === today.getFullYear() && m === today.getMonth() + 1
   const headers     = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
 
-  // Todas as metas ativas no mês (para tooltip do calendário)
-  const metasAtivas = window.goalsMetas.filter(mm =>
-    mm.data === null || mm.data === undefined || mm.data.startsWith(mk)
+  // Metas semanais ativas (para dots e filtro)
+  const metasSemanal = window.goalsMetas.filter(mm =>
+    mm.tp_metrica === 'semanal' &&
+    (mm.data === null || mm.data === undefined || mm.data.startsWith(mk))
   )
 
-  let html = '<div class="g-cal-grid">'
+  // Helper: goal feito num dia?
+  const doneOn = (cd, ds) =>
+    (window.goalsEntradas || []).some(e => e.data === ds && e.cd_goal === cd && e.progresso >= 1)
+
+  // ── Chips de filtro ──────────────────────────────────────────────────────
+  let filtersHtml = `<div class="g-cal-filters">
+    <button class="g-cal-chip${_goalsCalFilter === null ? ' active' : ''}" onclick="_goalsCalFilter=null;_gRenderCalendar('${mk}',_gMonthScore('${mk}'))">Todos</button>`
+  metasSemanal.forEach(mm => {
+    const a = _goalsCalFilter === mm.cd_goal
+    filtersHtml += `<button class="g-cal-chip${a ? ' active' : ''}" onclick="_goalsCalFilter=${mm.cd_goal};_gRenderCalendar('${mk}',_gMonthScore('${mk}'))">${mm.goal_nome}</button>`
+  })
+  filtersHtml += `</div>`
+
+  // ── Grid ─────────────────────────────────────────────────────────────────
+  let html = filtersHtml + '<div class="g-cal-grid">'
   headers.forEach(h => { html += `<div class="g-cal-hdr">${h}</div>` })
   for (let i = 0; i < offset; i++) html += '<div></div>'
 
   for (let d = 1; d <= daysInMonth; d++) {
     const ds       = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`
-    const dd       = data.dailyScores[d]
     const isFuture = isCurMonth && d > today.getDate()
     const isToday  = isCurMonth && d === today.getDate()
 
-    let cls   = 'g-cal-day'
-    let style = ''
+    let cls      = 'g-cal-day'
+    let style    = ''
+    let dotsHtml = ''
 
     if (isFuture) {
       cls += ' g-cal-future'
-    } else if (!dd) {
-      cls += ' g-cal-nodata'
+    } else if (_goalsCalFilter !== null) {
+      // MODO FILTRADO: célula binária para 1 goal
+      if (doneOn(_goalsCalFilter, ds)) {
+        cls   += ' g-cal-has'
+        style  = '--dc:var(--accent)'
+      } else {
+        cls += ' g-cal-nodata'
+      }
     } else {
-      cls += ' g-cal-has'
-      const dc = dd.score >= 0.8 ? 'var(--accent)' : dd.score >= 0.6 ? 'var(--accent3)' : dd.score >= 0.4 ? '#f5d742' : 'var(--danger)'
-      style = `--dc:${dc}`
+      // MODO GERAL: heatmap + dots
+      const dd = data.dailyScores[d]
+      if (!dd) {
+        cls += ' g-cal-nodata'
+      } else {
+        cls  += ' g-cal-has'
+        const dc = dd.score >= 0.8 ? 'var(--accent)'
+                 : dd.score >= 0.6 ? 'var(--accent3)'
+                 : dd.score >= 0.4 ? '#f5d742' : 'var(--danger)'
+        style = `--dc:${dc}`
+      }
+      // Mini dots (1 por meta semanal)
+      if (!isFuture && metasSemanal.length > 0) {
+        dotsHtml = `<span class="g-cal-dots">${
+          metasSemanal.map(mm =>
+            `<span class="g-cal-dot${doneOn(mm.cd_goal, ds) ? ' ok' : ''}" title="${mm.goal_nome}"></span>`
+          ).join('')
+        }</span>`
+      }
     }
 
     if (isToday) cls += ' g-cal-today'
 
-    let titleStr = ''
-    if (dd && metasAtivas.length > 0) {
-      const checkedNames = metasAtivas
-        .filter(mm => (window.goalsEntradas || []).some(e => e.data === ds && e.cd_goal === mm.cd_goal && e.progresso >= 1))
-        .map(mm => mm.goal_nome)
-      titleStr = `${Math.round(dd.score * 100)}% — ${checkedNames.join(', ') || 'nenhum'}`
-    } else if (!dd && !isFuture) {
-      titleStr = 'sem dados'
-    }
-
-    html += `<div class="${cls}" style="${style}" title="${titleStr}">
+    html += `<div class="${cls}" style="${style}">
       <span class="g-cal-num">${d}</span>
+      ${dotsHtml}
     </div>`
   }
 
   html += '</div>'
-  html += `
-    <div class="g-cal-legend">
+
+  if (_goalsCalFilter !== null) {
+    html += `<div class="g-cal-legend">
+      <span class="g-cal-leg"><span class="g-cal-leg-dot" style="background:var(--accent)"></span>feito</span>
+      <span class="g-cal-leg"><span class="g-cal-leg-dot" style="background:var(--surface2);border:1px solid var(--border)"></span>não feito</span>
+    </div>`
+  } else {
+    html += `<div class="g-cal-legend">
       <span class="g-cal-leg"><span class="g-cal-leg-dot" style="background:var(--accent)"></span>≥ 80%</span>
       <span class="g-cal-leg"><span class="g-cal-leg-dot" style="background:var(--accent3)"></span>60–79%</span>
       <span class="g-cal-leg"><span class="g-cal-leg-dot" style="background:#f5d742"></span>40–59%</span>
       <span class="g-cal-leg"><span class="g-cal-leg-dot" style="background:var(--danger)"></span>< 40%</span>
       <span class="g-cal-leg"><span class="g-cal-leg-dot" style="background:var(--surface2);border:1px solid var(--border)"></span>sem dados</span>
     </div>`
+  }
 
   document.getElementById('goals-calendar').innerHTML = html
 }

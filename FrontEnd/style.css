@@ -1227,6 +1227,28 @@ tbody td:first-child { color: var(--text); }
 }
 
 /* Calendário heatmap */
+.g-cal-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.g-cal-chip {
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.g-cal-chip.active,
+.g-cal-chip:hover {
+  background: var(--accent);
+  color: #0d0f0e;
+  border-color: var(--accent);
+}
 .g-cal-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -1244,8 +1266,11 @@ tbody td:first-child { color: var(--text); }
   aspect-ratio: 1;
   border-radius: 5px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 3px;
+  padding: 3px 2px;
   position: relative;
   transition: transform 0.1s;
 }
@@ -1254,6 +1279,24 @@ tbody td:first-child { color: var(--text); }
 .g-cal-num {
   font-family: 'DM Mono', monospace;
   font-size: 0.65rem;
+  line-height: 1;
+}
+.g-cal-dots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px;
+  max-width: 100%;
+}
+.g-cal-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--border);
+  flex-shrink: 0;
+}
+.g-cal-dot.ok {
+  background: var(--accent);
 }
 .g-cal-nodata {
   background: var(--surface2);
