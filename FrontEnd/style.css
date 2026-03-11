@@ -590,6 +590,43 @@ header { display: none; } /* não usado com sidebar */
 }
 .btn-secondary:hover { border-color: var(--text-muted); color: var(--text); }
 
+/* ── GOALS MODAL ── */
+.gm-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.gm-row:last-child { border-bottom: none; }
+.gm-name {
+  font-size: 0.88rem;
+  color: var(--text-dim);
+}
+.gm-toggle {
+  padding: 6px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-family: 'DM Mono', monospace;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-width: 90px;
+  text-align: center;
+}
+.gm-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.gm-toggle.done {
+  background: color-mix(in srgb, var(--accent) 20%, var(--surface2));
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
 /* ── DASHBOARD ── */
 .kpi-grid {
   display: grid;

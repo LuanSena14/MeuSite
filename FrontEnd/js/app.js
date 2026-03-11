@@ -54,6 +54,7 @@ document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return
   closeModal()
   if (typeof closeExModal === 'function') closeExModal()
+  if (typeof closeGoalsModal === 'function') closeGoalsModal()
 })
 
 // ── TOAST ─────────────────────────────────────────────────────────────────────

@@ -1,0 +1,38 @@
+<div class="modal-overlay" id="goals-modal-overlay" onclick="closeGoalsModalOutside(event)">
+  <div class="modal" id="modal-goals" style="max-width:480px">
+
+    <div class="modal-header">
+      <div>
+        <h2 class="modal-title">Registro diário</h2>
+        <p class="modal-subtitle">Marque as metas concluídas hoje</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="form-date">
+          <span>📅</span>
+          <input type="date" id="goals-modal-data" style="
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 6px 12px;
+            color: var(--text);
+            font-family: 'DM Mono', monospace;
+            font-size: 0.8rem;
+            cursor: pointer;
+            outline: none;
+          " onchange="goalsModalOnDateChange()">
+        </div>
+        <button class="modal-close" onclick="closeGoalsModal()">✕</button>
+      </div>
+    </div>
+
+    <div class="modal-body" style="padding-top:8px">
+      <div id="goals-modal-list"></div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeGoalsModal()">Cancelar</button>
+      <button class="btn-primary" id="goals-modal-save-btn" onclick="saveGoalEntradas()">Salvar</button>
+    </div>
+
+  </div>
+</div>

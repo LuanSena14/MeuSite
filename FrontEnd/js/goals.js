@@ -600,3 +600,103 @@ async function initGoalsSection() {
       </div>`
   }
 }
+
+// ── MODAL DE REGISTRO DIÁRIO ──────────────────────────────────────────────────
+
+async function openGoalsModal() {
+  // Carrega o modal se ainda não foi carregado
+  if (!document.getElementById('goals-modal-overlay')) {
+    const r = await fetch('modals/goals-modal.html?v=10', { cache: 'no-cache' })
+    document.getElementById('modal-container-goals').innerHTML = await r.text()
+  }
+
+  // Data padrão = hoje
+  const today = new Date().toISOString().split('T')[0]
+  document.getElementById('goals-modal-data').value = today
+
+  _goalsModalPopulate(today)
+
+  document.getElementById('goals-modal-overlay').classList.add('open')
+  document.body.style.overflow = 'hidden'
+}
+
+function closeGoalsModal() {
+  const el = document.getElementById('goals-modal-overlay')
+  if (el) el.classList.remove('open')
+  document.body.style.overflow = ''
+}
+
+function closeGoalsModalOutside(event) {
+  if (event.target === document.getElementById('goals-modal-overlay')) closeGoalsModal()
+}
+
+function goalsModalOnDateChange() {
+  const data = document.getElementById('goals-modal-data').value
+  if (data) _goalsModalPopulate(data)
+}
+
+function _goalsModalPopulate(dateStr) {
+  const metas = window.goalsMetas.filter(m => m.tp_metrica === 'semanal')
+  const list  = document.getElementById('goals-modal-list')
+
+  if (metas.length === 0) {
+    list.innerHTML = '<div style="color:var(--text-muted);font-size:0.85rem;padding:16px 0">Nenhuma meta semanal cadastrada.</div>'
+    return
+  }
+
+  list.innerHTML = metas.map(m => {
+    const done = (window.goalsEntradas || []).some(
+      e => e.data === dateStr && e.cd_goal === m.cd_goal && e.progresso >= 1
+    )
+    return `
+      <div class="gm-row" id="gm-row-${m.cd_goal}">
+        <span class="gm-name">${m.goal_nome}</span>
+        <button class="gm-toggle${done ? ' done' : ''}"
+          onclick="goalsModalToggle(${m.cd_goal}, this)"
+          data-state="${done ? '1' : '0'}">
+          ${done ? '✓ Feito' : 'Não feito'}
+        </button>
+      </div>`
+  }).join('')
+}
+
+function goalsModalToggle(cd_goal, btn) {
+  const isDone = btn.dataset.state === '1'
+  btn.dataset.state = isDone ? '0' : '1'
+  btn.textContent   = isDone ? 'Não feito' : '✓ Feito'
+  btn.classList.toggle('done', !isDone)
+}
+
+async function saveGoalEntradas() {
+  const dateStr = document.getElementById('goals-modal-data').value
+  if (!dateStr) return
+
+  const saveBtn = document.getElementById('goals-modal-save-btn')
+  saveBtn.disabled    = true
+  saveBtn.textContent = 'Salvando…'
+
+  const metas = window.goalsMetas.filter(m => m.tp_metrica === 'semanal')
+
+  try {
+    await Promise.all(metas.map(m => {
+      const btn      = document.querySelector(`#gm-row-${m.cd_goal} .gm-toggle`)
+      const progresso = btn && btn.dataset.state === '1' ? 1 : 0
+      return postGoalEntrada(dateStr, m.cd_goal, progresso)
+    }))
+
+    // Recarrega entradas e re-renderiza
+    window.goalsEntradas = await fetchGoalsEntradas()
+    closeGoalsModal()
+
+    // Atualiza a view correta
+    if (_goalsMesDetalhe) {
+      _gRenderDetail(_goalsMesDetalhe)
+    } else {
+      goalsRenderOverview()
+    }
+  } catch (err) {
+    console.error('Erro ao salvar goals:', err)
+    saveBtn.textContent = 'Erro!'
+    setTimeout(() => { saveBtn.disabled = false; saveBtn.textContent = 'Salvar' }, 2000)
+  }
+}
