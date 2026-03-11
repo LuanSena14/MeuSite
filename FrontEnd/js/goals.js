@@ -686,6 +686,10 @@ async function saveGoalEntradas() {
 
     // Recarrega entradas e re-renderiza
     window.goalsEntradas = await fetchGoalsEntradas()
+
+    // Reseta o botão antes de fechar
+    saveBtn.disabled    = false
+    saveBtn.textContent = 'Salvar'
     closeGoalsModal()
 
     // Atualiza a view correta
