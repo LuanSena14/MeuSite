@@ -455,26 +455,28 @@ function _gRenderCalendar(mk, data) {
 async function initGoalsSection() {
   let erroApi = null
 
-  try {
-    const [codigos, metas, entradas] = await Promise.all([
-      fetchGoalsCodigos(),
-      fetchGoalsMetas(),
-      fetchGoalsEntradas(),
-    ])
-    window.goalsCodigos  = codigos
-    // Normaliza tp_metrica para minúsculas e mapeia 'meta' → 'mensal'
-    window.goalsMetas    = metas.map(m => {
-      const tp = (m.tp_metrica || '').toLowerCase()
-      return { ...m, tp_metrica: tp === 'meta' ? 'mensal' : tp }
-    })
-    window.goalsEntradas = entradas
-    console.log('[Goals] metas:', window.goalsMetas.length, 'entradas:', window.goalsEntradas.length)
-  } catch (err) {
-    erroApi = err.message || String(err)
-    console.error('[Goals] Erro ao carregar dados da API:', erroApi)
-    window.goalsCodigos  = []
-    window.goalsMetas    = []
-    window.goalsEntradas = []
+  // Tenta até 3 vezes com 4s de espera (servidor Render pode estar dormindo)
+  for (let tentativa = 1; tentativa <= 3; tentativa++) {
+    try {
+      const [codigos, metas, entradas] = await Promise.all([
+        fetchGoalsCodigos(),
+        fetchGoalsMetas(),
+        fetchGoalsEntradas(),
+      ])
+      window.goalsCodigos  = codigos
+      window.goalsMetas    = metas.map(m => {
+        const tp = (m.tp_metrica || '').toLowerCase()
+        return { ...m, tp_metrica: tp === 'meta' ? 'mensal' : tp }
+      })
+      window.goalsEntradas = entradas
+      console.log('[Goals] metas:', window.goalsMetas.length, 'entradas:', window.goalsEntradas.length)
+      erroApi = null
+      break
+    } catch (err) {
+      erroApi = err.message || String(err)
+      console.warn(`[Goals] Tentativa ${tentativa}/3 falhou:`, erroApi)
+      if (tentativa < 3) await new Promise(r => setTimeout(r, 4000))
+    }
   }
 
   goalsShowOverview()
