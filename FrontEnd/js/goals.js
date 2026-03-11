@@ -211,34 +211,53 @@ function goalsRenderOverview() {
     return
   }
 
-  const all      = scores.map(x => x.data.pct)
-  const avg      = Math.round(all.reduce((s, v) => s + v, 0) / all.length)
-  const bestVal  = Math.max(...all)
-  const bestMes  = scores.find(x => x.data.pct === bestVal)
+  const all = scores.map(x => x.data.pct)
+  const avg  = Math.round(all.reduce((s, v) => s + v, 0) / all.length)
 
-  let streak = 0
-  for (const { data } of scores) {
-    if (data.pct >= 70) streak++; else break
-  }
-
-  const now     = new Date()
-  const curKey  = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  const curData = scores.find(x => x.mk === curKey)?.data
-
+  // KPI 1 — Score médio
   document.getElementById('goals-kpi-avg').innerHTML       = `${avg}<span class="kpi-unit">%</span>`
   document.getElementById('goals-kpi-avg-sub').textContent = `${scores.length} meses`
 
-  document.getElementById('goals-kpi-best').innerHTML      = `${bestVal}<span class="kpi-unit">%</span>`
-  document.getElementById('goals-kpi-best-sub').textContent = bestMes ? _gFmtMes(bestMes.mk, false) : ''
+  // KPI 2 & 3 — Melhor e pior indicador (por meta semanal, média de % em todos os meses)
+  const semanais = window.goalsMetas.filter(m => m.tp_metrica === 'semanal')
+  const indMedia = semanais.map(meta => {
+    const pcts = scores.map(({ data }) => {
+      const ms = data.metaScores.find(x => x.meta.cd_goal === meta.cd_goal)
+      return ms ? ms.pct : null
+    }).filter(v => v !== null)
+    const med = pcts.length ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length) : 0
+    return { nome: meta.goal_nome, med }
+  }).sort((a, b) => b.med - a.med)
 
-  document.getElementById('goals-kpi-streak').innerHTML    = `${streak}<span class="kpi-unit">meses</span>`
+  if (indMedia.length > 0) {
+    const best = indMedia[0]
+    const worst = indMedia[indMedia.length - 1]
+    document.getElementById('goals-kpi-best-ind').innerHTML      = `${best.med}<span class="kpi-unit">%</span>`
+    document.getElementById('goals-kpi-best-ind-sub').textContent = best.nome
+    document.getElementById('goals-kpi-worst-ind').innerHTML      = `${worst.med}<span class="kpi-unit">%</span>`
+    document.getElementById('goals-kpi-worst-ind-sub').textContent = worst.nome
+  }
 
-  document.getElementById('goals-kpi-current').innerHTML   = curData
-    ? `${curData.pct}<span class="kpi-unit">%</span>` : '—'
-  const gradeEl = document.getElementById('goals-kpi-current-grade')
-  if (curData) {
-    gradeEl.textContent = `Nota ${curData.grade.label}`
-    gradeEl.style.color = curData.grade.color
+  // KPI 4 — Próximo peso a bater (meta mensal com cd_medida ainda não atingida)
+  const mensaisNaoAtingidas = window.goalsMetas
+    .filter(m => m.tp_metrica === 'mensal' && m.cd_medida)
+    .filter(m => m.valor_medido === null || m.valor_medido === undefined || m.valor_medido > m.valor_alvo)
+    .sort((a, b) => {
+      // Ordena por data da meta (mais próxima primeiro)
+      if (!a.data && !b.data) return 0
+      if (!a.data) return 1
+      if (!b.data) return -1
+      return a.data.localeCompare(b.data)
+    })
+
+  const proxPeso = mensaisNaoAtingidas[0]
+  if (proxPeso) {
+    const diff = proxPeso.valor_medido != null
+      ? ` (faltam ${(proxPeso.valor_medido - proxPeso.valor_alvo).toFixed(1)})`
+      : ''
+    document.getElementById('goals-kpi-next-weight').innerHTML      = `${proxPeso.valor_alvo}<span class="kpi-unit">kg</span>`
+    document.getElementById('goals-kpi-next-weight-sub').textContent =
+      (proxPeso.data ? proxPeso.data.slice(0, 7) : '') + diff
   }
 
   document.getElementById('goals-months-grid').innerHTML =
