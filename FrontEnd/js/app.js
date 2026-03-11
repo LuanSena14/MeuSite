@@ -88,18 +88,6 @@ async function initExSection() {
   }
 }
 
-// ── INIT GOALS ───────────────────────────────────────────────────────────────
-async function initGoalsSection() {
-  try {
-    window.goals = await fetchGoals()
-    console.log('goals:', goals)
-  } catch (err) {
-    console.error('Erro ao carregar goals:', err)
-    goals = []
-  } 
-  renderGoals()
-}
-
 // ── INICIALIZAÇÃO ─────────────────────────────────────────────────────────────
 
 async function init() {

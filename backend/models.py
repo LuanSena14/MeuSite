@@ -39,11 +39,6 @@ class Checkin(Base):
     cd_medida = Column(Integer, ForeignKey("codigo_medida.id"), nullable=False)
     valor     = Column(Float, nullable=False)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ADICIONE ao models.py — modelos de exercício
-# Cole este bloco no final do seu models.py
-# ─────────────────────────────────────────────────────────────────────────────
-
 class CodigoExercicio(Base):
     __tablename__ = "codigo_exercicio"
 
@@ -68,3 +63,36 @@ class EntradaExercicio(Base):
     cd_exercicio = Column(Integer, ForeignKey("codigo_exercicio.id"), nullable=False)
     duracao      = Column(Integer, nullable=True)
     esforco      = Column(Integer, nullable=True)   # 1–10
+
+class CodigoGoal(Base):
+    __tablename__ = "codigo_goal"
+
+    id        = Column(Integer, primary_key=True, autoincrement=True)
+    nome = Column(String, nullable=False)
+    cd_pai    = Column(Integer, ForeignKey("codigo_goal.id"), nullable=True)
+    descricao = Column(String, nullable=True)
+
+    filhos    = relationship(
+        "CodigoGoal",
+        backref="pai",
+        foreign_keys=[cd_pai],
+        remote_side="CodigoGoal.id"
+    )
+
+class EntradaGoal(Base):
+    __tablename__ = "entrada_goal"
+
+    id        = Column(Integer, primary_key=True, autoincrement=True)
+    data      = Column(Date, nullable=False)
+    cd_goal   = Column(Integer, ForeignKey("codigo_goal.id"), nullable=False)
+    progresso = Column(Float, nullable=False)
+
+class Meta(Base):
+    __tablename__ = "meta"
+
+    id        = Column(Integer, primary_key=True, autoincrement=True)
+    data     = Column(Date, nullable=True)
+    tp_metrica      = Column(String, nullable=False)
+    cd_goal   = Column(Integer, ForeignKey("codigo_goal.id"), nullable=False)
+    valor_alvo = Column(Float, nullable=False)
+    pts       = Column(Integer, nullable=True)

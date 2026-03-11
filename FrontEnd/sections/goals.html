@@ -1,18 +1,68 @@
-<div id="goals-empty" class="goals-state" style="display:none">
-  <div class="empty-icon">◑</div>
-  <h3>Nenhum dado ainda</h3>
-  <p>Adicione seu primeiro registro da suas metas.</p>
-</div>
+<!-- ── GOALS: VISÃO GERAL ──────────────────────────────────────────────────── -->
+<div id="goals-overview">
 
-<div id="goals-content">
-  <div class="kpi-grid">
+  <div class="kpi-grid" style="margin-bottom:16px">
     <div class="kpi-card" style="--kpi-color: var(--accent)">
-      <div class="kpi-label">Média de goals</div>
-      <div class="kpi-value" id="goals-kpi-media">—<span class="kpi-unit">pts</span></div>
+      <div class="kpi-label">Score médio</div>
+      <div class="kpi-value" id="goals-kpi-avg">—<span class="kpi-unit">%</span></div>
+      <div class="kpi-delta" id="goals-kpi-avg-sub"></div>
+    </div>
+    <div class="kpi-card" style="--kpi-color: var(--accent2)">
+      <div class="kpi-label">Melhor mês</div>
+      <div class="kpi-value" id="goals-kpi-best">—</div>
+      <div class="kpi-delta" id="goals-kpi-best-sub"></div>
+    </div>
+    <div class="kpi-card" style="--kpi-color: #f5d742">
+      <div class="kpi-label">Streak ≥ 70%</div>
+      <div class="kpi-value" id="goals-kpi-streak">—<span class="kpi-unit">meses</span></div>
+    </div>
+    <div class="kpi-card" style="--kpi-color: var(--accent3)">
+      <div class="kpi-label">Mês atual</div>
+      <div class="kpi-value" id="goals-kpi-current">—<span class="kpi-unit">%</span></div>
+      <div class="kpi-delta" id="goals-kpi-current-grade"></div>
     </div>
   </div>
-  <div class="chart-card">
-    <div class="chart-title">Histórico de goals</div>
-    <canvas id="goals-chart-horas" height="120"></canvas>
+
+  <div id="goals-months-grid"></div>
+
+</div>
+
+<!-- ── GOALS: DETALHE DO MÊS ─────────────────────────────────────────────── -->
+<div id="goals-detail" style="display:none">
+
+  <div class="g-det-header">
+    <button class="g-back-btn" onclick="goalsShowOverview()">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 2L4 7l5 5"/></svg>
+      voltar
+    </button>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span id="goals-det-title" class="g-det-title"></span>
+      <span id="goals-det-grade" class="g-grade-badge"></span>
+    </div>
   </div>
+
+  <div class="g-det-top">
+    <div class="g-ring-wrap">
+      <div class="g-ring" id="goals-det-ring">
+        <div class="g-ring-inner">
+          <span id="goals-det-pct" class="g-ring-pct"></span>
+          <span class="g-ring-sub">score mensal</span>
+        </div>
+      </div>
+      <div class="g-ring-days" id="goals-det-days"></div>
+    </div>
+    <div id="goals-weight-card" class="g-weight-card"></div>
+  </div>
+
+  <div class="chart-card" style="margin-bottom:16px">
+    <div class="chart-title">Indicadores diários</div>
+    <div class="g-ind-subtitle">% de dias no mês em que a meta foi cumprida</div>
+    <div id="goals-breakdown"></div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-title">Calendário do mês</div>
+    <div id="goals-calendar"></div>
+  </div>
+
 </div>
