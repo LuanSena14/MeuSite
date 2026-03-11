@@ -91,3 +91,4 @@ class Meta(Base):
     cd_goal    = Column(Integer, ForeignKey("codigo_goals.id"), nullable=False)
     valor_alvo = Column('valor', Float, nullable=True)
     pts        = Column(Integer, nullable=True)
+    cd_medida  = Column(Integer, ForeignKey("codigo_medida.id"), nullable=True)

@@ -119,14 +119,27 @@ function _gMonthScore(mesKey) {
       })
 
     } else if (meta.tp_metrica === 'mensal') {
-      const feito   = entradas.some(e => e.progresso >= 1) ? 1 : 0
+      // Se tem medição real (via cd_medida), usa ela; senão cai no check manual de entrada
+      let feito = 0
+      let label = 'Não atingida ainda'
+      if (meta.valor_medido !== null && meta.valor_medido !== undefined) {
+        // Meta de redução: valor medido <= valor_alvo
+        feito = meta.valor_medido <= meta.valor_alvo ? 1 : 0
+        const diff = (meta.valor_medido - meta.valor_alvo).toFixed(1)
+        label = feito
+          ? `✓ ${meta.valor_medido} (meta: ${meta.valor_alvo})`
+          : `${meta.valor_medido} → faltam ${diff > 0 ? '+' : ''}${diff} para ${meta.valor_alvo}`
+      } else {
+        feito = entradas.some(e => e.progresso >= 1) ? 1 : 0
+        label = feito ? 'Meta atingida' : 'Não atingida ainda'
+      }
       totalPossivel += pts
       totalGanho    += feito * pts
       metaScores.push({
         meta, feitos: feito, total: 1,
         ganho: feito * pts, possivel: pts,
         pct: feito * 100,
-        label: feito ? 'Meta atingida' : 'Não atingida ainda',
+        label,
       })
     }
   }
@@ -316,18 +329,42 @@ function _gRenderWeightCard(mk, data) {
   el.style.display = ''
 
   const rows = mensais.map(ms => {
-    const col  = ms.pct >= 100 ? 'var(--accent)' : ms.total === 1 && ms.feitos === 0 ? 'var(--danger)' : 'var(--text-muted)'
-    const icon = ms.pct >= 100 ? '✓ atingida' : '– ainda não marcada'
+    const m   = ms.meta
+    const col = ms.pct >= 100 ? 'var(--accent)' : 'var(--danger)'
+
+    // Linha com valor real vs alvo (se tiver medição)
+    let valorHtml = ''
+    if (m.valor_medido !== null && m.valor_medido !== undefined) {
+      const diff    = (m.valor_medido - m.valor_alvo).toFixed(1)
+      const diffCol = diff <= 0 ? 'var(--accent)' : 'var(--danger)'
+      const unidade = m.cd_medida ? '' : ''
+      valorHtml = `
+        <div class="g-w-vals">
+          <span class="g-w-val-actual" style="color:${col}">${m.valor_medido}</span>
+          <span class="g-w-val-sep">→</span>
+          <span class="g-w-val-target">alvo: ${m.valor_alvo}</span>
+          <span style="color:${diffCol};font-size:0.72rem">(${diff > 0 ? '+' : ''}${diff})</span>
+        </div>
+        ${m.data_medido ? `<div style="font-size:0.68rem;color:var(--text-muted);margin-bottom:6px">medido em ${m.data_medido}</div>` : ''}`
+    }
+
+    // Botão manual só quando não tem medição automática
+    const btnHtml = (m.valor_medido === null || m.valor_medido === undefined)
+      ? `<div style="margin-bottom:10px">
+           <button class="g-w-save-btn" style="font-size:0.7rem;padding:4px 12px"
+             onclick="goalsMensalToggle('${mk}',${m.cd_goal},${ms.feitos === 1 ? 0 : 1})">
+             ${ms.feitos === 1 ? 'Marcar como não atingida' : '+ Marcar como atingida'}
+           </button>
+         </div>`
+      : ''
+
     return `
-      <div class="g-w-row"><span class="g-w-lbl">${ms.meta.goal_nome}</span>
-        <strong style="color:${col}">${icon}</strong>
+      <div class="g-w-row">
+        <span class="g-w-lbl">${m.goal_nome}</span>
+        <strong style="color:${col}">${ms.pct >= 100 ? '✓' : '✗'}</strong>
       </div>
-      <div style="margin-bottom:10px">
-        <button class="g-w-save-btn" style="font-size:0.7rem;padding:4px 12px"
-          onclick="goalsMensalToggle('${mk}',${ms.meta.cd_goal},${ms.feitos === 1 ? 0 : 1})">
-          ${ms.feitos === 1 ? 'Marcar como não atingida' : '+ Marcar como atingida'}
-        </button>
-      </div>`
+      ${valorHtml}
+      ${btnHtml}`
   }).join('')
 
   el.innerHTML = `

@@ -1119,11 +1119,31 @@ tbody td:first-child { color: var(--text); }
   align-items: center;
   font-size: 0.85rem;
   color: var(--text);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 .g-w-lbl {
   color: var(--text-muted);
   font-size: 0.75rem;
+}
+.g-w-vals {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+.g-w-val-actual {
+  font-family: 'DM Mono', monospace;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.g-w-val-sep {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+.g-w-val-target {
+  font-size: 0.72rem;
+  color: var(--text-muted);
 }
 .g-w-status {
   font-family: 'DM Mono', monospace;

@@ -274,23 +274,41 @@ def get_goals_metas():
       db = Session()
       metas = db.query(Meta).all()
       todos_goals = {g.id: g.nome for g in db.query(CodigoGoal).all()}
+
+      # Para metas com cd_medida: busca o primeiro checkin com data >= meta.data
+      resultado = []
+      for m in metas:
+          valor_medido   = None
+          data_medido    = None
+          if m.cd_medida and m.data:
+              checkin = (
+                  db.query(Checkin)
+                  .filter(Checkin.cd_medida == m.cd_medida, Checkin.date >= m.data)
+                  .order_by(Checkin.date.asc())
+                  .first()
+              )
+              if checkin:
+                  valor_medido = checkin.valor
+                  data_medido  = str(checkin.date)
+
+          resultado.append({
+              "id":           m.id,
+              "data":         str(m.data) if m.data else None,
+              "tp_metrica":   m.tp_metrica,
+              "cd_goal":      m.cd_goal,
+              "goal_nome":    todos_goals.get(m.cd_goal, ""),
+              "valor_alvo":   m.valor_alvo,
+              "pts":          m.pts,
+              "cd_medida":    m.cd_medida,
+              "valor_medido": valor_medido,
+              "data_medido":  data_medido,
+          })
       db.close()
     except Exception as e:
       tb = traceback.format_exc()
       print("[ERRO metas]", tb)
       return JSONResponse(status_code=500, content={"erro": str(e), "traceback": tb})
-    return [
-        {
-            "id":         m.id,
-            "data":       str(m.data) if m.data else None,
-            "tp_metrica": m.tp_metrica,
-            "cd_goal":    m.cd_goal,
-            "goal_nome":  todos_goals.get(m.cd_goal, ""),
-            "valor_alvo": m.valor_alvo,
-            "pts":        m.pts,
-        }
-        for m in metas
-    ]
+    return resultado
 
 
 @app.get("/api/goals/entradas")
