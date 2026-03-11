@@ -55,9 +55,36 @@ async function postExercise(entry) {
   return response.json()
 }
 
-// Busca lista de goals
-async function fetchGoals() {
-  const response = await fetch(`${API}/api/goals`)
+// ── GOALS ─────────────────────────────────────────────────────────────────────
+
+// Árvore de groups + goals cadastrados
+async function fetchGoalsCodigos() {
+  const response = await fetch(`${API}/api/goals/codigos`)
   if (!response.ok) throw new Error(`Erro ao buscar goals: ${response.status}`)
+  return response.json()
+}
+
+// Regras de pontuação (tp_metrica, valor_alvo, pts)
+async function fetchGoalsMetas() {
+  const response = await fetch(`${API}/api/goals/metas`)
+  if (!response.ok) throw new Error(`Erro ao buscar metas: ${response.status}`)
+  return response.json()
+}
+
+// Histórico de entradas (checks diários)
+async function fetchGoalsEntradas() {
+  const response = await fetch(`${API}/api/goals/entradas`)
+  if (!response.ok) throw new Error(`Erro ao buscar entradas: ${response.status}`)
+  return response.json()
+}
+
+// Salva ou atualiza um check de goal num dia
+async function postGoalEntrada(date, cd_goal, progresso) {
+  const response = await fetch(`${API}/api/goals/entradas`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ date, cd_goal, progresso }),
+  })
+  if (!response.ok) throw new Error(`Erro ao salvar: ${response.status}`)
   return response.json()
 }

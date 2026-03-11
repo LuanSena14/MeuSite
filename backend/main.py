@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional
 from database import Session, engine
-from models import Base, Checkin, CodigoMedida, UnidadeMedida, CodigoExercicio, EntradaExercicio
+from models import Base, Checkin, CodigoMedida, UnidadeMedida, CodigoExercicio, EntradaExercicio, CodigoGoal, EntradaGoal, Meta
 import datetime
 
 app = FastAPI()
@@ -243,12 +243,79 @@ def post_exercicio(body: ExercicioInput):
 def health():
     return {"status": "ok"}
 
-@app.get("/api/goals")
-def get_goals():
+# ── ROTAS — GOALS ─────────────────────────────────────────────────────────────
+
+class EntradaGoalInput(BaseModel):
+    date:      str
+    cd_goal:   int
+    progresso: float
+
+
+@app.get("/api/goals/codigos")
+def get_goals_codigos():
     db = Session()
-    goals = db.query(Goal).all()
+    todos = db.query(CodigoGoal).all()
     db.close()
-    return [{"id": g.id, "descricao": g.descricao, "valor": g.valor} for g in goals]
+
+    grupos = [x for x in todos if x.cd_pai is None]
+    resultado = []
+    for g in grupos:
+        filhos = [{"id": f.id, "nome": f.nome, "descricao": f.descricao}
+                  for f in todos if f.cd_pai == g.id]
+        resultado.append({"id": g.id, "nome": g.nome, "descricao": g.descricao, "filhos": filhos})
+    return resultado
+
+
+@app.get("/api/goals/metas")
+def get_goals_metas():
+    db = Session()
+    metas = db.query(Meta).all()
+    todos_goals = {g.id: g.nome for g in db.query(CodigoGoal).all()}
+    db.close()
+    return [
+        {
+            "id":         m.id,
+            "data":       str(m.data) if m.data else None,
+            "tp_metrica": m.tp_metrica,
+            "cd_goal":    m.cd_goal,
+            "goal_nome":  todos_goals.get(m.cd_goal, ""),
+            "valor_alvo": m.valor_alvo,
+            "pts":        m.pts,
+        }
+        for m in metas
+    ]
+
+
+@app.get("/api/goals/entradas")
+def get_goals_entradas():
+    db = Session()
+    rows = db.query(EntradaGoal).order_by(EntradaGoal.data).all()
+    db.close()
+    return [
+        {"id": r.id, "data": str(r.data), "cd_goal": r.cd_goal, "progresso": r.progresso}
+        for r in rows
+    ]
+
+
+@app.post("/api/goals/entradas")
+def post_goal_entrada(body: EntradaGoalInput):
+    db = Session()
+    # Upsert: atualiza se já existe entrada para esse goal nessa data
+    existing = db.query(EntradaGoal).filter(
+        EntradaGoal.data    == datetime.date.fromisoformat(body.date),
+        EntradaGoal.cd_goal == body.cd_goal,
+    ).first()
+    if existing:
+        existing.progresso = body.progresso
+    else:
+        db.add(EntradaGoal(
+            data      = datetime.date.fromisoformat(body.date),
+            cd_goal   = body.cd_goal,
+            progresso = body.progresso,
+        ))
+    db.commit()
+    db.close()
+    return {"ok": True}
 
 # ── STATIC ────────────────────────────────────────────────────────────────────
 

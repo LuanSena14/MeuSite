@@ -1175,6 +1175,15 @@ tbody td:first-child { color: var(--text); }
   color: var(--text-muted);
   margin: 4px 0 14px;
 }
+.g-ind-group-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 14px 0 6px;
+}
+.g-ind-group-label:first-child { margin-top: 0; }
 .g-ind-row {
   display: grid;
   grid-template-columns: 90px 1fr 42px 36px;

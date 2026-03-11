@@ -1,167 +1,37 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// goals.js — Sistema de pontuação mensal com 9 indicadores
+// goals.js — Sistema de pontuação mensal baseado em dados reais do banco
 //
-// Indicadores diários (8):
-//   checkin   — fez check-in corporal hoje
-//   sono      — sono ≥ 7h
-//   movimento — campo movimento ≥ 500 kcal
-//   exercicio — campo exercicio ≥ 30 min
-//   bemEstar  — registrou RMR ou VO2
-//   treinou   — ≥ 1 treino registrado
-//   duracao   — treinos do dia ≥ 45 min no total  (só se treinou)
-//   esforco   — esforço médio ≥ 7/10              (só se treinou)
+// Tabelas consumidas (via API):
+//   codigo_goal   → cadastro de metas (árvore: grupos + metas folha)
+//   meta          → regras de pontuação:
+//                     tp_metrica  = 'diario' | 'semanal' | 'mensal'
+//                     valor_alvo  = frequência alvo (diario=1, semanal=Nxsemana, mensal=1)
+//                     pts         = pontos que vale se cumprir
+//                     data        = NULL para sempre | 'YYYY-MM-01' para meta mensal de peso
+//   entrada_goal  → check diário: data, cd_goal, progresso (0=não fez, 1=fez)
 //
-// Indicador mensal (1):
-//   pesoMeta  — último peso do mês ≤ meta configurada (localStorage)
+// Algoritmo de score mensal:
+//   diario  → (dias com progresso≥1 no mês) / lastDay  × pts
+//   semanal → para cada semana: min(entradas_semana / valor_alvo, 1) × pts; soma / possível
+//   mensal  → 1 se há entrada com progresso≥1 no mês (meta com data nesse mês)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const GOALS_STORAGE_KEY = 'bodylog_goals_v1'
+// ── DADOS GLOBAIS ─────────────────────────────────────────────────────────────
 
-// ── METAS PADRÃO DOS INDICADORES DIÁRIOS ─────────────────────────────────────
+window.goalsCodigos  = []   // árvore [{id, nome, filhos:[...]}]
+window.goalsMetas    = []   // [{id, data, tp_metrica, cd_goal, goal_nome, valor_alvo, pts}]
+window.goalsEntradas = []   // [{id, data, cd_goal, progresso}]
 
-const G_TARGETS = {
-  sono:      7,    // horas
-  movimento: 500,  // kcal
-  exercicio: 30,   // min (campo do check-in)
-  duracao:   45,   // min total de treinos no dia
-  esforco:   7,    // /10 (média)
-}
+let _goalsMesDetalhe = null   // 'YYYY-MM' — mês aberto no detalhe
 
-// ── DEFINIÇÃO DOS 8 INDICADORES ───────────────────────────────────────────────
+// ── HELPERS DE DATA ───────────────────────────────────────────────────────────
 
-const G_INDICATORS = [
-  { key: 'checkin',   label: 'Check-in',  icon: '◎', requiresTreino: false, desc: 'Fez registro corporal' },
-  { key: 'sono',      label: 'Sono',      icon: '◑', requiresTreino: false, desc: `Dormiu ≥ ${G_TARGETS.sono}h` },
-  { key: 'movimento', label: 'Movimento', icon: '◇', requiresTreino: false, desc: `Movimento ≥ ${G_TARGETS.movimento} kcal` },
-  { key: 'exercicio', label: 'Exercício', icon: '◆', requiresTreino: false, desc: `Campo exercício ≥ ${G_TARGETS.exercicio} min` },
-  { key: 'bemEstar',  label: 'Bem-estar', icon: '◈', requiresTreino: false, desc: 'Registrou RMR ou VO2' },
-  { key: 'treinou',   label: 'Treinou',   icon: '◉', requiresTreino: false, desc: '≥ 1 treino registrado' },
-  { key: 'duracao',   label: 'Duração',   icon: '◉', requiresTreino: true,  desc: `Total de treino ≥ ${G_TARGETS.duracao} min` },
-  { key: 'esforco',   label: 'Esforço',   icon: '◉', requiresTreino: true,  desc: `Esforço médio ≥ ${G_TARGETS.esforco}/10` },
-]
-
-// ── ESTADO INTERNO ────────────────────────────────────────────────────────────
-
-let _goalsMes   = null   // 'YYYY-MM' — mês aberto no detalhe
-let _goalsMetas = {}     // { 'YYYY-MM': number } — metas de peso mensais
-
-// ── PERSISTÊNCIA (localStorage) ───────────────────────────────────────────────
-
-function _goalsLoad() {
-  try { _goalsMetas = JSON.parse(localStorage.getItem(GOALS_STORAGE_KEY) || '{}') }
-  catch { _goalsMetas = {} }
-}
-
-function _goalsSave() {
-  localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(_goalsMetas))
-}
-
-// ── ACESSO AOS DADOS GLOBAIS ──────────────────────────────────────────────────
-// entries (let no dashboard.js) e exercicios (window.exercicios no exercicios.js)
-
-function _gEntries()    { return (typeof entries !== 'undefined' && Array.isArray(entries))    ? entries           : [] }
-function _gExercicios() { return (window.exercicios && Array.isArray(window.exercicios))       ? window.exercicios : [] }
-
-// ── SCORE DE UM DIA ───────────────────────────────────────────────────────────
-// Retorna null se não há nenhum dado para aquele dia.
-// Retorna { score, hits, hasTrein, hasCk } caso contrário.
-
-function _gDayScore(dateStr) {
-  const entry   = _gEntries().find(e => e.date === dateStr)
-  const treinos = _gExercicios().filter(e => (e.data || '').slice(0, 10) === dateStr)
-
-  const hasTrein = treinos.length > 0
-  const hasCk    = !!entry
-
-  if (!hasTrein && !hasCk) return null
-
-  const t = G_TARGETS
-  const hits = {
-    checkin:   hasCk ? 1 : 0,
-    sono:      (entry?.sono      != null && +entry.sono      >= t.sono)      ? 1 : 0,
-    movimento: (entry?.movimento != null && +entry.movimento >= t.movimento) ? 1 : 0,
-    exercicio: (entry?.exercicio != null && +entry.exercicio >= t.exercicio) ? 1 : 0,
-    bemEstar:  (entry?.rmr != null || entry?.vo2 != null)                    ? 1 : 0,
-    treinou:   hasTrein ? 1 : 0,
-    // null = N/A (não entra no denominador quando não treinou)
-    duracao: hasTrein
-      ? (treinos.reduce((s, x) => s + (+x.duracao || 0), 0) >= t.duracao ? 1 : 0)
-      : null,
-    esforco: hasTrein
-      ? (treinos.reduce((s, x) => s + (+x.esforco || 0), 0) / treinos.length >= t.esforco ? 1 : 0)
-      : null,
-  }
-
-  const applicable = G_INDICATORS.filter(i => !i.requiresTreino || hasTrein)
-  const total = applicable.length
-  const sum   = applicable.reduce((s, i) => s + (hits[i.key] ?? 0), 0)
-
-  return { score: total > 0 ? sum / total : 0, hits, hasTrein, hasCk }
-}
-
-// ── SCORE DE UM MÊS ───────────────────────────────────────────────────────────
-
-function _gMonthScore(mesKey) {
-  const [y, m]      = mesKey.split('-').map(Number)
-  const daysInMonth = new Date(y, m, 0).getDate()
-  const today       = new Date()
-  const isCurrent   = (y === today.getFullYear() && m === today.getMonth() + 1)
-  const lastDay     = isCurrent ? today.getDate() : daysInMonth
-
-  const dailyScores = []
-  const indHits = Object.fromEntries(G_INDICATORS.map(i => [i.key, { hits: 0, app: 0 }]))
-
-  for (let d = 1; d <= lastDay; d++) {
-    const ds  = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`
-    const day = _gDayScore(ds)
-    if (!day) continue
-
-    dailyScores.push({ dateStr: ds, day: d, ...day })
-
-    G_INDICATORS.forEach(ind => {
-      const applicable = !ind.requiresTreino || day.hasTrein
-      if (applicable) {
-        indHits[ind.key].app++
-        indHits[ind.key].hits += day.hits[ind.key] ?? 0
-      }
-    })
-  }
-
-  if (dailyScores.length === 0) return null
-
-  const avgScore = dailyScores.reduce((s, d) => s + d.score, 0) / dailyScores.length
-
-  const pesoMeta   = _goalsMetas[mesKey] ?? null
-  const lastPeso   = _gEntries()
-    .filter(e => e.date.startsWith(mesKey) && e.peso != null)
-    .sort((a, b) => b.date.localeCompare(a.date))[0]
-  const ultimoPeso = lastPeso?.peso ?? null
-  const pesoOk     = (pesoMeta != null && ultimoPeso != null) ? +ultimoPeso <= pesoMeta : null
-
-  return {
-    mesKey, score: avgScore, grade: _gGrade(avgScore),
-    daysWithData: dailyScores.length, totalDays: lastDay,
-    dailyScores, indHits,
-    pesoMeta, ultimoPeso, pesoOk, isCurrent,
-  }
-}
-
-function _gGrade(score) {
-  if (score >= 0.80) return { label: 'A', color: 'var(--accent)',  fg: '#0d0f0e' }
-  if (score >= 0.65) return { label: 'B', color: 'var(--accent2)', fg: '#0d0f0e' }
-  if (score >= 0.50) return { label: 'C', color: '#f5d742',        fg: '#0d0f0e' }
-  return               { label: 'D', color: 'var(--danger)',   fg: '#fff'     }
-}
-
-// ── MESES COM DADOS ───────────────────────────────────────────────────────────
-
-function _gGetMeses() {
-  const s = new Set()
-  _gEntries().forEach(e => e.date && s.add(e.date.slice(0, 7)))
-  _gExercicios().forEach(e => e.data && s.add(e.data.slice(0, 7)))
-  const now = new Date()
-  s.add(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
-  return [...s].sort().reverse()
+// Retorna a data da segunda-feira da semana que contém dateStr
+function _gWeekKey(dateStr) {
+  const d   = new Date(dateStr + 'T00:00:00')
+  const dow = d.getDay() || 7       // Dom=0 → 7
+  d.setDate(d.getDate() - (dow - 1))
+  return d.toISOString().slice(0, 10)
 }
 
 function _gFmtMes(mk, long = true) {
@@ -172,46 +42,195 @@ function _gFmtMes(mk, long = true) {
     : d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
 }
 
+function _gGrade(pct) {
+  if (pct >= 80) return { label: 'A', color: 'var(--accent)',  fg: '#0d0f0e' }
+  if (pct >= 65) return { label: 'B', color: 'var(--accent2)', fg: '#0d0f0e' }
+  if (pct >= 50) return { label: 'C', color: '#f5d742',        fg: '#0d0f0e' }
+  return           { label: 'D', color: 'var(--danger)',    fg: '#fff'     }
+}
+
+// ── ENGINE DE SCORE MENSAL ────────────────────────────────────────────────────
+
+function _gMonthScore(mesKey) {
+  const [y, m]      = mesKey.split('-').map(Number)
+  const daysInMonth = new Date(y, m, 0).getDate()
+  const today       = new Date()
+  const isCurrent   = y === today.getFullYear() && m === today.getMonth() + 1
+  const lastDay     = isCurrent ? today.getDate() : daysInMonth
+
+  // Entradas deste mês, indexadas por cd_goal
+  const entradasMes = window.goalsEntradas.filter(e => e.data.startsWith(mesKey))
+  const entrByGoal  = {}
+  entradasMes.forEach(e => {
+    ;(entrByGoal[e.cd_goal] = entrByGoal[e.cd_goal] || []).push(e)
+  })
+
+  // Metas aplicáveis ao mês:
+  //   data=null  → sempre válida
+  //   data set   → só vale se data.startsWith(mesKey)
+  const metas = window.goalsMetas.filter(m =>
+    m.data === null || m.data === undefined || m.data.startsWith(mesKey)
+  )
+
+  if (metas.length === 0 && entradasMes.length === 0) return null
+
+  let totalPossivel = 0
+  let totalGanho    = 0
+
+  // Pontuação por meta e por período para o breakdown
+  const metaScores = []
+
+  for (const meta of metas) {
+    const entradas = entrByGoal[meta.cd_goal] || []
+    const pts      = meta.pts ?? 1
+
+    if (meta.tp_metrica === 'diario') {
+      const feitos   = entradas.filter(e => e.progresso >= 1).length
+      const possivel = lastDay * pts
+      const ganho    = feitos * pts
+      totalPossivel += possivel
+      totalGanho    += ganho
+      metaScores.push({
+        meta, feitos, total: lastDay,
+        ganho, possivel,
+        pct: lastDay > 0 ? Math.round((feitos / lastDay) * 100) : 0,
+        label: `${feitos}/${lastDay} dias`,
+      })
+
+    } else if (meta.tp_metrica === 'semanal') {
+      // Coleta todas as semanas que têm ao menos 1 dia neste mês
+      const weekSet = new Set()
+      for (let d = 1; d <= lastDay; d++) {
+        const ds = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+        weekSet.add(_gWeekKey(ds))
+      }
+      const weeks        = [...weekSet]
+      const totalWeeks   = weeks.length
+      let weeksPossivel  = totalWeeks * pts
+      let weeksGanho     = 0
+      let weeksDone      = 0
+
+      for (const wk of weeks) {
+        const count = entradas.filter(e => _gWeekKey(e.data) === wk && e.progresso >= 1).length
+        const frac  = meta.valor_alvo > 0 ? Math.min(count / meta.valor_alvo, 1) : 0
+        weeksGanho += frac * pts
+        if (frac >= 1) weeksDone++
+      }
+
+      totalPossivel += weeksPossivel
+      totalGanho    += weeksGanho
+      metaScores.push({
+        meta, feitos: weeksDone, total: totalWeeks,
+        ganho: weeksGanho, possivel: weeksPossivel,
+        pct: totalWeeks > 0 ? Math.round((weeksGanho / weeksPossivel) * 100) : 0,
+        label: `${weeksDone}/${totalWeeks} semanas (alvo: ${meta.valor_alvo}×/sem)`,
+      })
+
+    } else if (meta.tp_metrica === 'mensal') {
+      const feito   = entradas.some(e => e.progresso >= 1) ? 1 : 0
+      totalPossivel += pts
+      totalGanho    += feito * pts
+      metaScores.push({
+        meta, feitos: feito, total: 1,
+        ganho: feito * pts, possivel: pts,
+        pct: feito * 100,
+        label: feito ? 'Meta atingida' : 'Não atingida ainda',
+      })
+    }
+  }
+
+  const pct = totalPossivel > 0 ? Math.round((totalGanho / totalPossivel) * 100) : 0
+
+  // Score diário (para o calendário) — só considera goals DIARIOS
+  const metasDiarias = metas.filter(m => m.tp_metrica === 'diario')
+  const dailyScores  = {}
+  if (metasDiarias.length > 0) {
+    for (let d = 1; d <= lastDay; d++) {
+      const ds = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+      let done = 0
+      for (const md of metasDiarias) {
+        const e = (entrByGoal[md.cd_goal] || []).find(x => x.data === ds)
+        if (e && e.progresso >= 1) done++
+      }
+      if (done > 0) {
+        dailyScores[d] = { score: done / metasDiarias.length, done, total: metasDiarias.length }
+      }
+    }
+  }
+
+  const daysWithData = Object.keys(dailyScores).length
+
+  return {
+    mesKey, pct, grade: _gGrade(pct),
+    totalGanho, totalPossivel,
+    metaScores, dailyScores,
+    daysWithData, lastDay, isCurrent,
+    hasMetas: metas.length > 0,
+  }
+}
+
+// ── MESES COM DADOS ───────────────────────────────────────────────────────────
+
+function _gGetMeses() {
+  const s = new Set()
+  window.goalsEntradas.forEach(e => e.data && s.add(e.data.slice(0, 7)))
+  // Inclui meses das metas mensais
+  window.goalsMetas.filter(m => m.data).forEach(m => s.add(m.data.slice(0, 7)))
+  const now = new Date()
+  s.add(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
+  return [...s].sort().reverse()
+}
+
 // ── RENDER: OVERVIEW ──────────────────────────────────────────────────────────
 
 function goalsRenderOverview() {
   const meses  = _gGetMeses()
   const scores = meses.map(mk => ({ mk, data: _gMonthScore(mk) })).filter(x => x.data)
 
-  if (scores.length === 0) {
+  if (window.goalsMetas.length === 0) {
     document.getElementById('goals-months-grid').innerHTML = `
       <div style="text-align:center;padding:60px 20px;color:var(--text-muted)">
         <div style="font-size:2.5rem;margin-bottom:16px">◎</div>
-        <div style="font-size:1rem;margin-bottom:8px;color:var(--text-dim)">Nenhum dado encontrado</div>
-        <div style="font-size:0.85rem">Registre check-ins ou treinos para ver seu score de metas.</div>
+        <div style="font-size:1rem;margin-bottom:8px;color:var(--text-dim)">Nenhuma meta configurada</div>
+        <div style="font-size:0.85rem">Cadastre metas em <code>codigo_goal</code> e <code>meta</code> no banco para começar.</div>
       </div>`
     return
   }
 
-  const all     = scores.map(x => x.data.score)
-  const avg     = all.reduce((s, x) => s + x, 0) / all.length
-  const bestVal = Math.max(...all)
-  const bestMes = scores.find(x => x.data.score === bestVal)
+  if (scores.length === 0) {
+    document.getElementById('goals-months-grid').innerHTML = `
+      <div style="text-align:center;padding:60px 20px;color:var(--text-muted)">
+        <div style="font-size:2.5rem;margin-bottom:16px">◇</div>
+        <div style="font-size:1rem;margin-bottom:8px;color:var(--text-dim)">Nenhum registro ainda</div>
+        <div style="font-size:0.85rem">Registre entradas de goals para ver seu score.</div>
+      </div>`
+    return
+  }
+
+  const all      = scores.map(x => x.data.pct)
+  const avg      = Math.round(all.reduce((s, v) => s + v, 0) / all.length)
+  const bestVal  = Math.max(...all)
+  const bestMes  = scores.find(x => x.data.pct === bestVal)
 
   let streak = 0
   for (const { data } of scores) {
-    if (data.score >= 0.70) streak++; else break
+    if (data.pct >= 70) streak++; else break
   }
 
   const now     = new Date()
   const curKey  = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   const curData = scores.find(x => x.mk === curKey)?.data
 
-  document.getElementById('goals-kpi-avg').innerHTML       = `${Math.round(avg * 100)}<span class="kpi-unit">%</span>`
-  document.getElementById('goals-kpi-avg-sub').textContent = `${scores.length} meses com dados`
+  document.getElementById('goals-kpi-avg').innerHTML       = `${avg}<span class="kpi-unit">%</span>`
+  document.getElementById('goals-kpi-avg-sub').textContent = `${scores.length} meses`
 
-  document.getElementById('goals-kpi-best').innerHTML      = `${Math.round(bestVal * 100)}<span class="kpi-unit">%</span>`
+  document.getElementById('goals-kpi-best').innerHTML      = `${bestVal}<span class="kpi-unit">%</span>`
   document.getElementById('goals-kpi-best-sub').textContent = bestMes ? _gFmtMes(bestMes.mk, false) : ''
 
   document.getElementById('goals-kpi-streak').innerHTML    = `${streak}<span class="kpi-unit">meses</span>`
 
   document.getElementById('goals-kpi-current').innerHTML   = curData
-    ? `${Math.round(curData.score * 100)}<span class="kpi-unit">%</span>` : '—'
+    ? `${curData.pct}<span class="kpi-unit">%</span>` : '—'
   const gradeEl = document.getElementById('goals-kpi-current-grade')
   if (curData) {
     gradeEl.textContent = `Nota ${curData.grade.label}`
@@ -223,22 +242,15 @@ function goalsRenderOverview() {
 }
 
 function _gMonthCard(mk, data) {
-  const pct   = Math.round(data.score * 100)
   const g     = data.grade
   const label = _gFmtMes(mk)
 
-  const dots = G_INDICATORS.map(i => {
-    const ih = data.indHits[i.key]
-    if (ih.app === 0) return `<span class="g-dot g-dot-na" title="${i.label}: sem dados"></span>`
-    const p   = ih.hits / ih.app
+  // Um dot por meta-score: cor = achievement
+  const dots = data.metaScores.map(ms => {
+    const p   = ms.possivel > 0 ? ms.ganho / ms.possivel : 0
     const cls = p >= 0.8 ? 'g-dot-ok' : p >= 0.5 ? 'g-dot-warn' : 'g-dot-miss'
-    return `<span class="g-dot ${cls}" title="${i.label}: ${Math.round(p * 100)}%"></span>`
+    return `<span class="g-dot ${cls}" title="${ms.meta.goal_nome}: ${Math.round(p * 100)}%"></span>`
   }).join('')
-
-  const pesoMeta  = _goalsMetas[mk]
-  const weightDot = pesoMeta != null
-    ? `<span class="g-dot ${data.pesoOk === true ? 'g-dot-ok' : data.pesoOk === false ? 'g-dot-miss' : 'g-dot-na'}" title="Meta peso"></span>`
-    : `<span class="g-dot g-dot-na" title="Meta de peso não definida"></span>`
 
   return `
     <div class="g-month-card${data.isCurrent ? ' g-month-current' : ''}" onclick="goalsShowDetail('${mk}')">
@@ -247,16 +259,16 @@ function _gMonthCard(mk, data) {
         ${data.isCurrent ? '<span class="g-badge-cur">atual</span>' : ''}
       </div>
       <div class="g-month-body">
-        <div class="g-ring-sm" style="--sp:${pct};--sc:${g.color}">
+        <div class="g-ring-sm" style="--sp:${data.pct};--sc:${g.color}">
           <div class="g-ring-sm-inner">
-            <span class="g-ring-sm-num">${pct}</span>
+            <span class="g-ring-sm-num">${data.pct}</span>
             <span class="g-ring-sm-unit">%</span>
           </div>
         </div>
         <div class="g-month-info">
           <div class="g-grade-big" style="color:${g.color}">${g.label}</div>
-          <div class="g-days-info">${data.daysWithData}/${data.totalDays} dias</div>
-          <div class="g-dots-row">${dots}${weightDot}</div>
+          <div class="g-days-info">${data.totalGanho}/${data.totalPossivel} pts</div>
+          <div class="g-dots-row">${dots}</div>
         </div>
       </div>
     </div>`
@@ -265,14 +277,14 @@ function _gMonthCard(mk, data) {
 // ── RENDER: DETALHE ───────────────────────────────────────────────────────────
 
 function goalsShowDetail(mk) {
-  _goalsMes = mk
+  _goalsMesDetalhe = mk
   document.getElementById('goals-overview').style.display = 'none'
   document.getElementById('goals-detail').style.display   = ''
   _gRenderDetail(mk)
 }
 
 function goalsShowOverview() {
-  _goalsMes = null
+  _goalsMesDetalhe = null
   document.getElementById('goals-overview').style.display = ''
   document.getElementById('goals-detail').style.display   = 'none'
 }
@@ -281,8 +293,7 @@ function _gRenderDetail(mk) {
   const data = _gMonthScore(mk)
   if (!data) return
 
-  const pct = Math.round(data.score * 100)
-  const g   = data.grade
+  const g = data.grade
 
   document.getElementById('goals-det-title').textContent = _gFmtMes(mk)
   const badge = document.getElementById('goals-det-grade')
@@ -290,99 +301,122 @@ function _gRenderDetail(mk) {
   badge.textContent = `Nota ${g.label}`
 
   const ring = document.getElementById('goals-det-ring')
-  ring.style.setProperty('--sp', pct)
+  ring.style.setProperty('--sp', data.pct)
   ring.style.setProperty('--sc', g.color)
-  document.getElementById('goals-det-pct').textContent = pct + '%'
+  document.getElementById('goals-det-pct').textContent = data.pct + '%'
   document.getElementById('goals-det-days').textContent =
-    `${data.daysWithData} de ${data.totalDays} dias registrados`
+    `${data.totalGanho} de ${data.totalPossivel} pts possíveis`
 
   _gRenderWeightCard(mk, data)
   _gRenderBreakdown(data)
   _gRenderCalendar(mk, data)
 }
 
+// Card de meta mensal (peso ou qualquer outra meta mensal)
 function _gRenderWeightCard(mk, data) {
-  const el   = document.getElementById('goals-weight-card')
-  const meta = _goalsMetas[mk]
+  const el      = document.getElementById('goals-weight-card')
+  const mensais = data.metaScores.filter(ms => ms.meta.tp_metrica === 'mensal')
 
-  let statusHtml = ''
-  if (meta != null) {
-    const col  = data.pesoOk === true ? 'var(--accent)' : data.pesoOk === false ? 'var(--danger)' : 'var(--text-muted)'
-    const icon = data.pesoOk === true ? '✓ atingida' : data.pesoOk === false ? '✗ não atingida' : '– sem leitura'
-    statusHtml = `
-      <div class="g-w-row"><span class="g-w-lbl">Meta</span><strong>${meta} kg</strong></div>
-      <div class="g-w-row"><span class="g-w-lbl">Atual</span>
-        <strong>${data.ultimoPeso != null ? data.ultimoPeso + ' kg' : '—'}</strong>
-      </div>
-      <div class="g-w-status" style="color:${col}">${icon}</div>`
-  } else {
-    statusHtml = `<div class="g-w-empty">Defina uma meta de peso para acompanhar</div>`
+  if (mensais.length === 0) {
+    el.style.display = 'none'
+    return
   }
+  el.style.display = ''
 
-  el.innerHTML = `
-    <div class="g-w-title">⚖ Meta mensal de peso</div>
-    ${statusHtml}
-    <div class="g-w-input-row">
-      <input type="number" id="g-peso-input" placeholder="ex: 82.5"
-        step="0.1" min="30" max="300" value="${meta != null ? meta : ''}"
-        class="g-w-input">
-      <button class="g-w-save-btn" onclick="goalsSavePeso('${mk}')">Salvar</button>
-    </div>`
-}
-
-function goalsSavePeso(mk) {
-  const v = parseFloat(document.getElementById('g-peso-input')?.value)
-  if (!Number.isFinite(v) || v < 30 || v > 300) return
-  _goalsMetas[mk] = v
-  _goalsSave()
-  _gRenderDetail(mk)
-}
-
-function _gRenderBreakdown(data) {
-  const el = document.getElementById('goals-breakdown')
-  el.innerHTML = G_INDICATORS.map(ind => {
-    const ih = data.indHits[ind.key]
-
-    if (ih.app === 0) return `
-      <div class="g-ind-row">
-        <div class="g-ind-name">${ind.label}</div>
-        <div class="g-ind-bar-wrap"><div class="g-ind-na">sem dias aplicáveis</div></div>
-        <div class="g-ind-pct" style="color:var(--text-muted)">—</div>
-      </div>`
-
-    const pct = Math.round((ih.hits / ih.app) * 100)
-    const col = pct >= 80 ? 'var(--accent)' : pct >= 50 ? 'var(--accent3)' : 'var(--danger)'
+  const rows = mensais.map(ms => {
+    const col  = ms.pct >= 100 ? 'var(--accent)' : ms.total === 1 && ms.feitos === 0 ? 'var(--danger)' : 'var(--text-muted)'
+    const icon = ms.pct >= 100 ? '✓ atingida' : '– ainda não marcada'
     return `
-      <div class="g-ind-row">
-        <div class="g-ind-name">${ind.label}</div>
-        <div class="g-ind-bar-wrap">
-          <div class="g-ind-bar" style="width:${pct}%;background:${col}"></div>
-        </div>
-        <div class="g-ind-pct" style="color:${col}">${pct}%</div>
-        <div class="g-ind-days">${ih.hits}/${ih.app}</div>
+      <div class="g-w-row"><span class="g-w-lbl">${ms.meta.goal_nome}</span>
+        <strong style="color:${col}">${icon}</strong>
+      </div>
+      <div style="margin-bottom:10px">
+        <button class="g-w-save-btn" style="font-size:0.7rem;padding:4px 12px"
+          onclick="goalsMensalToggle('${mk}',${ms.meta.cd_goal},${ms.feitos === 1 ? 0 : 1})">
+          ${ms.feitos === 1 ? 'Marcar como não atingida' : '+ Marcar como atingida'}
+        </button>
       </div>`
   }).join('')
+
+  el.innerHTML = `
+    <div class="g-w-title">◎ Metas mensais</div>
+    ${rows}`
 }
 
+async function goalsMensalToggle(mk, cd_goal, progresso) {
+  const today = `${mk}-01`   // usa dia 1 como representante do mês
+  try {
+    await postGoalEntrada(today, cd_goal, progresso)
+    // Re-carrega só as entradas e re-renderiza
+    window.goalsEntradas = await fetchGoalsEntradas()
+    _gRenderDetail(mk)
+  } catch (err) {
+    console.error('Erro ao salvar entrada mensal:', err)
+  }
+}
+
+// Breakdown por meta
+function _gRenderBreakdown(data) {
+  const el = document.getElementById('goals-breakdown')
+  if (data.metaScores.length === 0) {
+    el.innerHTML = '<div style="color:var(--text-muted);font-size:0.8rem;padding:8px 0">Nenhuma meta ativa para este mês.</div>'
+    return
+  }
+
+  // Agrupa por tipo para organizar visualmente
+  const porTipo = { diario: [], semanal: [], mensal: [] }
+  data.metaScores.forEach(ms => {
+    const t = ms.meta.tp_metrica
+    ;(porTipo[t] = porTipo[t] || []).push(ms)
+  })
+
+  const tipoLabel = { diario: 'Diárias', semanal: 'Semanais', mensal: 'Mensais' }
+
+  let html = ''
+  for (const tipo of ['diario', 'semanal', 'mensal']) {
+    const lista = porTipo[tipo]
+    if (!lista || lista.length === 0) continue
+    html += `<div class="g-ind-group-label">${tipoLabel[tipo]}</div>`
+    html += lista.map(ms => {
+      const col = ms.pct >= 80 ? 'var(--accent)' : ms.pct >= 50 ? 'var(--accent3)' : 'var(--danger)'
+      return `
+        <div class="g-ind-row">
+          <div class="g-ind-name">${ms.meta.goal_nome}</div>
+          <div class="g-ind-bar-wrap">
+            <div class="g-ind-bar" style="width:${ms.pct}%;background:${col}"></div>
+          </div>
+          <div class="g-ind-pct" style="color:${col}">${ms.pct}%</div>
+          <div class="g-ind-days">${ms.label}</div>
+        </div>`
+    }).join('')
+  }
+
+  el.innerHTML = html
+}
+
+// Calendário heatmap
 function _gRenderCalendar(mk, data) {
   const [y, m]      = mk.split('-').map(Number)
   const daysInMonth = new Date(y, m, 0).getDate()
-  const firstDow    = new Date(y, m - 1, 1).getDay()       // 0=Dom
-  const offset      = firstDow === 0 ? 6 : firstDow - 1    // Monday-based
+  const firstDow    = new Date(y, m - 1, 1).getDay()
+  const offset      = firstDow === 0 ? 6 : firstDow - 1
+  const today       = new Date()
+  const isCurMonth  = y === today.getFullYear() && m === today.getMonth() + 1
+  const headers     = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
 
-  const dayMap = {}
-  data.dailyScores.forEach(d => { dayMap[d.day] = d })
-
-  const today      = new Date()
-  const isCurMonth = (y === today.getFullYear() && m === today.getMonth() + 1)
-  const headers    = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
+  // Identifica metas diarias para mostrar no tooltip
+  const metasDiarias = window.goalsMetas.filter(mm =>
+    (mm.data === null || mm.data === undefined || mm.data.startsWith(mk)) &&
+    mm.tp_metrica === 'diario'
+  )
 
   let html = '<div class="g-cal-grid">'
   headers.forEach(h => { html += `<div class="g-cal-hdr">${h}</div>` })
   for (let i = 0; i < offset; i++) html += '<div></div>'
 
   for (let d = 1; d <= daysInMonth; d++) {
-    const dd       = dayMap[d]
+    const ds       = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+    const dd       = data.dailyScores[d]
     const isFuture = isCurMonth && d > today.getDate()
     const isToday  = isCurMonth && d === today.getDate()
 
@@ -395,19 +429,21 @@ function _gRenderCalendar(mk, data) {
       cls += ' g-cal-nodata'
     } else {
       cls += ' g-cal-has'
-      const sc = dd.score
-      const dc = sc >= 0.8 ? 'var(--accent)' : sc >= 0.6 ? 'var(--accent3)' : sc >= 0.4 ? '#f5d742' : 'var(--danger)'
+      const dc = dd.score >= 0.8 ? 'var(--accent)' : dd.score >= 0.6 ? 'var(--accent3)' : dd.score >= 0.4 ? '#f5d742' : 'var(--danger)'
       style = `--dc:${dc}`
     }
 
     if (isToday) cls += ' g-cal-today'
 
-    const hitsStr  = dd
-      ? G_INDICATORS.filter(i => dd.hits[i.key] === 1).map(i => i.label).join(', ') || 'nenhum'
-      : ''
-    const titleStr = dd
-      ? `${Math.round(dd.score * 100)}% — ${hitsStr}`
-      : (isFuture ? '' : 'sem dados')
+    let titleStr = ''
+    if (dd && metasDiarias.length > 0) {
+      const checkedNames = metasDiarias
+        .filter(mm => (window.goalsEntradas || []).some(e => e.data === ds && e.cd_goal === mm.cd_goal && e.progresso >= 1))
+        .map(mm => mm.goal_nome)
+      titleStr = `${Math.round(dd.score * 100)}% — ${checkedNames.join(', ') || 'nenhum'}`
+    } else if (!dd && !isFuture) {
+      titleStr = 'sem dados'
+    }
 
     html += `<div class="${cls}" style="${style}" title="${titleStr}">
       <span class="g-cal-num">${d}</span>
@@ -430,16 +466,22 @@ function _gRenderCalendar(mk, data) {
 // ── INIT ──────────────────────────────────────────────────────────────────────
 
 async function initGoalsSection() {
-  _goalsLoad()
-
-  // Garante dados de exercícios (pode ainda não ter sido carregado)
-  if (typeof fetchExercicios === 'function' && (!window.exercicios || window.exercicios.length === 0)) {
-    try { window.exercicios = await fetchExercicios() } catch { window.exercicios = [] }
+  try {
+    const [codigos, metas, entradas] = await Promise.all([
+      fetchGoalsCodigos(),
+      fetchGoalsMetas(),
+      fetchGoalsEntradas(),
+    ])
+    window.goalsCodigos  = codigos
+    window.goalsMetas    = metas
+    window.goalsEntradas = entradas
+  } catch (err) {
+    console.error('Erro ao carregar goals:', err)
+    window.goalsCodigos  = []
+    window.goalsMetas    = []
+    window.goalsEntradas = []
   }
 
   goalsShowOverview()
   goalsRenderOverview()
 }
-
-// placeholder para não quebrar se fetchGoals for chamada (não existe rota backend)
-function fetchGoals() { return Promise.resolve([]) }
