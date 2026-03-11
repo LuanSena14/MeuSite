@@ -1205,16 +1205,22 @@ tbody td:first-child { color: var(--text); }
 }
 .g-ind-group-label:first-child { margin-top: 0; }
 .g-ind-row {
-  display: grid;
-  grid-template-columns: 90px 1fr 42px 36px 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 12px;
+}
+.g-ind-top {
+  display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 10px;
 }
 .g-ind-name {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--text-dim);
   white-space: nowrap;
+  min-width: 80px;
+  flex-shrink: 0;
 }
 .g-ind-bar-wrap {
   flex: 1;
@@ -1228,22 +1234,29 @@ tbody td:first-child { color: var(--text); }
   border-radius: 3px;
   transition: width 0.4s ease;
 }
-.g-ind-na {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  line-height: 6px;
+.g-ind-bottom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 90px;
 }
 .g-ind-pct {
   font-family: 'DM Mono', monospace;
   font-size: 0.75rem;
-  font-weight: 500;
-  text-align: right;
+  font-weight: 600;
+  min-width: 38px;
 }
 .g-ind-days {
   font-family: 'DM Mono', monospace;
-  font-size: 0.65rem;
+  font-size: 0.68rem;
   color: var(--text-muted);
-  text-align: right;
+  flex: 1;
+}
+.g-ind-pts {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.68rem;
+  white-space: nowrap;
+  opacity: 0.85;
 }
 
 /* Calendário heatmap */
@@ -1376,8 +1389,7 @@ tbody td:first-child { color: var(--text); }
   .g-weight-card {
     max-width: none;
   }
-  .g-ind-row {
-    grid-template-columns: 80px 1fr 40px 34px 52px;
-    gap: 8px;
+  .g-ind-bottom {
+    padding-left: 0;
   }
 }

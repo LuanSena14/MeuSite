@@ -407,17 +407,21 @@ function _gRenderBreakdown(data) {
     if (!lista || lista.length === 0) continue
     html += `<div class="g-ind-group-label">${tipoLabel[tipo]}</div>`
     html += lista.map(ms => {
-      const col = ms.pct >= 80 ? 'var(--accent)' : ms.pct >= 50 ? 'var(--accent3)' : 'var(--danger)'
+      const col      = ms.pct >= 80 ? 'var(--accent)' : ms.pct >= 50 ? 'var(--accent3)' : 'var(--danger)'
       const ptsLabel = `${Math.round(ms.ganho)}/${ms.possivel} pts`
       return `
         <div class="g-ind-row">
-          <div class="g-ind-name">${ms.meta.goal_nome}</div>
-          <div class="g-ind-bar-wrap">
-            <div class="g-ind-bar" style="width:${ms.pct}%;background:${col}"></div>
+          <div class="g-ind-top">
+            <span class="g-ind-name">${ms.meta.goal_nome}</span>
+            <div class="g-ind-bar-wrap">
+              <div class="g-ind-bar" style="width:${ms.pct}%;background:${col}"></div>
+            </div>
           </div>
-          <div class="g-ind-pct" style="color:${col}">${ms.pct}%</div>
-          <div class="g-ind-days">${ms.label}</div>
-          <div class="g-ind-pts" style="color:${col};font-size:0.72rem;white-space:nowrap">${ptsLabel}</div>
+          <div class="g-ind-bottom">
+            <span class="g-ind-pct" style="color:${col}">${ms.pct}%</span>
+            <span class="g-ind-days">${ms.label}</span>
+            <span class="g-ind-pts" style="color:${col}">${ptsLabel}</span>
+          </div>
         </div>`
     }).join('')
   }
