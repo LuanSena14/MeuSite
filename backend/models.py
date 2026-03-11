@@ -65,11 +65,11 @@ class EntradaExercicio(Base):
     esforco      = Column(Integer, nullable=True)   # 1–10
 
 class CodigoGoal(Base):
-    __tablename__ = "codigo_goal"
+    __tablename__ = "codigo_goals"
 
     id        = Column(Integer, primary_key=True, autoincrement=True)
     nome = Column(String, nullable=False)
-    cd_pai    = Column(Integer, ForeignKey("codigo_goal.id"), nullable=True)
+    cd_pai    = Column(Integer, ForeignKey("codigo_goals.id"), nullable=True)
     descricao = Column(String, nullable=True)
 
     filhos    = relationship(
@@ -80,11 +80,11 @@ class CodigoGoal(Base):
     )
 
 class EntradaGoal(Base):
-    __tablename__ = "entrada_goal"
+    __tablename__ = "entrada_goals"
 
     id        = Column(Integer, primary_key=True, autoincrement=True)
     data      = Column(Date, nullable=False)
-    cd_goal   = Column(Integer, ForeignKey("codigo_goal.id"), nullable=False)
+    cd_goal   = Column(Integer, ForeignKey("codigo_goals.id"), nullable=False)
     progresso = Column(Float, nullable=False)
 
 class Meta(Base):
@@ -93,7 +93,7 @@ class Meta(Base):
     id        = Column(Integer, primary_key=True, autoincrement=True)
     data     = Column(Date, nullable=True)
     tp_metrica      = Column(String, nullable=False)
-    cd_goal   = Column(Integer, ForeignKey("codigo_goal.id"), nullable=False)
+    cd_goal   = Column(Integer, ForeignKey("codigo_goals.id"), nullable=False)
     valor_alvo = Column('valor', Float, nullable=True)
     dt_entrada = Column(String, nullable=True)
     pts       = Column(Integer, nullable=True)
