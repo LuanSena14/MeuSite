@@ -161,9 +161,9 @@ function _gMonthScore(mesKey) {
 
 function _gGetMeses() {
   const s = new Set()
+  // Só meses que têm entradas reais registradas
   window.goalsEntradas.forEach(e => e.data && s.add(e.data.slice(0, 7)))
-  // Inclui meses das metas mensais
-  window.goalsMetas.filter(m => m.data).forEach(m => s.add(m.data.slice(0, 7)))
+  // + mês atual sempre aparece
   const now = new Date()
   s.add(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
   return [...s].sort().reverse()
@@ -369,6 +369,7 @@ function _gRenderBreakdown(data) {
     html += `<div class="g-ind-group-label">${tipoLabel[tipo]}</div>`
     html += lista.map(ms => {
       const col = ms.pct >= 80 ? 'var(--accent)' : ms.pct >= 50 ? 'var(--accent3)' : 'var(--danger)'
+      const ptsLabel = `${Math.round(ms.ganho)}/${ms.possivel} pts`
       return `
         <div class="g-ind-row">
           <div class="g-ind-name">${ms.meta.goal_nome}</div>
@@ -377,6 +378,7 @@ function _gRenderBreakdown(data) {
           </div>
           <div class="g-ind-pct" style="color:${col}">${ms.pct}%</div>
           <div class="g-ind-days">${ms.label}</div>
+          <div class="g-ind-pts" style="color:${col};font-size:0.72rem;white-space:nowrap">${ptsLabel}</div>
         </div>`
     }).join('')
   }

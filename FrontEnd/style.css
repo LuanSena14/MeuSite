@@ -1186,7 +1186,7 @@ tbody td:first-child { color: var(--text); }
 .g-ind-group-label:first-child { margin-top: 0; }
 .g-ind-row {
   display: grid;
-  grid-template-columns: 90px 1fr 42px 36px;
+  grid-template-columns: 90px 1fr 42px 36px 56px;
   align-items: center;
   gap: 10px;
   margin-bottom: 10px;
@@ -1314,7 +1314,7 @@ tbody td:first-child { color: var(--text); }
     max-width: none;
   }
   .g-ind-row {
-    grid-template-columns: 80px 1fr 40px 34px;
+    grid-template-columns: 80px 1fr 40px 34px 52px;
     gap: 8px;
   }
 }
