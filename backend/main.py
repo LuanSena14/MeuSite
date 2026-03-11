@@ -298,7 +298,7 @@ def get_goals_entradas():
     try:
         db = Session()
         rows = db.query(EntradaGoal).order_by(EntradaGoal.data).all()
-        result = [{"id": r.id, "data": str(r.data), "cd_goal": r.cd_goal, "progresso": r.progresso}
+        result = [{"id": r.id, "data": str(r.data), "cd_goal": r.cd_goal, "progresso": 1.0 if r.realizado_no_dia else 0.0}
                   for r in rows]
         db.close()
         return result
@@ -306,6 +306,26 @@ def get_goals_entradas():
         tb = traceback.format_exc()
         print("[ERRO entradas]", tb)
         return JSONResponse(status_code=500, content={"erro": str(e), "traceback": tb})
+
+
+@app.get("/api/debug/colunas")
+def debug_colunas():
+    """Retorna as colunas reais de cada tabela de goals no banco."""
+    from sqlalchemy import text
+    db = Session()
+    tabelas = ["entrada_goals", "pontuacao_goal", "codigo_goals"]
+    resultado = {}
+    for tabela in tabelas:
+        try:
+            rows = db.execute(text(
+                "SELECT column_name, data_type FROM information_schema.columns "
+                "WHERE table_name = :t ORDER BY ordinal_position"
+            ), {"t": tabela}).fetchall()
+            resultado[tabela] = [{"col": r[0], "tipo": r[1]} for r in rows]
+        except Exception as e:
+            resultado[tabela] = {"erro": str(e)}
+    db.close()
+    return resultado
 
 
 @app.post("/api/goals/entradas")
@@ -316,13 +336,14 @@ def post_goal_entrada(body: EntradaGoalInput):
         EntradaGoal.data    == datetime.date.fromisoformat(body.date),
         EntradaGoal.cd_goal == body.cd_goal,
     ).first()
+    realizado = body.progresso >= 1
     if existing:
-        existing.progresso = body.progresso
+        existing.realizado_no_dia = realizado
     else:
         db.add(EntradaGoal(
-            data      = datetime.date.fromisoformat(body.date),
-            cd_goal   = body.cd_goal,
-            progresso = body.progresso,
+            data             = datetime.date.fromisoformat(body.date),
+            cd_goal          = body.cd_goal,
+            realizado_no_dia = realizado,
         ))
     db.commit()
     db.close()

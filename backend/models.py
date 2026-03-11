@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, String, Date, ForeignKey, Time
+from sqlalchemy import Column, Integer, Float, String, Date, ForeignKey, Time, Boolean
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.orm import backref
 
@@ -75,10 +75,11 @@ class CodigoGoal(Base):
 class EntradaGoal(Base):
     __tablename__ = "entrada_goals"
 
-    id        = Column(Integer, primary_key=True, autoincrement=True)
-    data      = Column(Date, nullable=False)
-    cd_goal   = Column(Integer, ForeignKey("codigo_goals.id"), nullable=False)
-    progresso = Column(Float, nullable=False)
+    id               = Column(Integer, primary_key=True, autoincrement=True)
+    data             = Column(Date, nullable=False)
+    cd_goal          = Column(Integer, ForeignKey("codigo_goals.id"), nullable=False)
+    realizado_no_dia = Column(Boolean, nullable=False)
+    dt_entrada       = Column(DateTime, nullable=True)
 
 class Meta(Base):
     __tablename__ = "pontuacao_goal"
