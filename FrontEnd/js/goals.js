@@ -12,8 +12,10 @@
 //
 // Algoritmo de score mensal:
 //   diario  → (dias com progresso≥1 no mês) / lastDay  × pts
-//   semanal → para cada semana: min(entradas_semana / valor_alvo, 1) × pts; soma / possível
-//   mensal  → 1 se há entrada com progresso≥1 no mês (meta com data nesse mês)
+//   semanal → feitos / (lastDay × valor_alvo/7)  × pts   [crédito parcial]
+//   mensal  → pts inteiros se há entrada com progresso≥1 no mês
+//
+// Calendário: usa TODAS as metas (diario + semanal), colore por % de goals feitos no dia
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── DADOS GLOBAIS ─────────────────────────────────────────────────────────────
@@ -130,20 +132,17 @@ function _gMonthScore(mesKey) {
 
   const pct = totalPossivel > 0 ? Math.round((totalGanho / totalPossivel) * 100) : 0
 
-  // Score diário (para o calendário) — só considera goals DIARIOS
-  const metasDiarias = metas.filter(m => m.tp_metrica === 'diario')
-  const dailyScores  = {}
-  if (metasDiarias.length > 0) {
-    for (let d = 1; d <= lastDay; d++) {
-      const ds = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`
-      let done = 0
-      for (const md of metasDiarias) {
-        const e = (entrByGoal[md.cd_goal] || []).find(x => x.data === ds)
-        if (e && e.progresso >= 1) done++
-      }
-      if (done > 0) {
-        dailyScores[d] = { score: done / metasDiarias.length, done, total: metasDiarias.length }
-      }
+  // Score diário (para o calendário) — considera TODAS as metas com entrada no dia
+  const dailyScores = {}
+  for (let d = 1; d <= lastDay; d++) {
+    const ds = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+    let done = 0
+    for (const md of metas) {
+      const e = (entrByGoal[md.cd_goal] || []).find(x => x.data === ds)
+      if (e && e.progresso >= 1) done++
+    }
+    if (done > 0) {
+      dailyScores[d] = { score: done / metas.length, done, total: metas.length }
     }
   }
 
@@ -393,10 +392,9 @@ function _gRenderCalendar(mk, data) {
   const isCurMonth  = y === today.getFullYear() && m === today.getMonth() + 1
   const headers     = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
 
-  // Identifica metas diarias para mostrar no tooltip
-  const metasDiarias = window.goalsMetas.filter(mm =>
-    (mm.data === null || mm.data === undefined || mm.data.startsWith(mk)) &&
-    mm.tp_metrica === 'diario'
+  // Todas as metas ativas no mês (para tooltip do calendário)
+  const metasAtivas = window.goalsMetas.filter(mm =>
+    mm.data === null || mm.data === undefined || mm.data.startsWith(mk)
   )
 
   let html = '<div class="g-cal-grid">'
@@ -425,8 +423,8 @@ function _gRenderCalendar(mk, data) {
     if (isToday) cls += ' g-cal-today'
 
     let titleStr = ''
-    if (dd && metasDiarias.length > 0) {
-      const checkedNames = metasDiarias
+    if (dd && metasAtivas.length > 0) {
+      const checkedNames = metasAtivas
         .filter(mm => (window.goalsEntradas || []).some(e => e.data === ds && e.cd_goal === mm.cd_goal && e.progresso >= 1))
         .map(mm => mm.goal_nome)
       titleStr = `${Math.round(dd.score * 100)}% — ${checkedNames.join(', ') || 'nenhum'}`
