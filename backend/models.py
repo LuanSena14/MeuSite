@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, String, Date, ForeignKey, Time
+from sqlalchemy import Column, Integer, Float, String, Date, ForeignKey, Time, DateTime
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.orm import backref
 
@@ -95,5 +95,5 @@ class Meta(Base):
     tp_metrica      = Column(String, nullable=False)
     cd_goal   = Column(Integer, ForeignKey("codigo_goals.id"), nullable=False)
     valor_alvo = Column('valor', Float, nullable=True)
-    dt_entrada = Column(String, nullable=True)
+    dt_entrada = Column(DateTime, nullable=True)
     pts       = Column(Integer, nullable=True)
