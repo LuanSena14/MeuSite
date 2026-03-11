@@ -1,8 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
+import traceback
 from database import Session, engine
 from models import Base, Checkin, CodigoMedida, UnidadeMedida, CodigoExercicio, EntradaExercicio, CodigoGoal, EntradaGoal, Meta
 import datetime
@@ -268,10 +270,15 @@ def get_goals_codigos():
 
 @app.get("/api/goals/metas")
 def get_goals_metas():
-    db = Session()
-    metas = db.query(Meta).all()
-    todos_goals = {g.id: g.nome for g in db.query(CodigoGoal).all()}
-    db.close()
+    try:
+      db = Session()
+      metas = db.query(Meta).all()
+      todos_goals = {g.id: g.nome for g in db.query(CodigoGoal).all()}
+      db.close()
+    except Exception as e:
+      tb = traceback.format_exc()
+      print("[ERRO metas]", tb)
+      return JSONResponse(status_code=500, content={"erro": str(e), "traceback": tb})
     return [
         {
             "id":         m.id,
@@ -288,13 +295,17 @@ def get_goals_metas():
 
 @app.get("/api/goals/entradas")
 def get_goals_entradas():
-    db = Session()
-    rows = db.query(EntradaGoal).order_by(EntradaGoal.data).all()
-    db.close()
-    return [
-        {"id": r.id, "data": str(r.data), "cd_goal": r.cd_goal, "progresso": r.progresso}
-        for r in rows
-    ]
+    try:
+        db = Session()
+        rows = db.query(EntradaGoal).order_by(EntradaGoal.data).all()
+        result = [{"id": r.id, "data": str(r.data), "cd_goal": r.cd_goal, "progresso": r.progresso}
+                  for r in rows]
+        db.close()
+        return result
+    except Exception as e:
+        tb = traceback.format_exc()
+        print("[ERRO entradas]", tb)
+        return JSONResponse(status_code=500, content={"erro": str(e), "traceback": tb})
 
 
 @app.post("/api/goals/entradas")
