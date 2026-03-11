@@ -6,7 +6,6 @@ from typing import Optional
 from database import Session, engine
 from models import Base, Checkin, CodigoMedida, UnidadeMedida, CodigoExercicio, EntradaExercicio, CodigoGoal, EntradaGoal, Meta
 import datetime
-import random
 
 app = FastAPI()
 
@@ -90,53 +89,6 @@ def seed():
     for descricao, pai_descricao, sigla in seed_data:
         if descricao not in existentes and pai_descricao is not None:
             db.add(CodigoMedida(descricao=descricao, cd_pai=medida_map.get(pai_descricao), id_unidade=unidade_map.get(sigla)))
-
-    # ── GOALS SEED ───────────────────────────────────────────────────────────
-    if db.query(CodigoGoal).count() == 0:
-        random.seed(42)
-
-        g_rotina = CodigoGoal(nome="Rotina", cd_pai=None, descricao="Hábitos diários")
-        g_treino = CodigoGoal(nome="Treino", cd_pai=None, descricao="Atividade física")
-        g_corpo  = CodigoGoal(nome="Corpo",  cd_pai=None, descricao="Metas corporais")
-        db.add_all([g_rotina, g_treino, g_corpo])
-        db.flush()
-
-        sono      = CodigoGoal(nome="Sono",       cd_pai=g_rotina.id, descricao="Dormir ≥ 7h")
-        agua      = CodigoGoal(nome="Água",       cd_pai=g_rotina.id, descricao="Beber ≥ 2L")
-        medit     = CodigoGoal(nome="Meditação",  cd_pai=g_rotina.id, descricao="10 min mindfulness")
-        treinar   = CodigoGoal(nome="Treinar",    cd_pai=g_treino.id, descricao="Sessão de treino")
-        mobilid   = CodigoGoal(nome="Mobilidade", cd_pai=g_treino.id, descricao="Alongar / yoga")
-        peso_meta = CodigoGoal(nome="Peso meta",  cd_pai=g_corpo.id,  descricao="Meta mensal de peso")
-        db.add_all([sono, agua, medit, treinar, mobilid, peso_meta])
-        db.flush()
-
-        db.add_all([
-            Meta(data=None,                       tp_metrica="diario",  cd_goal=sono.id,      valor_alvo=1, pts=10),
-            Meta(data=None,                       tp_metrica="diario",  cd_goal=agua.id,      valor_alvo=1, pts=5),
-            Meta(data=None,                       tp_metrica="diario",  cd_goal=medit.id,     valor_alvo=1, pts=5),
-            Meta(data=None,                       tp_metrica="semanal", cd_goal=treinar.id,   valor_alvo=4, pts=20),
-            Meta(data=None,                       tp_metrica="semanal", cd_goal=mobilid.id,   valor_alvo=2, pts=10),
-            Meta(data=datetime.date(2026, 1, 1),  tp_metrica="mensal",  cd_goal=peso_meta.id, valor_alvo=1, pts=15),
-            Meta(data=datetime.date(2026, 2, 1),  tp_metrica="mensal",  cd_goal=peso_meta.id, valor_alvo=1, pts=15),
-            Meta(data=datetime.date(2026, 3, 1),  tp_metrica="mensal",  cd_goal=peso_meta.id, valor_alvo=1, pts=15),
-        ])
-        db.flush()
-
-        start  = datetime.date(2026, 1, 1)
-        end    = datetime.date(2026, 3, 11)
-        n_days = (end - start).days + 1
-        entradas = []
-        for i in range(n_days):
-            dia = start + datetime.timedelta(days=i)
-            if random.random() < 0.76: entradas.append(EntradaGoal(data=dia, cd_goal=sono.id,    progresso=1.0))
-            if random.random() < 0.62: entradas.append(EntradaGoal(data=dia, cd_goal=agua.id,    progresso=1.0))
-            if random.random() < 0.50: entradas.append(EntradaGoal(data=dia, cd_goal=medit.id,   progresso=1.0))
-            if random.random() < 0.55: entradas.append(EntradaGoal(data=dia, cd_goal=treinar.id, progresso=1.0))
-            if random.random() < 0.30: entradas.append(EntradaGoal(data=dia, cd_goal=mobilid.id, progresso=1.0))
-        # Meta mensal de peso: atingida em Jan e Fev, pendente em Mar
-        entradas.append(EntradaGoal(data=datetime.date(2026, 1, 15), cd_goal=peso_meta.id, progresso=1.0))
-        entradas.append(EntradaGoal(data=datetime.date(2026, 2, 14), cd_goal=peso_meta.id, progresso=1.0))
-        db.add_all(entradas)
 
     db.commit()
     db.close()

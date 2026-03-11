@@ -94,5 +94,5 @@ class Meta(Base):
     data     = Column(Date, nullable=True)
     tp_metrica      = Column(String, nullable=False)
     cd_goal   = Column(Integer, ForeignKey("codigo_goal.id"), nullable=False)
-    valor_alvo = Column(Float, nullable=False)
+    valor_alvo = Column('valor', Float, nullable=True)   # DB column is 'valor'
     pts       = Column(Integer, nullable=True)

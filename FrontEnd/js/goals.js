@@ -460,7 +460,11 @@ async function initGoalsSection() {
       fetchGoalsEntradas(),
     ])
     window.goalsCodigos  = codigos
-    window.goalsMetas    = metas
+    // Normaliza tp_metrica para minúsculas e mapeia 'meta' → 'mensal'
+    window.goalsMetas    = metas.map(m => {
+      const tp = (m.tp_metrica || '').toLowerCase()
+      return { ...m, tp_metrica: tp === 'meta' ? 'mensal' : tp }
+    })
     window.goalsEntradas = entradas
   } catch (err) {
     console.error('Erro ao carregar goals:', err)
