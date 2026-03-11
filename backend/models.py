@@ -88,11 +88,12 @@ class EntradaGoal(Base):
     progresso = Column(Float, nullable=False)
 
 class Meta(Base):
-    __tablename__ = "meta"
+    __tablename__ = "pontuacao_goal"
 
     id        = Column(Integer, primary_key=True, autoincrement=True)
     data     = Column(Date, nullable=True)
     tp_metrica      = Column(String, nullable=False)
     cd_goal   = Column(Integer, ForeignKey("codigo_goal.id"), nullable=False)
-    valor_alvo = Column('valor', Float, nullable=True)   # DB column is 'valor'
+    valor_alvo = Column('valor', Float, nullable=True)
+    dt_entrada = Column(String, nullable=True)
     pts       = Column(Integer, nullable=True)
