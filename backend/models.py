@@ -68,16 +68,9 @@ class CodigoGoal(Base):
     __tablename__ = "codigo_goals"
 
     id        = Column(Integer, primary_key=True, autoincrement=True)
-    nome = Column(String, nullable=False)
+    nome      = Column(String, nullable=False)
     cd_pai    = Column(Integer, ForeignKey("codigo_goals.id"), nullable=True)
     descricao = Column(String, nullable=True)
-
-    filhos    = relationship(
-        "CodigoGoal",
-        backref="pai",
-        foreign_keys=[cd_pai],
-        remote_side="CodigoGoal.id"
-    )
 
 class EntradaGoal(Base):
     __tablename__ = "entrada_goals"
@@ -90,10 +83,10 @@ class EntradaGoal(Base):
 class Meta(Base):
     __tablename__ = "pontuacao_goal"
 
-    id        = Column(Integer, primary_key=True, autoincrement=True)
-    data     = Column(Date, nullable=True)
-    tp_metrica      = Column(String, nullable=False)
-    cd_goal   = Column(Integer, ForeignKey("codigo_goals.id"), nullable=False)
+    id         = Column(Integer, primary_key=True, autoincrement=True)
+    data       = Column(Date, nullable=True)
+    tp_metrica = Column(String, nullable=False)
+    cd_goal    = Column(Integer, ForeignKey("codigo_goals.id"), nullable=False)
     valor_alvo = Column('valor', Float, nullable=True)
     dt_entrada = Column(DateTime, nullable=True)
-    pts       = Column(Integer, nullable=True)
+    pts        = Column(Integer, nullable=True)
