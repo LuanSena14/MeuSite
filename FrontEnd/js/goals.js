@@ -453,6 +453,8 @@ function _gRenderCalendar(mk, data) {
 // ── INIT ──────────────────────────────────────────────────────────────────────
 
 async function initGoalsSection() {
+  let erroApi = null
+
   try {
     const [codigos, metas, entradas] = await Promise.all([
       fetchGoalsCodigos(),
@@ -466,13 +468,27 @@ async function initGoalsSection() {
       return { ...m, tp_metrica: tp === 'meta' ? 'mensal' : tp }
     })
     window.goalsEntradas = entradas
+    console.log('[Goals] metas:', window.goalsMetas.length, 'entradas:', window.goalsEntradas.length)
   } catch (err) {
-    console.error('Erro ao carregar goals:', err)
+    erroApi = err.message || String(err)
+    console.error('[Goals] Erro ao carregar dados da API:', erroApi)
     window.goalsCodigos  = []
     window.goalsMetas    = []
     window.goalsEntradas = []
   }
 
   goalsShowOverview()
+
+  if (erroApi) {
+    document.getElementById('goals-months-grid').innerHTML = `
+      <div style="text-align:center;padding:60px 20px;color:var(--danger)">
+        <div style="font-size:2rem;margin-bottom:12px">⚠</div>
+        <div style="font-size:0.95rem;margin-bottom:6px;color:var(--text-dim)">Erro ao carregar dados da API</div>
+        <div style="font-size:0.78rem;color:var(--text-muted);font-family:'DM Mono',monospace">${erroApi}</div>
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-top:10px">Verifique o console e se o backend está deployado.</div>
+      </div>`
+    return
+  }
+
   goalsRenderOverview()
 }
