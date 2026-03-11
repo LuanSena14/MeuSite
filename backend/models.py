@@ -1,3 +1,5 @@
+from sqlite3.dbapi2 import Timestamp
+
 from sqlalchemy import Column, Integer, Float, String, Date, ForeignKey, Time, Boolean
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.orm import backref
@@ -79,7 +81,6 @@ class EntradaGoal(Base):
     data             = Column(Date, nullable=False)
     cd_goal          = Column(Integer, ForeignKey("codigo_goals.id"), nullable=False)
     realizado_no_dia = Column(Boolean, nullable=False)
-    dt_entrada       = Column(DateTime, nullable=True)
 
 class Meta(Base):
     __tablename__ = "pontuacao_goal"
