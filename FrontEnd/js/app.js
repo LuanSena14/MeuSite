@@ -36,6 +36,7 @@ window.addEventListener('sectionchange', async e => {
   if (section === 'body')      renderDash()
   if (section === 'exercises') initExSection()
   if (section === 'goals')     initGoalsSection()
+  if (section === 'finances')  initFinancesSection()
 })
 
 // ── MODAL BODY ────────────────────────────────────────────────────────────────

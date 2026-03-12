@@ -89,3 +89,72 @@ class Meta(Base):
     valor_alvo = Column('valor', Float, nullable=True)
     pts        = Column(Integer, nullable=True)
     cd_medida  = Column(Integer, ForeignKey("codigo_medida.id"), nullable=True)
+
+
+# ── FINANÇAS ──────────────────────────────────────────────────────────────────
+
+class CodigoFinanca(Base):
+    """Categorias hierárquicas (pai/filho). tipo: receita | despesa | investimento"""
+    __tablename__ = "codigo_financa"
+
+    id        = Column(Integer, primary_key=True, autoincrement=True)
+    nome      = Column(String, nullable=False)
+    tipo      = Column(String, nullable=False)          # receita | despesa | investimento
+    cd_pai    = Column(Integer, ForeignKey("codigo_financa.id"), nullable=True)
+
+    filhos = relationship(
+        "CodigoFinanca",
+        backref="pai",
+        foreign_keys=[cd_pai],
+        remote_side="CodigoFinanca.id"
+    )
+
+
+class LancamentoFinanceiro(Base):
+    """Receitas e despesas diárias."""
+    __tablename__ = "lancamento_financeiro"
+
+    id          = Column(Integer, primary_key=True, autoincrement=True)
+    data        = Column(Date,    nullable=False)
+    cd_financa  = Column(Integer, ForeignKey("codigo_financa.id"), nullable=False)
+    valor       = Column(Float,   nullable=False)
+    descricao   = Column(String,  nullable=True)
+
+    categoria = relationship("CodigoFinanca")
+
+
+class OrcamentoFinanceiro(Base):
+    """Orçamento mensal por grupo (categoria pai)."""
+    __tablename__ = "orcamento_financeiro"
+
+    id          = Column(Integer, primary_key=True, autoincrement=True)
+    ano         = Column(Integer, nullable=False)
+    mes         = Column(Integer, nullable=True)   # None = anual
+    cd_financa  = Column(Integer, ForeignKey("codigo_financa.id"), nullable=False)
+    valor_orcado = Column(Float,  nullable=False)
+
+    categoria = relationship("CodigoFinanca")
+
+
+class SnapshotInvestimento(Base):
+    """Saldo periódico de cada caixinha de investimento."""
+    __tablename__ = "snapshot_investimento"
+
+    id          = Column(Integer, primary_key=True, autoincrement=True)
+    data        = Column(Date,    nullable=False)
+    cd_financa  = Column(Integer, ForeignKey("codigo_financa.id"), nullable=False)
+    saldo       = Column(Float,   nullable=False)
+
+    categoria = relationship("CodigoFinanca")
+
+
+class IndicadorMensal(Base):
+    """Indicadores não financeiros: Livelo, crédito, Serasa, etc."""
+    __tablename__ = "indicador_mensal"
+
+    id      = Column(Integer, primary_key=True, autoincrement=True)
+    ano     = Column(Integer, nullable=False)
+    mes     = Column(Integer, nullable=False)
+    tipo    = Column(String,  nullable=False)   # livelo | serasa | credito_celular | custom
+    nome    = Column(String,  nullable=True)    # label customizado
+    valor   = Column(Float,   nullable=False)

@@ -1475,3 +1475,195 @@ tbody td:first-child { color: var(--text); }
     padding-left: 0;
   }
 }
+
+/* ── FINANCES ──────────────────────────────────────────────────────────────── */
+
+.fin-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 20px;
+  overflow-x: auto;
+}
+
+.fin-tab {
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: -2px;
+  padding: 8px 16px;
+  transition: color .15s, border-color .15s;
+  white-space: nowrap;
+}
+.fin-tab:hover { color: var(--text); }
+.fin-tab.active {
+  border-bottom-color: var(--accent);
+  color: var(--accent);
+}
+
+.fin-panel { display: none; }
+.fin-panel.active { display: block; }
+
+.fin-toolbar {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.fin-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* TABLE */
+.fin-table-wrap { overflow-x: auto; }
+
+.fin-table {
+  border-collapse: collapse;
+  font-size: 0.83rem;
+  min-width: 560px;
+  width: 100%;
+}
+.fin-table th,
+.fin-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 8px 10px;
+  text-align: left;
+}
+.fin-table th {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+.fin-table td:last-child { text-align: center; }
+.fin-table .fin-col-valor { font-variant-numeric: tabular-nums; font-weight: 600; }
+.fin-table .fin-receita { color: var(--accent); }
+.fin-table .fin-despesa { color: var(--danger); }
+
+.fin-del-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  opacity: .5;
+  padding: 2px 6px;
+  transition: opacity .15s;
+}
+.fin-del-btn:hover { color: var(--danger); opacity: 1; }
+
+.fin-resumo-row {
+  background: var(--surface);
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+  gap: 16px;
+  margin-bottom: 14px;
+  padding: 8px 14px;
+}
+.fin-resumo-row span { color: var(--text-muted); }
+.fin-resumo-row b   { font-variant-numeric: tabular-nums; }
+
+/* ORCAMENTO */
+.fin-orc-item {
+  background: var(--surface);
+  border-radius: 10px;
+  margin-bottom: 10px;
+  padding: 12px 14px;
+}
+.fin-orc-item-header {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin-bottom: 7px;
+}
+.fin-orc-label { font-size: 0.85rem; font-weight: 500; }
+.fin-orc-amounts {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+.fin-orc-bar-bg {
+  background: var(--border);
+  border-radius: 4px;
+  height: 6px;
+  overflow: hidden;
+}
+.fin-orc-bar-fill {
+  background: var(--accent);
+  border-radius: 4px;
+  height: 100%;
+  max-width: 100%;
+  transition: width .3s;
+}
+.fin-orc-bar-fill.over { background: var(--danger); }
+
+/* INVESTIMENTOS */
+.fin-inv-cards {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  margin-bottom: 8px;
+}
+.fin-inv-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.fin-inv-card-name {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+.fin-inv-card-saldo {
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.fin-inv-card-rend {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  margin-top: 4px;
+}
+.fin-inv-card-rend.pos { color: var(--accent); }
+.fin-inv-card-rend.neg { color: var(--danger); }
+
+/* OVERVIEW */
+.fin-overview-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr 1.6fr;
+  margin-top: 16px;
+}
+.fin-chart-wrap {
+  max-height: 280px;
+  padding: 8px 0;
+  position: relative;
+}
+
+/* INDICADORES */
+.fin-ind-tipo {
+  color: var(--accent2);
+  font-size: 0.72rem;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+@media (max-width: 680px) {
+  .fin-overview-grid { grid-template-columns: 1fr; }
+  .fin-inv-cards     { grid-template-columns: 1fr 1fr; }
+}

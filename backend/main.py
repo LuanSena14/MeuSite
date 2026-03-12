@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 from database import Session, engine
-from models import Base, Checkin, CodigoMedida, UnidadeMedida, CodigoExercicio, EntradaExercicio, CodigoGoal, EntradaGoal, Meta
+from models import Base, Checkin, CodigoMedida, UnidadeMedida, CodigoExercicio, EntradaExercicio, CodigoGoal, EntradaGoal, Meta, CodigoFinanca, LancamentoFinanceiro, OrcamentoFinanceiro, SnapshotInvestimento, IndicadorMensal
 import datetime
 
 app = FastAPI()
@@ -329,3 +329,211 @@ def post_goal_entrada(body: EntradaGoalInput):
 # ── STATIC ────────────────────────────────────────────────────────────────────
 
 # app.mount("/app", StaticFiles(directory="../frontend", html=True))
+
+# ── ROTAS — FINANÇAS ──────────────────────────────────────────────────────────
+
+class CodigoFinancaInput(BaseModel):
+    nome:   str
+    tipo:   str
+    cd_pai: Optional[int] = None
+
+class LancamentoInput(BaseModel):
+    data:       str
+    cd_financa: int
+    valor:      float
+    descricao:  Optional[str] = None
+
+class OrcamentoInput(BaseModel):
+    ano:          int
+    mes:          Optional[int] = None
+    cd_financa:   int
+    valor_orcado: float
+
+class SnapshotInvestimentoInput(BaseModel):
+    data:       str
+    cd_financa: int
+    saldo:      float
+
+class IndicadorInput(BaseModel):
+    ano:   int
+    mes:   int
+    tipo:  str
+    nome:  Optional[str] = None
+    valor: float
+
+
+# Categorias
+@app.get("/api/financas/codigos")
+def get_financas_codigos():
+    with get_db() as db:
+        todos = db.query(CodigoFinanca).all()
+        grupos = [c for c in todos if c.cd_pai is None]
+        resultado = []
+        for g in grupos:
+            filhos = [{"id": f.id, "nome": f.nome, "tipo": f.tipo}
+                      for f in todos if f.cd_pai == g.id]
+            resultado.append({"id": g.id, "nome": g.nome, "tipo": g.tipo, "filhos": filhos})
+    return resultado
+
+@app.post("/api/financas/codigos")
+def post_financa_codigo(body: CodigoFinancaInput):
+    with get_db() as db:
+        db.add(CodigoFinanca(nome=body.nome, tipo=body.tipo, cd_pai=body.cd_pai))
+        db.commit()
+    return {"ok": True}
+
+@app.delete("/api/financas/codigos/{id}")
+def delete_financa_codigo(id: int):
+    with get_db() as db:
+        db.query(CodigoFinanca).filter(CodigoFinanca.id == id).delete()
+        db.commit()
+    return {"ok": True}
+
+
+# Lançamentos
+@app.get("/api/financas/lancamentos")
+def get_lancamentos():
+    with get_db() as db:
+        rows = (db.query(LancamentoFinanceiro, CodigoFinanca)
+                .join(CodigoFinanca, LancamentoFinanceiro.cd_financa == CodigoFinanca.id)
+                .order_by(LancamentoFinanceiro.data.desc())
+                .all())
+        todos = {c.id: c for c in db.query(CodigoFinanca).all()}
+        resultado = []
+        for l, cat in rows:
+            pai = todos.get(cat.cd_pai)
+            resultado.append({
+                "id": l.id, "data": str(l.data),
+                "cd_financa": l.cd_financa,
+                "categoria_nome": cat.nome,
+                "grupo_nome": pai.nome if pai else cat.nome,
+                "tipo": cat.tipo,
+                "valor": l.valor,
+                "descricao": l.descricao,
+            })
+    return resultado
+
+@app.post("/api/financas/lancamentos")
+def post_lancamento(body: LancamentoInput):
+    with get_db() as db:
+        db.add(LancamentoFinanceiro(
+            data=datetime.date.fromisoformat(body.data),
+            cd_financa=body.cd_financa,
+            valor=body.valor,
+            descricao=body.descricao,
+        ))
+        db.commit()
+    return {"ok": True}
+
+@app.delete("/api/financas/lancamentos/{id}")
+def delete_lancamento(id: int):
+    with get_db() as db:
+        db.query(LancamentoFinanceiro).filter(LancamentoFinanceiro.id == id).delete()
+        db.commit()
+    return {"ok": True}
+
+
+# Orçamento
+@app.get("/api/financas/orcamento")
+def get_orcamento():
+    with get_db() as db:
+        rows = db.query(OrcamentoFinanceiro).all()
+        codigos = {c.id: c for c in db.query(CodigoFinanca).all()}
+        return [{
+            "id": r.id, "ano": r.ano, "mes": r.mes,
+            "cd_financa": r.cd_financa,
+            "categoria_nome": codigos[r.cd_financa].nome if r.cd_financa in codigos else "",
+            "tipo": codigos[r.cd_financa].tipo if r.cd_financa in codigos else "",
+            "valor_orcado": r.valor_orcado,
+        } for r in rows]
+
+@app.post("/api/financas/orcamento")
+def post_orcamento(body: OrcamentoInput):
+    with get_db() as db:
+        existing = db.query(OrcamentoFinanceiro).filter(
+            OrcamentoFinanceiro.ano == body.ano,
+            OrcamentoFinanceiro.mes == body.mes,
+            OrcamentoFinanceiro.cd_financa == body.cd_financa,
+        ).first()
+        if existing:
+            existing.valor_orcado = body.valor_orcado
+        else:
+            db.add(OrcamentoFinanceiro(
+                ano=body.ano, mes=body.mes,
+                cd_financa=body.cd_financa,
+                valor_orcado=body.valor_orcado,
+            ))
+        db.commit()
+    return {"ok": True}
+
+@app.delete("/api/financas/orcamento/{id}")
+def delete_orcamento(id: int):
+    with get_db() as db:
+        db.query(OrcamentoFinanceiro).filter(OrcamentoFinanceiro.id == id).delete()
+        db.commit()
+    return {"ok": True}
+
+
+# Investimentos
+@app.get("/api/financas/investimentos")
+def get_investimentos():
+    with get_db() as db:
+        rows = db.query(SnapshotInvestimento).order_by(SnapshotInvestimento.data).all()
+        codigos = {c.id: c for c in db.query(CodigoFinanca).all()}
+        return [{
+            "id": r.id, "data": str(r.data),
+            "cd_financa": r.cd_financa,
+            "nome": codigos[r.cd_financa].nome if r.cd_financa in codigos else "",
+            "saldo": r.saldo,
+        } for r in rows]
+
+@app.post("/api/financas/investimentos")
+def post_investimento(body: SnapshotInvestimentoInput):
+    with get_db() as db:
+        db.add(SnapshotInvestimento(
+            data=datetime.date.fromisoformat(body.data),
+            cd_financa=body.cd_financa,
+            saldo=body.saldo,
+        ))
+        db.commit()
+    return {"ok": True}
+
+@app.delete("/api/financas/investimentos/{id}")
+def delete_investimento(id: int):
+    with get_db() as db:
+        db.query(SnapshotInvestimento).filter(SnapshotInvestimento.id == id).delete()
+        db.commit()
+    return {"ok": True}
+
+
+# Indicadores
+@app.get("/api/financas/indicadores")
+def get_indicadores():
+    with get_db() as db:
+        rows = db.query(IndicadorMensal).order_by(IndicadorMensal.ano, IndicadorMensal.mes).all()
+        return [{"id": r.id, "ano": r.ano, "mes": r.mes,
+                 "tipo": r.tipo, "nome": r.nome, "valor": r.valor} for r in rows]
+
+@app.post("/api/financas/indicadores")
+def post_indicador(body: IndicadorInput):
+    with get_db() as db:
+        existing = db.query(IndicadorMensal).filter(
+            IndicadorMensal.ano == body.ano,
+            IndicadorMensal.mes == body.mes,
+            IndicadorMensal.tipo == body.tipo,
+        ).first()
+        if existing:
+            existing.valor = body.valor
+            existing.nome  = body.nome
+        else:
+            db.add(IndicadorMensal(ano=body.ano, mes=body.mes,
+                                   tipo=body.tipo, nome=body.nome, valor=body.valor))
+        db.commit()
+    return {"ok": True}
+
+@app.delete("/api/financas/indicadores/{id}")
+def delete_indicador(id: int):
+    with get_db() as db:
+        db.query(IndicadorMensal).filter(IndicadorMensal.id == id).delete()
+        db.commit()
+    return {"ok": True}
