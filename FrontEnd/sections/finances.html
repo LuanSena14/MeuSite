@@ -97,16 +97,19 @@
   <div class="fin-panel" id="fin-panel-orcamento">
     <div class="fin-toolbar">
       <div class="fin-filters">
-        <select id="fin-orc-filter-tipo" class="ex-filter-input" onchange="renderOrcamento()">
-          <option value="">Todos</option>
-          <option value="receita">Receitas</option>
-          <option value="despesa">Despesas</option>
-        </select>
         <input type="month" id="fin-orc-filter-mes" class="ex-filter-input" oninput="renderOrcamento()">
       </div>
-      <button class="btn-add" onclick="openFinModal('orcamento')">+ Novo</button>
+      <button class="btn-add" onclick="openFinModal('orcamento')">+ Novo orçamento</button>
     </div>
-    <div id="fin-orc-list"></div>
+
+    <!-- Painel recorrente: resumo + colunas por dono -->
+    <div id="fin-rec-panel"></div>
+
+    <!-- Detalhes: acordeão completo -->
+    <details class="fin-orc-details">
+      <summary>Detalhes do orçamento</summary>
+      <div id="fin-orc-list"></div>
+    </details>
   </div>
 
   <!-- ── ABA: INVESTIMENTOS ────────────────────────────────────────────────── -->

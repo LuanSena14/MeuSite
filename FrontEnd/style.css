@@ -1748,6 +1748,7 @@ tbody td:first-child { color: var(--text); }
 }
 .fin-orc-group-body {
   padding: 4px 0 4px 20px;
+
 }
 .fin-orc-child {
   margin-bottom: 10px;
@@ -1856,3 +1857,167 @@ tbody td:first-child { color: var(--text); }
 .fin-plan-done    { color: var(--accent);   font-size: .9rem; }
 .fin-plan-future  { color: var(--text-muted); font-size: .85rem; }
 .fin-plan-pending { color: var(--danger);   font-size: .9rem; font-weight: 700; }
+/* -- PAINEL RECORRENTE (orçamento spreadsheet) ---------------------------- */
+.fin-orc-details {
+  margin-top: 24px;
+  border: 1px solid var(--surface-3);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.fin-orc-details summary {
+  padding: 10px 16px;
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  background: var(--surface-2);
+}
+.fin-orc-details[open] summary {
+  border-bottom: 1px solid var(--surface-3);
+}
+
+.fin-rec-layout {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 4px 0 16px;
+}
+
+/* -- Resumo (esquerda) -- */
+.fin-rec-summary {
+  flex: 0 0 260px;
+  background: var(--surface-2);
+  border: 1px solid var(--surface-3);
+  border-radius: 10px;
+  padding: 16px;
+}
+.fin-rec-month {
+  font-size: .95rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 12px;
+  text-transform: capitalize;
+}
+.fin-rec-sum-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .8rem;
+}
+.fin-rec-sum-table th {
+  color: var(--text-muted);
+  font-weight: 600;
+  text-align: right;
+  padding: 2px 4px;
+}
+.fin-rec-sum-table th:first-child { text-align: left; }
+.fin-rec-sum-table td {
+  padding: 3px 4px;
+  color: var(--text);
+  text-align: right;
+}
+.fin-rec-sum-table td:first-child { text-align: left; }
+.fin-rec-sum-section td {
+  color: var(--text-muted);
+  font-size: .72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  padding-top: 10px;
+}
+.fin-rec-sum-saldo td {
+  padding-top: 8px;
+  border-top: 1px solid var(--surface-3);
+  font-weight: 700;
+  font-size: .87rem;
+}
+.fin-rec-sum-credito td {
+  padding-top: 4px;
+  color: #7c9eff;
+  font-size: .8rem;
+}
+
+/* -- Colunas por dono (direita) -- */
+.fin-rec-donos {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  overflow-x: auto;
+}
+.fin-rec-dono-col {
+  flex: 1;
+  min-width: 200px;
+  background: var(--surface-2);
+  border: 1px solid var(--surface-3);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.fin-rec-dono-hd {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px 6px;
+  background: var(--surface-3);
+}
+.fin-rec-dono-name {
+  font-size: .9rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.fin-rec-dono-totals {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  font-size: .78rem;
+}
+.fin-rec-dono-totals span:first-child { color: var(--text-muted); }
+.fin-rec-dono-bar-bg {
+  height: 4px;
+  background: var(--surface-3);
+}
+.fin-rec-dono-bar-fill {
+  height: 4px;
+  background: var(--accent);
+  transition: width .3s ease;
+}
+.fin-rec-dono-bar-fill.fin-over-bg { background: var(--danger); }
+.fin-rec-cat-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .8rem;
+  padding: 0 4px;
+}
+.fin-rec-cat-table thead th {
+  color: var(--text-muted);
+  font-size: .7rem;
+  font-weight: 600;
+  padding: 6px 10px 4px;
+  text-align: right;
+  border-bottom: 1px solid var(--surface-3);
+}
+.fin-rec-cat-table thead th:first-child { text-align: left; }
+.fin-rec-cat-table tbody tr:hover { background: var(--surface-3); }
+.fin-rec-cat-name {
+  padding: 5px 10px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 130px;
+}
+.fin-rec-val {
+  text-align: right;
+  padding: 5px 10px;
+  color: var(--text);
+}
+.fin-rec-pct {
+  text-align: right;
+  padding: 5px 10px;
+  font-size: .75rem;
+  color: var(--text-muted);
+}
+
+/* status colors shared with existing styles */
+.fin-over  { color: var(--danger) !important; }
+.fin-under { color: var(--accent) !important; }

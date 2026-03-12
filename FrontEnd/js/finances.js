@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// finances.js — Módulo de finanças
+// finances.js — Módulo de finanças  v27
 //
 // Entidades:
 //   codigos_financa      → árvore de categorias (pai/filho, tipo: receita|despesa|investimento)
@@ -557,9 +557,7 @@ async function deleteLancamentoFin(id) {
 // ── ORÇAMENTO ─────────────────────────────────────────────────────────────────
 
 function renderOrcamento() {
-  const tipoFilter = document.getElementById('fin-orc-filter-tipo')?.value || ''
-  const mesFilter  = document.getElementById('fin-orc-filter-mes')?.value  || ''
-
+  const mesFilter  = document.getElementById('fin-orc-filter-mes')?.value || ''
   let refAno, refMes
   if (mesFilter) {
     ;[refAno, refMes] = mesFilter.split('-').map(Number)
@@ -568,41 +566,165 @@ function renderOrcamento() {
     refAno = now.getFullYear(); refMes = now.getMonth() + 1
   }
 
-  let orc = _effectiveOrcamento(refAno, refMes)
-  if (tipoFilter) {
-    const ids = window.finCodigos.filter(c => c.tipo === tipoFilter).map(c => c.id)
-    orc = orc.filter(o => ids.includes(o.cd_financa))
-  }
+  const mesStr   = `${refAno}-${String(refMes).padStart(2, '0')}`
+  const mesLabel = new Date(refAno, refMes - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 
-  const mesStr = `${refAno}-${String(refMes).padStart(2, '0')}`
   const realizado = {}
   window.finLancamentos
     .filter(l => l.data.startsWith(mesStr))
     .forEach(l => { realizado[l.cd_financa] = (realizado[l.cd_financa] || 0) + Number(l.valor) })
 
-  const container = document.getElementById('fin-orc-list')
-  if (!container) return
+  _renderRecorrentePanel(refAno, refMes, mesLabel, realizado)
 
-  if (orc.length === 0) {
-    container.innerHTML = '<p style="color:var(--text-muted);font-size:.85rem;text-align:center;padding:40px 0">Nenhum orçamento para o período.</p>'
-    return
-  }
-
-  const mensais   = orc.filter(o => o.mes !== null)
-  const anuais    = orc.filter(o => o.mes === null)
-  const mesLabel  = new Date(refAno, refMes - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
-
+  // Painel de detalhes (acorde\u00e3o completo)
+  const orc = _effectiveOrcamento(refAno, refMes)
+  const mensais = orc.filter(o => o.mes !== null)
+  const anuais  = orc.filter(o => o.mes === null)
+  const detEl  = document.getElementById('fin-orc-list')
+  if (!detEl) return
   let html = ''
   if (mensais.length > 0) {
-    html += `<div class="fin-orc-section-label">Vigente — ${mesLabel}</div>`
+    html += `<div class="fin-orc-section-label">Vigente \u2014 ${mesLabel}</div>`
     html += _buildOrcGroupHtml(_buildOrcTree(mensais, realizado), true, 'tab-m')
   }
   if (anuais.length > 0) {
     html += `<div class="fin-orc-section-label" style="margin-top:20px">Base anual</div>`
     html += _buildOrcGroupHtml(_buildOrcTree(anuais, realizado), true, 'tab-a')
   }
-  container.innerHTML = html
+  if (!html) html = '<p style="color:var(--text-muted);font-size:.85rem;text-align:center;padding:40px 0">Nenhum or\u00e7amento para o per\u00edodo.</p>'
+  detEl.innerHTML = html
 }
+
+// ── PAINEL RECORRENTE ─────────────────────────────────────────────────────────
+
+function _getDescendantIds(id) {
+  const filhos = window.finCodigos.filter(c => c.cd_pai === id).map(c => c.id)
+  return filhos.reduce((acc, fid) => acc.concat(fid, _getDescendantIds(fid)), [])
+}
+
+function _renderRecorrentePanel(ano, mes, mesLabel, realizadoMap) {
+  const container = document.getElementById('fin-rec-panel')
+  if (!container) return
+
+  const orc = _effectiveOrcamento(ano, mes)
+
+  // ── summary ────────────────────────────────────────────────────────────────
+  // IDs de todas as categorias recorrentes (id=6) e pontuais (id=8)
+  const recIds    = _getDescendantIds(6)
+  const pontIds   = _getDescendantIds(8)
+  const recEntIds = _getDescendantIds(4).concat(_getDescendantIds(5))  // Salario + Bonus
+
+  const sumOrc  = (ids) => orc.filter(o => ids.includes(o.cd_financa) && o.mes !== null).reduce((s, o) => s + Number(o.valor_orcado), 0)
+  const sumReal = (ids) => Object.entries(realizadoMap).filter(([id]) => ids.includes(Number(id))).reduce((s, [, v]) => s + v, 0)
+
+  const prevEntradas = sumOrc(recEntIds)
+  const realEntradas = sumReal(recEntIds)
+  const prevRec      = sumOrc(recIds)
+  const realRec      = sumReal(recIds)
+  const prevPont     = sumOrc(pontIds)
+  const realPont     = sumReal(pontIds)
+  const prevSaldo    = prevEntradas - prevRec - prevPont
+  const realSaldo    = realEntradas - realRec - realPont
+  const totalCredito = window.finLancamentos
+    .filter(l => l.data.startsWith(`${ano}-${String(mes).padStart(2,'0')}`) && l.forma_pagamento === 'credito')
+    .reduce((s, l) => s + Number(l.valor), 0)
+
+  const _pct = (real, prev) => prev > 0 ? ((real / prev) * 100).toFixed(0) + '%' : '\u2014'
+  const _cls = (real, prev, invert = false) => {
+    if (prev === 0 && real === 0) return ''
+    const over = real > prev
+    return (invert ? !over : over) ? 'fin-over' : 'fin-under'
+  }
+
+  const summaryHtml = `
+    <div class="fin-rec-summary">
+      <div class="fin-rec-month">${mesLabel}</div>
+      <table class="fin-rec-sum-table">
+        <thead><tr><th></th><th>Previsto</th><th>Real</th><th>%</th></tr></thead>
+        <tbody>
+          <tr class="fin-rec-sum-section"><td colspan="4">Entradas</td></tr>
+          <tr><td>Sal\u00e1rio / Bonus</td>
+            <td>${_fmtBRL(prevEntradas)}</td>
+            <td class="${_cls(realEntradas, prevEntradas, true)}">${_fmtBRL(realEntradas)}</td>
+            <td>${_pct(realEntradas, prevEntradas)}</td></tr>
+          <tr class="fin-rec-sum-section"><td colspan="4">Gastos</td></tr>
+          <tr><td>Recorrente</td>
+            <td>${_fmtBRL(prevRec)}</td>
+            <td class="${_cls(realRec, prevRec)}">${_fmtBRL(realRec)}</td>
+            <td>${_pct(realRec, prevRec)}</td></tr>
+          <tr><td>Pontual</td>
+            <td>${prevPont > 0 ? _fmtBRL(prevPont) : '\u2014'}</td>
+            <td class="${_cls(realPont, prevPont)}">${realPont > 0 ? _fmtBRL(realPont) : '\u2014'}</td>
+            <td>${_pct(realPont, prevPont)}</td></tr>
+          <tr class="fin-rec-sum-saldo"><td>Saldo</td>
+            <td style="color:${prevSaldo >= 0 ? 'var(--accent)' : 'var(--danger)'}">${_fmtBRL(prevSaldo)}</td>
+            <td style="color:${realSaldo >= 0 ? 'var(--accent)' : 'var(--danger)'}">${_fmtBRL(realSaldo)}</td>
+            <td></td></tr>
+          <tr class="fin-rec-sum-credito"><td>Cart\u00e3o cr\u00e9dito</td>
+            <td>\u2014</td>
+            <td style="color:#7c9eff">${_fmtBRL(totalCredito)}</td>
+            <td></td></tr>
+        </tbody>
+      </table>
+    </div>`
+
+  // ── colunas por dono ───────────────────────────────────────────────────────
+  // Donos = filhos diretos de Recorrente (id=6) que s\u00e3o n\u00f3s intermedi\u00e1rios
+  const donoNodes = window.finCodigos
+    .filter(c => c.cd_pai === 6 && window.finCodigos.some(f => f.cd_pai === c.id))
+    .sort((a, b) => a.nome.localeCompare(b.nome))
+
+  const donoColsHtml = donoNodes.map(dono => {
+    const descIds = _getDescendantIds(dono.id)
+    // Folhas que t\u00eam or\u00e7amento vigente
+    const orcDono = orc.filter(o => descIds.includes(o.cd_financa) && o.mes !== null)
+    if (orcDono.length === 0) return ''
+
+    const totalPrev = orcDono.reduce((s, o) => s + Number(o.valor_orcado), 0)
+    const totalReal = orcDono.reduce((s, o) => s + (realizadoMap[o.cd_financa] || 0), 0)
+    const totalOver = totalReal > totalPrev
+
+    const rows = orcDono.map(o => {
+      const prev = Number(o.valor_orcado)
+      const real = realizadoMap[o.cd_financa] || 0
+      const over = real > prev
+      const diff = real - prev
+      const pct  = prev > 0 ? ((real / prev) * 100).toFixed(0) : '\u2014'
+      const diffCls = diff === 0 ? '' : (over ? 'fin-over' : 'fin-under')
+      return `<tr>
+        <td class="fin-rec-cat-name">${_finNome(o.cd_financa)}</td>
+        <td class="fin-rec-val">${_fmtBRL(prev)}</td>
+        <td class="fin-rec-val ${over ? 'fin-over' : (real > 0 ? 'fin-under' : '')}">${_fmtBRL(real)}</td>
+        <td class="fin-rec-pct ${diffCls}">${pct}%</td>
+      </tr>`
+    }).join('')
+
+    return `<div class="fin-rec-dono-col">
+      <div class="fin-rec-dono-hd">
+        <span class="fin-rec-dono-name">${dono.nome}</span>
+        <div class="fin-rec-dono-totals">
+          <span>${_fmtBRL(totalPrev)}</span>
+          <span class="${totalOver ? 'fin-over' : 'fin-under'}">${_fmtBRL(totalReal)}</span>
+        </div>
+      </div>
+      <div class="fin-rec-dono-bar-bg">
+        <div class="fin-rec-dono-bar-fill ${totalOver ? 'fin-over-bg' : ''}"
+             style="width:${Math.min((totalReal/totalPrev)*100,100)}%"></div>
+      </div>
+      <table class="fin-rec-cat-table">
+        <thead><tr><th>Categoria</th><th>Prev.</th><th>Real</th><th>%</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`
+  }).join('')
+
+  container.innerHTML = `
+    <div class="fin-rec-layout">
+      ${summaryHtml}
+      <div class="fin-rec-donos">${donoColsHtml || '<p style="color:var(--text-muted);padding:20px">Sem dados recorrentes para o per\u00edodo.</p>'}</div>
+    </div>`
+}
+
 
 async function deleteOrcamentoFin(id) {
   await deleteOrcamento(id)
