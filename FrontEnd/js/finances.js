@@ -709,7 +709,9 @@ function renderPlanejamento() {
     entradas.length ? `<div class="fin-plan-section">Entradas</div>${_table(entradas)}` : '',
     saidas.length   ? `<div class="fin-plan-section" style="margin-top:20px">Saídas</div>${_table(saidas)}` : '',
   ].join('')
-}──────────────
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────────────────
 
 function openFinModal(type) {
   // Esconder todos os formulários
