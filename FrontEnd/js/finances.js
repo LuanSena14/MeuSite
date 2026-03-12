@@ -125,9 +125,9 @@ function _effectiveOrcamento(ano, mes) {
 function _findGrupoId(id) {
   const cod = window.finCodigos.find(c => c.id === id)
   if (!cod) return null
-  if (cod.cd_pai === null) return id
+  if (cod.cd_pai === null) return id            // nó raiz, retorna si mesmo
   const pai = window.finCodigos.find(c => c.id === cod.cd_pai)
-  if (!pai || pai.cd_pai === null) return cod.cd_pai
+  if (!pai || pai.cd_pai === null) return id    // pai é raiz → eu sou o grupo
   return _findGrupoId(cod.cd_pai)
 }
 
@@ -318,9 +318,11 @@ function _renderValidador(ano) {
 
   let prevEntradas = 0, prevSaidas = 0
   orcAno.forEach(o => {
-    const cod = window.finCodigos.find(c => c.id === o.cd_financa)
-    if (cod?.tipo === 'receita')  prevEntradas += Number(o.valor_orcado)
-    if (cod?.tipo === 'despesa') prevSaidas   += Number(o.valor_orcado)
+    const cod  = window.finCodigos.find(c => c.id === o.cd_financa)
+    // entrada anual (mes=null) representa valor mensal → multiplica por 12 para total do ano
+    const mult = (o.mes === null) ? 12 : 1
+    if (cod?.tipo === 'receita')  prevEntradas += Number(o.valor_orcado) * mult
+    if (cod?.tipo === 'despesa') prevSaidas   += Number(o.valor_orcado) * mult
   })
 
   const saldoReal = realEntradas - realSaidas
