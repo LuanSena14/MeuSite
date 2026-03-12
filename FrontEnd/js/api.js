@@ -75,7 +75,7 @@ async function fetchFinancasCodigos()   { return _apiFetch('/api/financas/codigo
 async function fetchLancamentos()       { return _apiFetch('/api/financas/lancamentos') }
 async function fetchOrcamento()         { return _apiFetch('/api/financas/orcamento') }
 async function fetchInvestimentos()     { return _apiFetch('/api/financas/investimentos') }
-async function fetchIndicadores()       { return _apiFetch('/api/financas/indicadores') }
+
 
 async function postFinancaCodigo(body) {
   return _apiFetch('/api/financas/codigos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -105,9 +105,3 @@ async function deleteInvestimento(id) {
   return _apiFetch(`/api/financas/investimentos/${id}`, { method: 'DELETE' })
 }
 
-async function postIndicador(body) {
-  return _apiFetch('/api/financas/indicadores', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-}
-async function deleteIndicador(id) {
-  return _apiFetch(`/api/financas/indicadores/${id}`, { method: 'DELETE' })
-}

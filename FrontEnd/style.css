@@ -2021,3 +2021,16 @@ tbody td:first-child { color: var(--text); }
 /* status colors shared with existing styles */
 .fin-over  { color: var(--danger) !important; }
 .fin-under { color: var(--accent) !important; }
+
+/* dono badge inside category rows */
+.fin-rec-dono-badge {
+  display: inline-block;
+  font-size: .65rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--surface-3);
+  color: var(--text-muted);
+  margin-left: 4px;
+  vertical-align: middle;
+}

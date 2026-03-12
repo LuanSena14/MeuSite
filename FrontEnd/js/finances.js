@@ -1,12 +1,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// finances.js — Módulo de finanças  v27
+// finances.js — Módulo de finanças  v28
 //
 // Entidades:
 //   codigos_financa      → árvore de categorias (pai/filho, tipo: receita|despesa|investimento)
 //   lancamentos_financ   → data, cd_financa, valor, descricao
 //   orcamentos_financ    → ano, mes, cd_financa, valor_orcado
-//   snapshots_investim   → data, cd_financa, saldo
-//   indicadores_mensal   → ano, mes, tipo, nome, valor
+//   snapshots_investim   → data, cd_financa, saldo (cobre investimentos E indicadores ≥78)
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── ESTADO ────────────────────────────────────────────────────────────────────
@@ -15,7 +14,6 @@ window.finCodigos      = []   // [{id, nome, tipo, cd_pai}]
 window.finLancamentos  = []   // [{id, data, cd_financa, valor, descricao}]
 window.finOrcamento    = []   // [{id, ano, mes, cd_financa, valor_orcado}]
 window.finInvestimentos = []  // [{id, data, cd_financa, saldo}]
-window.finIndicadores  = []   // [{id, ano, mes, tipo, nome, valor}]
 
 let _finActiveTab = 'overview'
 let _finChartsInstances = {}
@@ -23,19 +21,17 @@ let _finChartsInstances = {}
 // ── INICIALIZAÇÃO ─────────────────────────────────────────────────────────────
 
 async function initFinancesSection() {
-  const [codigos, lanc, orc, inv, ind] = await Promise.all([
+  const [codigos, lanc, orc, inv] = await Promise.all([
     fetchFinancasCodigos(),
     fetchLancamentos(),
     fetchOrcamento(),
     fetchInvestimentos(),
-    fetchIndicadores(),
   ])
 
   window.finCodigos       = codigos      || []
   window.finLancamentos   = lanc         || []
   window.finOrcamento     = orc          || []
   window.finInvestimentos = inv          || []
-  window.finIndicadores   = ind          || []
 
   _setDefaultFilters()
   switchFinTab(_finActiveTab)
@@ -67,7 +63,6 @@ function switchFinTab(tab) {
   if (tab === 'orcamento')     renderOrcamento()
   if (tab === 'investimentos') renderInvestimentos()
   if (tab === 'indicadores')   renderIndicadores()
-  if (tab === 'planejamento')  renderPlanejamento()
 }
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
@@ -668,29 +663,36 @@ function _renderRecorrentePanel(ano, mes, mesLabel, realizadoMap) {
       </table>
     </div>`
 
-  // ── colunas por dono ───────────────────────────────────────────────────────
-  // Donos = filhos diretos de Recorrente (id=6) que s\u00e3o n\u00f3s intermedi\u00e1rios
-  const donoNodes = window.finCodigos
-    .filter(c => c.cd_pai === 6 && window.finCodigos.some(f => f.cd_pai === c.id))
-    .sort((a, b) => a.nome.localeCompare(b.nome))
+  // ── colunas por tipo (filhos diretos de Recorrente=6) ───────────────────
+  // Após a migração: Recorrente → Obrigatória, Luxo
+  const typeOrder = ['Obrigatória', 'Luxo']
+  const typeNodes = window.finCodigos
+    .filter(c => c.cd_pai === 6)
+    .sort((a, b) => {
+      const ia = typeOrder.indexOf(a.nome), ib = typeOrder.indexOf(b.nome)
+      if (ia !== -1 && ib !== -1) return ia - ib
+      if (ia !== -1) return -1
+      if (ib !== -1) return 1
+      return a.nome.localeCompare(b.nome)
+    })
 
-  const donoColsHtml = donoNodes.map(dono => {
-    const descIds = _getDescendantIds(dono.id)
-    // Folhas que t\u00eam or\u00e7amento vigente
-    const orcDono = orc.filter(o => descIds.includes(o.cd_financa) && o.mes !== null)
-    if (orcDono.length === 0) return ''
+  const typeColsHtml = typeNodes.map(typeNode => {
+    const orcType = orc.filter(o =>
+      _getDescendantIds(typeNode.id).includes(o.cd_financa) && o.mes !== null
+    ).sort((a, b) => _finNome(a.cd_financa).localeCompare(_finNome(b.cd_financa)))
 
-    const totalPrev = orcDono.reduce((s, o) => s + Number(o.valor_orcado), 0)
-    const totalReal = orcDono.reduce((s, o) => s + (realizadoMap[o.cd_financa] || 0), 0)
+    if (orcType.length === 0) return ''
+
+    const totalPrev = orcType.reduce((s, o) => s + Number(o.valor_orcado), 0)
+    const totalReal = orcType.reduce((s, o) => s + (realizadoMap[o.cd_financa] || 0), 0)
     const totalOver = totalReal > totalPrev
 
-    const rows = orcDono.map(o => {
+    const rows = orcType.map(o => {
       const prev = Number(o.valor_orcado)
       const real = realizadoMap[o.cd_financa] || 0
       const over = real > prev
-      const diff = real - prev
       const pct  = prev > 0 ? ((real / prev) * 100).toFixed(0) : '\u2014'
-      const diffCls = diff === 0 ? '' : (over ? 'fin-over' : 'fin-under')
+      const diffCls = real === 0 ? '' : (over ? 'fin-over' : 'fin-under')
       return `<tr>
         <td class="fin-rec-cat-name">${_finNome(o.cd_financa)}</td>
         <td class="fin-rec-val">${_fmtBRL(prev)}</td>
@@ -701,7 +703,7 @@ function _renderRecorrentePanel(ano, mes, mesLabel, realizadoMap) {
 
     return `<div class="fin-rec-dono-col">
       <div class="fin-rec-dono-hd">
-        <span class="fin-rec-dono-name">${dono.nome}</span>
+        <span class="fin-rec-dono-name">${typeNode.nome}</span>
         <div class="fin-rec-dono-totals">
           <span>${_fmtBRL(totalPrev)}</span>
           <span class="${totalOver ? 'fin-over' : 'fin-under'}">${_fmtBRL(totalReal)}</span>
@@ -709,7 +711,7 @@ function _renderRecorrentePanel(ano, mes, mesLabel, realizadoMap) {
       </div>
       <div class="fin-rec-dono-bar-bg">
         <div class="fin-rec-dono-bar-fill ${totalOver ? 'fin-over-bg' : ''}"
-             style="width:${Math.min((totalReal/totalPrev)*100,100)}%"></div>
+             style="width:${totalPrev > 0 ? Math.min((totalReal/totalPrev)*100,100) : 0}%"></div>
       </div>
       <table class="fin-rec-cat-table">
         <thead><tr><th>Categoria</th><th>Prev.</th><th>Real</th><th>%</th></tr></thead>
@@ -721,7 +723,7 @@ function _renderRecorrentePanel(ano, mes, mesLabel, realizadoMap) {
   container.innerHTML = `
     <div class="fin-rec-layout">
       ${summaryHtml}
-      <div class="fin-rec-donos">${donoColsHtml || '<p style="color:var(--text-muted);padding:20px">Sem dados recorrentes para o per\u00edodo.</p>'}</div>
+      <div class="fin-rec-donos">${typeColsHtml || '<p style="color:var(--text-muted);padding:20px">Sem dados recorrentes para o per\u00edodo.</p>'}</div>
     </div>`
 }
 
@@ -828,125 +830,55 @@ async function deleteInvestimentoFin(id) {
 }
 
 // ── INDICADORES ───────────────────────────────────────────────────────────────
+// Mostra snapshots cujo cd_financa é descendente do nó 78 (indicadores não-financeiros)
 
 function renderIndicadores() {
-  // Coletar tipos únicos e meses únicos, ordenar
-  const allTipos = [...new Set(window.finIndicadores.map(i => i.tipo === 'custom' ? i.nome : i.tipo))]
-  const allMeses = [...new Set(window.finIndicadores.map(i => `${i.ano}-${String(i.mes).padStart(2,'0')}`))]
-    .sort().reverse().slice(0, 12)
+  const mesFilter = document.getElementById('fin-ind-filter-mes')?.value || ''
+  // Nó raiz dos indicadores = 78; inclui o próprio nó e todos os descendentes
+  const indicIds = [78, ..._getDescendantIds(78)]
+  let snaps = window.finInvestimentos.filter(s => indicIds.includes(s.cd_financa))
+  if (mesFilter) snaps = snaps.filter(s => s.data.startsWith(mesFilter))
 
-  const header = document.getElementById('fin-ind-header')
-  const tbody  = document.getElementById('fin-tbody-indicadores')
-  if (!header || !tbody) return
-
-  const _labelTipo = t => ({
-    livelo: 'Livelo (pts)', serasa: 'Serasa', credito_celular: 'Crédito cel.'
-  }[t] || t)
-
-  header.innerHTML = '<th>Mês</th>' + allTipos.map(t => `<th>${_labelTipo(t)}</th>`).join('')
-
-  const lookup = {}
-  window.finIndicadores.forEach(i => {
-    const chave = `${i.ano}-${String(i.mes).padStart(2,'0')}`
-    const tipo  = i.tipo === 'custom' ? i.nome : i.tipo
-    if (!lookup[chave]) lookup[chave] = {}
-    lookup[chave][tipo] = i.valor
-  })
-
-  tbody.innerHTML = allMeses.map(mk => {
-    const [y, m] = mk.split('-')
-    const label  = new Date(Number(y), Number(m) - 1, 1)
-      .toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
-    const cells  = allTipos.map(t => {
-      const v = lookup[mk]?.[t]
-      return `<td>${v !== undefined ? Number(v).toLocaleString('pt-BR') : '—'}</td>`
-    })
-    return `<tr><td>${label}</td>${cells.join('')}</tr>`
-  }).join('')
-}
-
-async function deleteIndicadorFin(id) {
-  await deleteIndicador(id)
-  window.finIndicadores = window.finIndicadores.filter(i => i.id !== id)
-  renderIndicadores()
-  _showFinToast('Indicador removido')
-}
-
-// ── PLANEJAMENTO ANUAL ────────────────────────────────────────────────────
-
-function renderPlanejamento() {
-  const now   = new Date()
-  const anoEl = document.getElementById('fin-plan-ano')
-
-  // Popular seletor de ano na primeira carga
-  if (anoEl && !anoEl.options.length) {
-    const anoAtual = now.getFullYear()
-    for (let a = anoAtual - 1; a <= anoAtual + 1; a++) {
-      const opt = new Option(a, a, a === anoAtual, a === anoAtual)
-      anoEl.options.add(opt)
-    }
-  }
-
-  const ano       = Number(anoEl?.value || now.getFullYear())
-  const tipoFilt  = document.getElementById('fin-plan-tipo')?.value || ''
-  const container = document.getElementById('fin-plan-content')
+  const container = document.getElementById('fin-ind-content')
   if (!container) return
 
-  const orcAno = window.finOrcamento
-    .filter(o => o.ano === ano)
-    .sort((a, b) => (a.mes || 0) - (b.mes || 0))
-
-  // Realizado: cd_financa + mes → total
-  const realizado = {}
-  window.finLancamentos
-    .filter(l => l.data.startsWith(String(ano)))
-    .forEach(l => {
-      const d   = new Date(l.data + 'T00:00:00')
-      const key = `${l.cd_financa}_${d.getMonth() + 1}`
-      realizado[key] = (realizado[key] || 0) + Number(l.valor)
-    })
-
-  const _tipoOf = o => window.finCodigos.find(c => c.id === o.cd_financa)?.tipo
-
-  const entradas = orcAno.filter(o => !tipoFilt ? _tipoOf(o) === 'receita' : tipoFilt === 'receita' && _tipoOf(o) === 'receita')
-  const saidas   = orcAno.filter(o => !tipoFilt ? _tipoOf(o) === 'despesa' : tipoFilt === 'despesa' && _tipoOf(o) === 'despesa')
-
-  const _row = o => {
-    const cod      = window.finCodigos.find(c => c.id === o.cd_financa)
-    const key      = `${o.cd_financa}_${o.mes}`
-    const real     = realizado[key] || 0
-    const prev     = Number(o.valor_orcado)
-    const mesLabel = o.mes ? new Date(ano, o.mes - 1, 1).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }) : '—'
-    const isFuture = o.mes && (ano > now.getFullYear() || (ano === now.getFullYear() && o.mes > now.getMonth() + 1))
-    const isDone   = real > 0
-    const stCls    = isDone ? 'fin-plan-done' : (isFuture ? 'fin-plan-future' : 'fin-plan-pending')
-    const stIcon   = isDone ? '✓' : (isFuture ? '○' : '!')
-    const valCls   = isDone ? (cod?.tipo === 'receita' ? 'fin-receita' : 'fin-despesa') : ''
-    return `<tr>
-      <td>${cod?.nome || '—'}</td>
-      <td>${mesLabel}</td>
-      <td class="fin-col-valor">${prev > 0 ? _fmtBRL(prev) : '—'}</td>
-      <td class="fin-col-valor ${valCls}">${real > 0 ? _fmtBRL(real) : '—'}</td>
-      <td class="${stCls}">${stIcon}</td>
-      <td><button class="fin-del-btn" onclick="deleteOrcamentoFin(${o.id})">✕</button></td>
-    </tr>`
-  }
-
-  const _table = rows => `<div class="fin-table-wrap">
-    <table class="fin-table">
-      <thead><tr><th>Categoria</th><th>Mês</th><th>Previsto</th><th>Realizado</th><th></th><th></th></tr></thead>
-      <tbody>${rows.map(_row).join('')}</tbody>
-    </table></div>`
-
-  if (!entradas.length && !saidas.length) {
-    container.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:40px 0">Nenhum planejamento para este ano. Use <b>+ Planejar</b> para adicionar um orçamento com mês específico.</p>'
+  if (snaps.length === 0) {
+    container.innerHTML = '<p style="color:var(--text-muted);font-size:.85rem;text-align:center;padding:40px 0">Nenhum indicador registrado' + (mesFilter ? ' para o período.' : '.') + '</p>'
     return
   }
 
-  container.innerHTML = [
-    entradas.length ? `<div class="fin-plan-section">Entradas</div>${_table(entradas)}` : '',
-    saidas.length   ? `<div class="fin-plan-section" style="margin-top:20px">Saídas</div>${_table(saidas)}` : '',
-  ].join('')
+  // Pivot: linhas = meses, colunas = categorias
+  const allMes = [...new Set(snaps.map(s => s.data.slice(0,7)))].sort().reverse().slice(0, 18)
+  const allCats = [...new Map(snaps.map(s => [s.cd_financa, s.nome])).entries()]
+    .sort((a, b) => a[1].localeCompare(b[1]))
+    .map(([id, nome]) => ({ id, nome }))
+
+  const lookup = {}
+  snaps.forEach(s => {
+    const mk = s.data.slice(0,7)
+    if (!lookup[mk]) lookup[mk] = {}
+    // Usa o valor mais recente do mês (último snapshot)
+    if (!lookup[mk][s.cd_financa] || s.data > lookup[mk][s.cd_financa].data)
+      lookup[mk][s.cd_financa] = s
+  })
+
+  const header = '<tr><th>Mês</th>' + allCats.map(c => `<th>${c.nome}</th>`).join('') + '</tr>'
+  const rows = allMes.map(mk => {
+    const [y, m] = mk.split('-')
+    const label = new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
+    const cells = allCats.map(c => {
+      const s = lookup[mk]?.[c.id]
+      return `<td>${s !== undefined ? Number(s.saldo).toLocaleString('pt-BR') : '—'}</td>`
+    })
+    return `<tr><td>${label}</td>${cells.join('')}</tr>`
+  }).join('')
+
+  container.innerHTML = `<div class="fin-table-wrap">
+    <table class="fin-table">
+      <thead>${header}</thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`
 }
 
 // ── MODAL ─────────────────────────────────────────────────────────────────────

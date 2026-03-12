@@ -149,13 +149,3 @@ class SnapshotInvestimento(Base):
     categoria = relationship("CodigoFinanca")
 
 
-class IndicadorMensal(Base):
-    """Indicadores não financeiros: Livelo, crédito, Serasa, etc."""
-    __tablename__ = "indicador_mensal"
-
-    id      = Column(Integer, primary_key=True, autoincrement=True)
-    ano     = Column(Integer, nullable=False)
-    mes     = Column(Integer, nullable=False)
-    tipo    = Column(String,  nullable=False)   # livelo | serasa | credito_celular | custom
-    nome    = Column(String,  nullable=True)    # label customizado
-    valor   = Column(Float,   nullable=False)

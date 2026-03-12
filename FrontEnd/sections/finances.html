@@ -15,7 +15,6 @@
     <button class="fin-tab"        data-tab="orcamento"     onclick="switchFinTab('orcamento')">Orçamento</button>
     <button class="fin-tab"        data-tab="investimentos" onclick="switchFinTab('investimentos')">Investimentos</button>
     <button class="fin-tab"        data-tab="indicadores"   onclick="switchFinTab('indicadores')">Indicadores</button>
-    <button class="fin-tab"        data-tab="planejamento"  onclick="switchFinTab('planejamento')">Planejamento</button>
   </div>
 
   <!-- ── ABA: OVERVIEW ─────────────────────────────────────────────────────── -->
@@ -128,31 +127,10 @@
   <!-- ── ABA: INDICADORES ──────────────────────────────────────────────────── -->
   <div class="fin-panel" id="fin-panel-indicadores">
     <div class="fin-toolbar">
-      <span></span>
-      <button class="btn-add" onclick="openFinModal('indicador')">+ Registrar</button>
+      <input type="month" id="fin-ind-filter-mes" class="ex-filter-input" oninput="renderIndicadores()">
+      <button class="btn-add" onclick="openFinModal('investimento')">+ Registrar</button>
     </div>
-    <div class="fin-table-wrap">
-      <table class="fin-table">
-        <thead><tr id="fin-ind-header"></tr></thead>
-        <tbody id="fin-tbody-indicadores"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- ── ABA: PLANEJAMENTO ───────────────────────────────────────────────── -->
-  <div class="fin-panel" id="fin-panel-planejamento">
-    <div class="fin-toolbar">
-      <div class="fin-filters">
-        <select id="fin-plan-ano" class="ex-filter-input" onchange="renderPlanejamento()"></select>
-        <select id="fin-plan-tipo" class="ex-filter-input" onchange="renderPlanejamento()">
-          <option value="">Entradas + Saídas</option>
-          <option value="receita">Só Entradas</option>
-          <option value="despesa">Só Saídas</option>
-        </select>
-      </div>
-      <button class="btn-add" onclick="openFinModal('orcamento')">+ Planejar</button>
-    </div>
-    <div id="fin-plan-content"></div>
+    <div id="fin-ind-content"></div>
   </div>
 
 </div>

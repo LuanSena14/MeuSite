@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 from database import Session, engine
-from models import Base, Checkin, CodigoMedida, UnidadeMedida, CodigoExercicio, EntradaExercicio, CodigoGoal, EntradaGoal, Meta, CodigoFinanca, LancamentoFinanceiro, OrcamentoFinanceiro, SnapshotInvestimento, IndicadorMensal
+from models import Base, Checkin, CodigoMedida, UnidadeMedida, CodigoExercicio, EntradaExercicio, CodigoGoal, EntradaGoal, Meta, CodigoFinanca, LancamentoFinanceiro, OrcamentoFinanceiro, SnapshotInvestimento
 import datetime
 
 app = FastAPI()
@@ -364,14 +364,6 @@ class SnapshotInvestimentoInput(BaseModel):
     cd_financa: int
     saldo:      float
 
-class IndicadorInput(BaseModel):
-    ano:   int
-    mes:   int
-    tipo:  str
-    nome:  Optional[str] = None
-    valor: float
-
-
 # ── helper: deriva tipo subindo até o nó raiz ────────────────────────────────
 def _derive_tipo(c_id: int, lookup: dict) -> str:
     """Sobe a árvore até o nó raiz (cd_pai=NULL) e devolve o nome em minúsculas."""
@@ -529,34 +521,3 @@ def delete_investimento(id: int):
     return {"ok": True}
 
 
-# Indicadores
-@app.get("/api/financas/indicadores")
-def get_indicadores():
-    with get_db() as db:
-        rows = db.query(IndicadorMensal).order_by(IndicadorMensal.ano, IndicadorMensal.mes).all()
-        return [{"id": r.id, "ano": r.ano, "mes": r.mes,
-                 "tipo": r.tipo, "nome": r.nome, "valor": r.valor} for r in rows]
-
-@app.post("/api/financas/indicadores")
-def post_indicador(body: IndicadorInput):
-    with get_db() as db:
-        existing = db.query(IndicadorMensal).filter(
-            IndicadorMensal.ano == body.ano,
-            IndicadorMensal.mes == body.mes,
-            IndicadorMensal.tipo == body.tipo,
-        ).first()
-        if existing:
-            existing.valor = body.valor
-            existing.nome  = body.nome
-        else:
-            db.add(IndicadorMensal(ano=body.ano, mes=body.mes,
-                                   tipo=body.tipo, nome=body.nome, valor=body.valor))
-        db.commit()
-    return {"ok": True}
-
-@app.delete("/api/financas/indicadores/{id}")
-def delete_indicador(id: int):
-    with get_db() as db:
-        db.query(IndicadorMensal).filter(IndicadorMensal.id == id).delete()
-        db.commit()
-    return {"ok": True}
