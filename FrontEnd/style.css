@@ -1694,6 +1694,27 @@ tbody td:first-child { color: var(--text); }
 .fin-orc-tipo--despesa      .fin-orc-tipo-name { color: var(--danger); }
 .fin-orc-tipo--investimento .fin-orc-tipo-name { color: #7eb8f7; }
 .fin-orc-tipo .fin-orc-group-body { padding-left: 8px; }
+.fin-orc-subgroup {
+  margin-bottom: 6px;
+}
+.fin-orc-subgroup-hd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface) 50%, var(--bg) 50%);
+  user-select: none;
+  margin-bottom: 3px;
+}
+.fin-orc-subgroup-hd:hover { background: color-mix(in srgb, var(--surface) 90%, var(--accent) 10%); }
+.fin-orc-subgroup-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  flex: 1;
+  color: var(--text-muted);
+}
 .fin-orc-group {
   margin-bottom: 8px;
 }

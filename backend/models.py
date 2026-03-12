@@ -100,7 +100,6 @@ class CodigoFinanca(Base):
     id        = Column(Integer, primary_key=True, autoincrement=True)
     nome      = Column(String, nullable=False)
     cd_pai    = Column(Integer, ForeignKey("codigo_financa.id"), nullable=True)
-    dono      = Column(String, nullable=True)           # Couple | Luan | Lele
 
     filhos = relationship(
         "CodigoFinanca",

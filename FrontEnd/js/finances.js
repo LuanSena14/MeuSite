@@ -94,14 +94,6 @@ function _finPagBadge(p) {
   return '<span style="color:var(--text-muted);font-size:.74rem">Débito</span>'
 }
 
-// Retorna badge de dono da categoria
-function _donoBadge(d) {
-  const map = { couple: ['#7c9eff','Couple'], mine: ['#4ecca3','Mine'], baby: ['#ff9f47','Baby'] }
-  const entry = map[d]
-  if (!entry) return ''
-  return `<span style="background:${entry[0]}22;color:${entry[0]};font-size:.65rem;font-weight:600;padding:1px 6px;border-radius:3px;letter-spacing:.03em;vertical-align:middle;white-space:nowrap">${entry[1]}</span>`
-}
-
 // Retorna o orçamento vigente por categoria para um dado (ano, mes)
 // Lógica de vigência: entry é válida se sua data <= (ano, mes)
 // Para cada cd_financa retorna o registro mais recente dentro desse limite
@@ -131,45 +123,53 @@ function _findGrupoId(id) {
   return _findGrupoId(cod.cd_pai)
 }
 
-// Agrupa lista de itens de orçamento por grupo, calculando totais
+// Agrupa lista de itens de orçamento por grupo, calculando totais e sub-grupos intermediários
 function _groupOrcByGrupo(orcItems, realizadoMap) {
   const grupos = {}
   orcItems.forEach(o => {
     const gid  = _findGrupoId(o.cd_financa) || o.cd_financa
     const nome = _finNome(gid)
-    if (!grupos[gid]) grupos[gid] = { id: gid, nome, items: [], totalOrc: 0, totalReal: 0 }
+    if (!grupos[gid]) grupos[gid] = { id: gid, nome, subGrupos: {}, items: [], totalOrc: 0, totalReal: 0 }
+
+    const cod            = window.finCodigos.find(c => c.id === o.cd_financa)
+    const directParentId = cod?.cd_pai
     const orcado = Number(o.valor_orcado)
     const real   = realizadoMap[o.cd_financa] || 0
-    grupos[gid].items.push({ ...o, orcado, real })
+
+    if (directParentId && directParentId !== gid) {
+      // há nível intermediário (dono, Subscription, etc.)
+      const sg = grupos[gid].subGrupos
+      if (!sg[directParentId]) sg[directParentId] = { id: directParentId, nome: _finNome(directParentId), items: [], totalOrc: 0, totalReal: 0 }
+      sg[directParentId].items.push({ ...o, orcado, real })
+      sg[directParentId].totalOrc  += orcado
+      sg[directParentId].totalReal += real
+    } else {
+      grupos[gid].items.push({ ...o, orcado, real })
+    }
     grupos[gid].totalOrc  += orcado
     grupos[gid].totalReal += real
   })
   return Object.values(grupos).sort((a, b) => a.nome.localeCompare(b.nome))
 }
 
-// Agrupa por tipo (receita/despesa/investimento), depois por grupo dentro de cada tipo
+// Agrupa por tipo (receita/despesa/investimento), reutilizando _groupOrcByGrupo
 function _groupOrcByTipoAndGrupo(orcItems, realizadoMap) {
-  const tipos = {}
   const tipoOrder = ['receita', 'despesa', 'investimento']
+  const tipoItems = {}
   orcItems.forEach(o => {
-    const cod  = window.finCodigos.find(c => c.id === o.cd_financa)
-    const tipo = cod?.tipo || 'outros'
-    const gid  = _findGrupoId(o.cd_financa) || o.cd_financa
-    const gnome = _finNome(gid)
-    if (!tipos[tipo]) tipos[tipo] = { key: tipo, nome: tipo.charAt(0).toUpperCase() + tipo.slice(1), grupos: {}, totalOrc: 0, totalReal: 0 }
-    const t = tipos[tipo]
-    if (!t.grupos[gid]) t.grupos[gid] = { id: gid, nome: gnome, items: [], totalOrc: 0, totalReal: 0 }
-    const orcado = Number(o.valor_orcado)
-    const real   = realizadoMap[o.cd_financa] || 0
-    t.grupos[gid].items.push({ ...o, orcado, real })
-    t.grupos[gid].totalOrc  += orcado
-    t.grupos[gid].totalReal += real
-    t.totalOrc  += orcado
-    t.totalReal += real
+    const tipo = window.finCodigos.find(c => c.id === o.cd_financa)?.tipo || 'outros'
+    if (!tipoItems[tipo]) tipoItems[tipo] = []
+    tipoItems[tipo].push(o)
   })
   return tipoOrder
-    .filter(tp => tipos[tp])
-    .map(tp => ({ ...tipos[tp], grupos: Object.values(tipos[tp].grupos).sort((a, b) => a.nome.localeCompare(b.nome)) }))
+    .filter(tp => tipoItems[tp])
+    .map(tp => {
+      const grupos    = _groupOrcByGrupo(tipoItems[tp], realizadoMap)
+      const totalOrc  = grupos.reduce((s, g) => s + g.totalOrc,  0)
+      const totalReal = grupos.reduce((s, g) => s + g.totalReal, 0)
+      const nome = tp.charAt(0).toUpperCase() + tp.slice(1)
+      return { key: tp, nome, grupos, totalOrc, totalReal }
+    })
 }
 
 // Renderiza tipos como acordeão com grupos aninhados dentro
@@ -197,6 +197,21 @@ function _buildOrcTipoHtml(tipoGroups, showDelete, uidPrefix) {
 }
 
 // Renderiza lista de grupos como acordeão; showDelete=true adiciona botão ✕
+function _renderOrcChild(o, showDelete) {
+  const p  = o.orcado > 0 ? Math.min((o.real / o.orcado) * 100, 100) : 0
+  const ov = o.real > o.orcado
+  const pl = o.orcado > 0 ? p.toFixed(0) + '%' : '—'
+  const del = showDelete ? `<button class="fin-del-btn" onclick="deleteOrcamentoFin(${o.id})">✕</button>` : ''
+  return `<div class="fin-orc-child">
+    <div class="fin-orc-ov-info">
+      <span class="fin-orc-child-name">${_finNome(o.cd_financa)}</span>
+      <span class="fin-orc-ov-vals ${ov ? 'over' : ''}"><b>${_fmtBRL(o.real)}</b> / ${_fmtBRL(o.orcado)} <em>${pl}</em></span>
+      ${del}
+    </div>
+    <div class="fin-orc-bar-bg"><div class="fin-orc-bar-fill ${ov ? 'over' : ''}" style="width:${p}%"></div></div>
+  </div>`
+}
+
 function _buildOrcGroupHtml(grupos, showDelete, uidPrefix) {
   return grupos.map(g => {
     const pct  = g.totalOrc > 0 ? Math.min((g.totalReal / g.totalOrc) * 100, 100) : 0
@@ -204,20 +219,29 @@ function _buildOrcGroupHtml(grupos, showDelete, uidPrefix) {
     const uid  = uidPrefix + '-' + g.id
     const pctLbl = g.totalOrc > 0 ? ((g.totalReal / g.totalOrc) * 100).toFixed(0) + '%' : '—'
 
-    const children = g.items.map(o => {
-      const p   = o.orcado > 0 ? Math.min((o.real / o.orcado) * 100, 100) : 0
-      const ov  = o.real > o.orcado
-      const pl  = o.orcado > 0 ? p.toFixed(0) + '%' : '—'
-      const del = showDelete ? `<button class="fin-del-btn" onclick="deleteOrcamentoFin(${o.id})">✕</button>` : ''
-      return `<div class="fin-orc-child">
-        <div class="fin-orc-ov-info">
-          <span class="fin-orc-child-name">${_finNome(o.cd_financa)}</span>
-          <span class="fin-orc-ov-vals ${ov ? 'over' : ''}"><b>${_fmtBRL(o.real)}</b> / ${_fmtBRL(o.orcado)} <em>${pl}</em></span>
-          ${del}
+    const subGrupoList = Object.values(g.subGrupos || {}).sort((a, b) => a.nome.localeCompare(b.nome))
+    const subGruposHtml = subGrupoList.map(sg => {
+      const sgPct    = sg.totalOrc > 0 ? Math.min((sg.totalReal / sg.totalOrc) * 100, 100) : 0
+      const sgOver   = sg.totalReal > sg.totalOrc
+      const sgUid    = uidPrefix + '-sg-' + sg.id
+      const sgPctLbl = sg.totalOrc > 0 ? ((sg.totalReal / sg.totalOrc) * 100).toFixed(0) + '%' : '—'
+      return `<div class="fin-orc-subgroup">
+        <div class="fin-orc-subgroup-hd" onclick="toggleOrcGroup('${sgUid}')">
+          <span class="fin-orc-group-arrow" id="orc-arrow-${sgUid}">▶</span>
+          <span class="fin-orc-subgroup-name">${sg.nome}</span>
+          <span class="fin-orc-ov-vals ${sgOver ? 'over' : ''}">
+            <b>${_fmtBRL(sg.totalReal)}</b> / ${_fmtBRL(sg.totalOrc)} <em>${sgPctLbl}</em>
+          </span>
         </div>
-        <div class="fin-orc-bar-bg"><div class="fin-orc-bar-fill ${ov ? 'over' : ''}" style="width:${p}%"></div></div>
+        <div class="fin-orc-bar-bg fin-orc-group-bar">
+          <div class="fin-orc-bar-fill ${sgOver ? 'over' : ''}" style="width:${sgPct}%"></div>
+        </div>
+        <div class="fin-orc-group-body" id="orc-body-${sgUid}" style="display:none">
+          ${sg.items.map(o => _renderOrcChild(o, showDelete)).join('')}
+        </div>
       </div>`
     }).join('')
+    const directChildren = g.items.map(o => _renderOrcChild(o, showDelete)).join('')
 
     return `<div class="fin-orc-group">
       <div class="fin-orc-group-hd" onclick="toggleOrcGroup('${uid}')">
@@ -230,7 +254,7 @@ function _buildOrcGroupHtml(grupos, showDelete, uidPrefix) {
       <div class="fin-orc-bar-bg fin-orc-group-bar">
         <div class="fin-orc-bar-fill ${over ? 'over' : ''}" style="width:${pct}%"></div>
       </div>
-      <div class="fin-orc-group-body" id="orc-body-${uid}" style="display:none">${children}</div>
+      <div class="fin-orc-group-body" id="orc-body-${uid}" style="display:none">${subGruposHtml}${directChildren}</div>
     </div>`
   }).join('')
 }
@@ -487,14 +511,6 @@ function renderLancamentos() {
   if (mesFilter) {
     dados = dados.filter(l => l.data.startsWith(mesFilter))
   }
-  const donoFilter = document.getElementById('fin-filter-dono')?.value || ''
-  if (donoFilter) {
-    dados = dados.filter(l => {
-      const d = l.dono || window.finCodigos.find(c => c.id === l.cd_financa)?.dono
-      return d === donoFilter
-    })
-  }
-
   dados.sort((a, b) => b.data.localeCompare(a.data))
 
   const tbody = document.getElementById('fin-tbody-lancamentos')
@@ -507,7 +523,6 @@ function renderLancamentos() {
     return `<tr>
       <td>${_fmtDate(l.data)}</td>
       <td>${l.categoria_nome || _finNome(l.cd_financa)}</td>
-      <td>${_donoBadge(l.dono || window.finCodigos.find(c=>c.id===l.cd_financa)?.dono)}</td>
       <td class="${cls}">${tipo}</td>
       <td>${_finPagBadge(l.forma_pagamento)}</td>
       <td>${l.descricao || '—'}</td>
@@ -788,7 +803,7 @@ function renderPlanejamento() {
     const stIcon   = isDone ? '✓' : (isFuture ? '○' : '!')
     const valCls   = isDone ? (cod?.tipo === 'receita' ? 'fin-receita' : 'fin-despesa') : ''
     return `<tr>
-      <td>${cod?.nome || '—'} ${_donoBadge(cod?.dono)}</td>
+      <td>${cod?.nome || '—'}</td>
       <td>${mesLabel}</td>
       <td class="fin-col-valor">${prev > 0 ? _fmtBRL(prev) : '—'}</td>
       <td class="fin-col-valor ${valCls}">${real > 0 ? _fmtBRL(real) : '—'}</td>
@@ -988,11 +1003,10 @@ async function submitCategoria() {
   const tipo   = document.getElementById('fin-cat-tipo').value
   const paiEl  = document.getElementById('fin-cat-pai')
   const cd_pai = paiEl.value ? Number(paiEl.value) : null
-  const dono   = document.getElementById('fin-cat-dono')?.value || null
 
   if (!nome) { _showFinToastErro('Informe o nome da categoria.'); return }
 
-  const res = await postFinancaCodigo({ nome, tipo, cd_pai, dono: dono || null })
+  const res = await postFinancaCodigo({ nome, tipo, cd_pai })
   if (!res?.id) { _showFinToastErro('Erro ao salvar.'); return }
 
   closeFinModal()
