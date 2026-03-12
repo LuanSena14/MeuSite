@@ -258,7 +258,7 @@ function renderFinOverview() {
   _renderChartDespesas(despPorCat)
   _renderChartEvolucao()
   _renderOrcOverview(ano, mes)
-  _renderValidador(ano)
+  _renderValidador(ano, mes)
 }
 
 function _renderOrcOverview(ano, mes) {
@@ -284,45 +284,33 @@ function _renderOrcOverview(ano, mes) {
     .filter(l => l.data.startsWith(mesStr))
     .forEach(l => { realizado[l.cd_financa] = (realizado[l.cd_financa] || 0) + Number(l.valor) })
 
-  const mensais = orcVigente.filter(o => o.mes !== null)
-  const anuais  = orcVigente.filter(o => o.mes === null)
-  const mesLabel = new Date(ano, mes - 1, 1).toLocaleDateString('pt-BR', { month: 'long' })
-
-  let html = ''
-  if (mensais.length > 0) {
-    html += `<div class="fin-orc-section-label">Vigente — ${mesLabel}</div>`
-    html += _buildOrcGroupHtml(_groupOrcByGrupo(mensais, realizado), false, 'ov-m')
-  }
-  if (anuais.length > 0) {
-    html += `<div class="fin-orc-section-label" style="margin-top:18px">Base anual</div>`
-    html += _buildOrcGroupHtml(_groupOrcByGrupo(anuais, realizado), false, 'ov-a')
-  }
-  container.innerHTML = html
+  container.innerHTML = _buildOrcGroupHtml(_groupOrcByGrupo(orcVigente, realizado), false, 'ov')
 }
 
-function _renderValidador(ano) {
+function _renderValidador(ano, mes) {
   const container = document.getElementById('fin-validador')
   const label     = document.getElementById('fin-val-ano-label')
   if (!container) return
-  if (label) label.textContent = ano
 
-  const lancAno = window.finLancamentos.filter(l => l.data.startsWith(String(ano)))
-  const orcAno  = _effectiveOrcamento(ano, 12)   // vigente até dez do ano
+  const mesStr  = `${ano}-${String(mes).padStart(2, '0')}`
+  const mesNome = new Date(ano, mes - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  if (label) label.textContent = mesNome
+
+  const lancMes = window.finLancamentos.filter(l => l.data.startsWith(mesStr))
+  const orcMes  = _effectiveOrcamento(ano, mes)
 
   let realEntradas = 0, realSaidas = 0
-  lancAno.forEach(l => {
+  lancMes.forEach(l => {
     const cod = window.finCodigos.find(c => c.id === l.cd_financa)
     if (cod?.tipo === 'receita')  realEntradas += Number(l.valor)
     if (cod?.tipo === 'despesa') realSaidas   += Number(l.valor)
   })
 
   let prevEntradas = 0, prevSaidas = 0
-  orcAno.forEach(o => {
-    const cod  = window.finCodigos.find(c => c.id === o.cd_financa)
-    // entrada anual (mes=null) representa valor mensal → multiplica por 12 para total do ano
-    const mult = (o.mes === null) ? 12 : 1
-    if (cod?.tipo === 'receita')  prevEntradas += Number(o.valor_orcado) * mult
-    if (cod?.tipo === 'despesa') prevSaidas   += Number(o.valor_orcado) * mult
+  orcMes.forEach(o => {
+    const cod = window.finCodigos.find(c => c.id === o.cd_financa)
+    if (cod?.tipo === 'receita')  prevEntradas += Number(o.valor_orcado)
+    if (cod?.tipo === 'despesa') prevSaidas   += Number(o.valor_orcado)
   })
 
   const saldoReal = realEntradas - realSaidas
