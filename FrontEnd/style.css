@@ -1609,6 +1609,53 @@ tbody td:first-child { color: var(--text); }
 }
 .fin-orc-bar-fill.over { background: var(--danger); }
 
+/* Orçado × Realizado — Overview */
+.fin-orc-overview-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.fin-orc-ov-group {
+  margin-bottom: 18px;
+}
+.fin-orc-ov-tipo {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: .06em;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+.fin-orc-ov-row {
+  margin-bottom: 12px;
+}
+.fin-orc-ov-info {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+.fin-orc-ov-name {
+  font-size: 0.84rem;
+  font-weight: 500;
+}
+.fin-orc-ov-vals {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.fin-orc-ov-vals b   { color: var(--text); }
+.fin-orc-ov-vals em  { font-style: normal; color: var(--text-muted); font-size: .75rem; }
+.fin-orc-ov-vals.over b { color: var(--danger); }
+.fin-orc-bar-lg {
+  height: 10px;
+  border-radius: 6px;
+}
+
 /* INVESTIMENTOS */
 .fin-inv-cards {
   display: grid;

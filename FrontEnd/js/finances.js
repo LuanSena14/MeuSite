@@ -144,6 +144,69 @@ function renderFinOverview() {
 
   _renderChartDespesas(despPorCat)
   _renderChartEvolucao()
+  _renderOrcOverview(ano, mes)
+}
+
+function _renderOrcOverview(ano, mes) {
+  const container = document.getElementById('fin-orc-overview')
+  const label     = document.getElementById('fin-orc-mes-label')
+  if (!container) return
+
+  const mesStr = `${ano}-${String(mes).padStart(2, '0')}`
+  if (label) {
+    label.textContent = new Date(ano, mes - 1, 1)
+      .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  }
+
+  const orcMes = window.finOrcamento.filter(o => o.ano === ano && o.mes === mes)
+
+  if (orcMes.length === 0) {
+    container.innerHTML = '<p style="color:var(--text-muted);font-size:.82rem;padding:16px 0">Nenhum orçamento cadastrado para este mês.</p>'
+    return
+  }
+
+  // Realizado por categoria
+  const realizado = {}
+  window.finLancamentos
+    .filter(l => l.data.startsWith(mesStr))
+    .forEach(l => { realizado[l.cd_financa] = (realizado[l.cd_financa] || 0) + Number(l.valor) })
+
+  // Agrupar por tipo (despesa / receita)
+  const byTipo = {}
+  orcMes.forEach(o => {
+    const cod  = window.finCodigos.find(c => c.id === o.cd_financa)
+    const tipo = cod?.tipo || 'outro'
+    if (!byTipo[tipo]) byTipo[tipo] = []
+    byTipo[tipo].push(o)
+  })
+
+  const tipoLabel = { despesa: 'Despesas', receita: 'Receitas', investimento: 'Investimentos' }
+
+  container.innerHTML = Object.entries(byTipo).map(([tipo, itens]) => {
+    const rows = itens.map(o => {
+      const orcado = Number(o.valor_orcado)
+      const real   = realizado[o.cd_financa] || 0
+      const pct    = orcado > 0 ? (real / orcado) * 100 : 0
+      const over   = real > orcado
+      const pctClamp = Math.min(pct, 100)
+      const pctLabel = orcado > 0 ? pct.toFixed(0) + '%' : '—'
+
+      return `<div class="fin-orc-ov-row">
+        <div class="fin-orc-ov-info">
+          <span class="fin-orc-ov-name">${_finNome(o.cd_financa)}</span>
+          <span class="fin-orc-ov-vals ${over ? 'over' : ''}"><b>${_fmtBRL(real)}</b> / ${_fmtBRL(orcado)} <em>${pctLabel}</em></span>
+        </div>
+        <div class="fin-orc-bar-bg fin-orc-bar-lg">
+          <div class="fin-orc-bar-fill ${over ? 'over' : ''}" style="width:${pctClamp}%"></div>
+        </div>
+      </div>`
+    }).join('')
+
+    return `<div class="fin-orc-ov-group">
+      <div class="fin-orc-ov-tipo">${tipoLabel[tipo] || tipo}</div>
+      ${rows}
+    </div>`
+  }).join('')
 }
 
 function _destroyChart(id) {
