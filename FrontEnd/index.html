@@ -116,6 +116,21 @@
 <div id="modal-container-ex"></div>
 <div id="modal-container-goals"></div>
 
+<!-- FINANCES PIN OVERLAY -->
+<div id="finances-pin-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);align-items:center;justify-content:center;z-index:8000">
+  <div class="pin-card">
+    <div class="pin-icon">◈</div>
+    <h2 class="pin-title">Acesso restrito</h2>
+    <p class="pin-subtitle">Digite o PIN para acessar Finances</p>
+    <input id="finances-pin-input" type="password" class="pin-input" placeholder="PIN" maxlength="20" inputmode="numeric" />
+    <p id="finances-pin-error" class="pin-error" style="display:none">PIN incorreto.</p>
+    <div class="pin-actions">
+      <button id="finances-pin-cancel" class="pin-btn-cancel">Cancelar</button>
+      <button id="finances-pin-btn" class="pin-btn-ok">Entrar</button>
+    </div>
+  </div>
+</div>
+
 <div class="success-toast" id="toast">✓ Check-in salvo com sucesso!</div>
 <div class="success-toast" id="toast-erro" style="background:var(--danger);color:#fff">✗ Erro ao salvar. Veja o console.</div>
 

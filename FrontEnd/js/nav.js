@@ -57,7 +57,51 @@ function _syncLastUpdate(name) {
   if (ex)   ex.style.display   = name === 'exercises' ? '' : 'none'
 }
 
+// ── PIN LOCK — FINANCES ──────────────────────────────────────────────────────
+// Altere o valor abaixo para o PIN que você quiser usar
+const FINANCES_PIN = '1234'
+
+function _financesUnlocked() {
+  return sessionStorage.getItem('finances_ok') === '1'
+}
+
+function _showFinancesPin(onSuccess) {
+  const overlay = document.getElementById('finances-pin-overlay')
+  const input   = document.getElementById('finances-pin-input')
+  const error   = document.getElementById('finances-pin-error')
+  overlay.style.display = 'flex'
+  input.value = ''
+  error.style.display = 'none'
+  setTimeout(() => input.focus(), 50)
+
+  function tryUnlock() {
+    if (input.value === FINANCES_PIN) {
+      sessionStorage.setItem('finances_ok', '1')
+      overlay.style.display = 'none'
+      input.removeEventListener('keydown', onKey)
+      document.getElementById('finances-pin-btn').onclick = null
+      onSuccess()
+    } else {
+      error.style.display = 'block'
+      input.value = ''
+      input.focus()
+    }
+  }
+
+  function onKey(e) { if (e.key === 'Enter') tryUnlock() }
+  input.addEventListener('keydown', onKey)
+  document.getElementById('finances-pin-btn').onclick = tryUnlock
+  document.getElementById('finances-pin-cancel').onclick = () => {
+    overlay.style.display = 'none'
+    input.removeEventListener('keydown', onKey)
+  }
+}
+
 function switchSection(name) {
+  if (name === 'finances' && !_financesUnlocked()) {
+    _showFinancesPin(() => switchSection('finances'))
+    return
+  }
   if (_currentSection === name && document.getElementById('section-' + name)?.classList.contains('active')) {
     closeMobileSidebar()
     return
