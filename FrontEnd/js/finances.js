@@ -121,6 +121,80 @@ function _effectiveOrcamento(ano, mes) {
   return Object.values(byCode)
 }
 
+// Sobe a árvore até encontrar o filho direto de uma raiz (cd_pai=null) — esse é o "grupo"
+function _findGrupoId(id) {
+  const cod = window.finCodigos.find(c => c.id === id)
+  if (!cod) return null
+  if (cod.cd_pai === null) return id
+  const pai = window.finCodigos.find(c => c.id === cod.cd_pai)
+  if (!pai || pai.cd_pai === null) return cod.cd_pai
+  return _findGrupoId(cod.cd_pai)
+}
+
+// Agrupa lista de itens de orçamento por grupo, calculando totais
+function _groupOrcByGrupo(orcItems, realizadoMap) {
+  const grupos = {}
+  orcItems.forEach(o => {
+    const gid  = _findGrupoId(o.cd_financa) || o.cd_financa
+    const nome = _finNome(gid)
+    if (!grupos[gid]) grupos[gid] = { id: gid, nome, items: [], totalOrc: 0, totalReal: 0 }
+    const orcado = Number(o.valor_orcado)
+    const real   = realizadoMap[o.cd_financa] || 0
+    grupos[gid].items.push({ ...o, orcado, real })
+    grupos[gid].totalOrc  += orcado
+    grupos[gid].totalReal += real
+  })
+  return Object.values(grupos).sort((a, b) => a.nome.localeCompare(b.nome))
+}
+
+// Renderiza lista de grupos como acordeão; showDelete=true adiciona botão ✕
+function _buildOrcGroupHtml(grupos, showDelete, uidPrefix) {
+  return grupos.map(g => {
+    const pct  = g.totalOrc > 0 ? Math.min((g.totalReal / g.totalOrc) * 100, 100) : 0
+    const over = g.totalReal > g.totalOrc
+    const uid  = uidPrefix + '-' + g.id
+    const pctLbl = g.totalOrc > 0 ? ((g.totalReal / g.totalOrc) * 100).toFixed(0) + '%' : '—'
+
+    const children = g.items.map(o => {
+      const p   = o.orcado > 0 ? Math.min((o.real / o.orcado) * 100, 100) : 0
+      const ov  = o.real > o.orcado
+      const pl  = o.orcado > 0 ? p.toFixed(0) + '%' : '—'
+      const del = showDelete ? `<button class="fin-del-btn" onclick="deleteOrcamentoFin(${o.id})">✕</button>` : ''
+      return `<div class="fin-orc-child">
+        <div class="fin-orc-ov-info">
+          <span class="fin-orc-child-name">${_finNome(o.cd_financa)}</span>
+          <span class="fin-orc-ov-vals ${ov ? 'over' : ''}"><b>${_fmtBRL(o.real)}</b> / ${_fmtBRL(o.orcado)} <em>${pl}</em></span>
+          ${del}
+        </div>
+        <div class="fin-orc-bar-bg"><div class="fin-orc-bar-fill ${ov ? 'over' : ''}" style="width:${p}%"></div></div>
+      </div>`
+    }).join('')
+
+    return `<div class="fin-orc-group">
+      <div class="fin-orc-group-hd" onclick="toggleOrcGroup('${uid}')">
+        <span class="fin-orc-group-arrow" id="orc-arrow-${uid}">▶</span>
+        <span class="fin-orc-group-name">${g.nome}</span>
+        <span class="fin-orc-ov-vals ${over ? 'over' : ''}">
+          <b>${_fmtBRL(g.totalReal)}</b> / ${_fmtBRL(g.totalOrc)} <em>${pctLbl}</em>
+        </span>
+      </div>
+      <div class="fin-orc-bar-bg fin-orc-group-bar">
+        <div class="fin-orc-bar-fill ${over ? 'over' : ''}" style="width:${pct}%"></div>
+      </div>
+      <div class="fin-orc-group-body" id="orc-body-${uid}" style="display:none">${children}</div>
+    </div>`
+  }).join('')
+}
+
+function toggleOrcGroup(uid) {
+  const body  = document.getElementById('orc-body-'  + uid)
+  const arrow = document.getElementById('orc-arrow-' + uid)
+  if (!body) return
+  const open = body.style.display !== 'none'
+  body.style.display = open ? 'none' : 'block'
+  if (arrow) arrow.textContent = open ? '▶' : '▼'
+}
+
 // Retorna nome do grupo pai de um código
 function _finGrupo(id) {
   const cod = window.finCodigos.find(c => c.id === id)
@@ -198,56 +272,32 @@ function _renderOrcOverview(ano, mes) {
       .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
   }
 
-  // orçamento vigente = mais recente válido até (ano, mes)
-  const orcMes = _effectiveOrcamento(ano, mes)
+  const orcVigente = _effectiveOrcamento(ano, mes)
 
-  if (orcMes.length === 0) {
+  if (orcVigente.length === 0) {
     container.innerHTML = '<p style="color:var(--text-muted);font-size:.82rem;padding:16px 0">Nenhum orçamento cadastrado.</p>'
     return
   }
 
-  // Realizado por categoria
   const realizado = {}
   window.finLancamentos
     .filter(l => l.data.startsWith(mesStr))
     .forEach(l => { realizado[l.cd_financa] = (realizado[l.cd_financa] || 0) + Number(l.valor) })
 
-  // Agrupar por tipo (despesa / receita)
-  const byTipo = {}
-  orcMes.forEach(o => {
-    const cod  = window.finCodigos.find(c => c.id === o.cd_financa)
-    const tipo = cod?.tipo || 'outro'
-    if (!byTipo[tipo]) byTipo[tipo] = []
-    byTipo[tipo].push(o)
-  })
+  const mensais = orcVigente.filter(o => o.mes !== null)
+  const anuais  = orcVigente.filter(o => o.mes === null)
+  const mesLabel = new Date(ano, mes - 1, 1).toLocaleDateString('pt-BR', { month: 'long' })
 
-  const tipoLabel = { despesa: 'Despesas', receita: 'Receitas', investimento: 'Investimentos' }
-
-  container.innerHTML = Object.entries(byTipo).map(([tipo, itens]) => {
-    const rows = itens.map(o => {
-      const orcado = Number(o.valor_orcado)
-      const real   = realizado[o.cd_financa] || 0
-      const pct    = orcado > 0 ? (real / orcado) * 100 : 0
-      const over   = real > orcado
-      const pctClamp = Math.min(pct, 100)
-      const pctLabel = orcado > 0 ? pct.toFixed(0) + '%' : '—'
-
-      return `<div class="fin-orc-ov-row">
-        <div class="fin-orc-ov-info">
-          <span class="fin-orc-ov-name">${_finNome(o.cd_financa)}</span>
-          <span class="fin-orc-ov-vals ${over ? 'over' : ''}"><b>${_fmtBRL(real)}</b> / ${_fmtBRL(orcado)} <em>${pctLabel}</em></span>
-        </div>
-        <div class="fin-orc-bar-bg fin-orc-bar-lg">
-          <div class="fin-orc-bar-fill ${over ? 'over' : ''}" style="width:${pctClamp}%"></div>
-        </div>
-      </div>`
-    }).join('')
-
-    return `<div class="fin-orc-ov-group">
-      <div class="fin-orc-ov-tipo">${tipoLabel[tipo] || tipo}</div>
-      ${rows}
-    </div>`
-  }).join('')
+  let html = ''
+  if (mensais.length > 0) {
+    html += `<div class="fin-orc-section-label">Vigente — ${mesLabel}</div>`
+    html += _buildOrcGroupHtml(_groupOrcByGrupo(mensais, realizado), false, 'ov-m')
+  }
+  if (anuais.length > 0) {
+    html += `<div class="fin-orc-section-label" style="margin-top:18px">Base anual</div>`
+    html += _buildOrcGroupHtml(_groupOrcByGrupo(anuais, realizado), false, 'ov-a')
+  }
+  container.innerHTML = html
 }
 
 function _renderValidador(ano) {
@@ -456,59 +506,48 @@ function renderOrcamento() {
   const tipoFilter = document.getElementById('fin-orc-filter-tipo')?.value || ''
   const mesFilter  = document.getElementById('fin-orc-filter-mes')?.value  || ''
 
-  let orc = window.finOrcamento.slice()
+  let refAno, refMes
   if (mesFilter) {
-    const [ano, mes] = mesFilter.split('-').map(Number)
-    orc = _effectiveOrcamento(ano, mes)
+    ;[refAno, refMes] = mesFilter.split('-').map(Number)
   } else {
-    // sem filtro: mostrar vigente hoje
     const now = new Date()
-    orc = _effectiveOrcamento(now.getFullYear(), now.getMonth() + 1)
+    refAno = now.getFullYear(); refMes = now.getMonth() + 1
   }
+
+  let orc = _effectiveOrcamento(refAno, refMes)
   if (tipoFilter) {
     const ids = window.finCodigos.filter(c => c.tipo === tipoFilter).map(c => c.id)
     orc = orc.filter(o => ids.includes(o.cd_financa))
   }
 
-  // Calcular realizado por categoria para o mês
+  const mesStr = `${refAno}-${String(refMes).padStart(2, '0')}`
   const realizado = {}
-  if (mesFilter) {
-    const lanc = window.finLancamentos.filter(l => l.data.startsWith(mesFilter))
-    lanc.forEach(l => {
-      realizado[l.cd_financa] = (realizado[l.cd_financa] || 0) + Number(l.valor)
-    })
-  }
+  window.finLancamentos
+    .filter(l => l.data.startsWith(mesStr))
+    .forEach(l => { realizado[l.cd_financa] = (realizado[l.cd_financa] || 0) + Number(l.valor) })
 
   const container = document.getElementById('fin-orc-list')
   if (!container) return
 
   if (orc.length === 0) {
-    container.innerHTML = '<p style="color:var(--text-muted);font-size:.85rem;text-align:center;padding:40px 0">Nenhum orçamento para o período selecionado.</p>'
+    container.innerHTML = '<p style="color:var(--text-muted);font-size:.85rem;text-align:center;padding:40px 0">Nenhum orçamento para o período.</p>'
     return
   }
 
-  container.innerHTML = orc.map(o => {
-    const orcado    = Number(o.valor_orcado)
-    const real      = realizado[o.cd_financa] || 0
-    const pct       = orcado > 0 ? Math.min((real / orcado) * 100, 150) : 0
-    const over      = real > orcado
-    const nome      = _finNome(o.cd_financa)
-    const cod       = window.finCodigos.find(c => c.id === o.cd_financa)
-    const tipo      = cod?.tipo || ''
+  const mensais   = orc.filter(o => o.mes !== null)
+  const anuais    = orc.filter(o => o.mes === null)
+  const mesLabel  = new Date(refAno, refMes - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 
-    return `<div class="fin-orc-item">
-      <div class="fin-orc-item-header">
-        <div>
-          <div class="fin-orc-label">${nome} <span class="fin-ind-tipo">${tipo}</span> ${_finPagBadge(o.forma_pagamento)}</div>
-        </div>
-        <div class="fin-orc-amounts">${_fmtBRL(real)} / ${_fmtBRL(orcado)}</div>
-        <button class="fin-del-btn" onclick="deleteOrcamentoFin(${o.id})">✕</button>
-      </div>
-      <div class="fin-orc-bar-bg">
-        <div class="fin-orc-bar-fill ${over ? 'over' : ''}" style="width:${Math.min(pct,100)}%"></div>
-      </div>
-    </div>`
-  }).join('')
+  let html = ''
+  if (mensais.length > 0) {
+    html += `<div class="fin-orc-section-label">Vigente — ${mesLabel}</div>`
+    html += _buildOrcGroupHtml(_groupOrcByGrupo(mensais, realizado), true, 'tab-m')
+  }
+  if (anuais.length > 0) {
+    html += `<div class="fin-orc-section-label" style="margin-top:20px">Base anual</div>`
+    html += _buildOrcGroupHtml(_groupOrcByGrupo(anuais, realizado), true, 'tab-a')
+  }
+  container.innerHTML = html
 }
 
 async function deleteOrcamentoFin(id) {

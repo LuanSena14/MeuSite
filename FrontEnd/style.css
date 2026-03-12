@@ -1656,6 +1656,60 @@ tbody td:first-child { color: var(--text); }
   border-radius: 6px;
 }
 
+/* Orçamento — grupos em acordeão */
+.fin-orc-section-label {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.fin-orc-group {
+  margin-bottom: 8px;
+}
+.fin-orc-group-hd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface);
+  user-select: none;
+  margin-bottom: 4px;
+}
+.fin-orc-group-hd:hover { background: color-mix(in srgb, var(--surface) 80%, var(--accent) 20%); }
+.fin-orc-group-arrow {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  width: 12px;
+}
+.fin-orc-group-name {
+  font-size: 0.87rem;
+  font-weight: 600;
+  flex: 1;
+}
+.fin-orc-group-bar {
+  height: 5px;
+  margin: 0 10px 4px;
+  border-radius: 4px;
+}
+.fin-orc-group-body {
+  padding: 4px 0 4px 20px;
+}
+.fin-orc-child {
+  margin-bottom: 10px;
+}
+.fin-orc-child-name {
+  font-size: 0.82rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
 /* INVESTIMENTOS */
 .fin-inv-cards {
   display: grid;
