@@ -15,6 +15,7 @@
     <button class="fin-tab"        data-tab="orcamento"     onclick="switchFinTab('orcamento')">Orçamento</button>
     <button class="fin-tab"        data-tab="investimentos" onclick="switchFinTab('investimentos')">Investimentos</button>
     <button class="fin-tab"        data-tab="indicadores"   onclick="switchFinTab('indicadores')">Indicadores</button>
+    <button class="fin-tab"        data-tab="planejamento"  onclick="switchFinTab('planejamento')">Planejamento</button>
   </div>
 
   <!-- ── ABA: OVERVIEW ─────────────────────────────────────────────────────── -->
@@ -41,6 +42,12 @@
         <div class="kpi-value" id="fin-kpi-credito">—</div>
       </div>
     </div>
+    <!-- Validador Anual -->
+    <div class="dash-card fin-validador-card" style="margin-top:16px">
+      <div class="dash-card-title" style="margin-bottom:12px">Validador Anual — <span id="fin-val-ano-label"></span></div>
+      <div id="fin-validador"></div>
+    </div>
+
     <!-- Orçado x Realizado do mês -->
     <div class="dash-card" style="margin-top:16px">
       <div class="fin-orc-overview-header">
@@ -72,6 +79,12 @@
           <option value="despesa">Despesas</option>
         </select>
         <input type="month" id="fin-filter-mes" class="ex-filter-input" oninput="renderLancamentos()">
+        <select id="fin-filter-dono" class="ex-filter-input" onchange="renderLancamentos()">
+          <option value="">Todos donos</option>
+          <option value="couple">Couple</option>
+          <option value="mine">Mine</option>
+          <option value="baby">Baby</option>
+        </select>
       </div>
       <button class="btn-add" onclick="openFinModal('lancamento')">+ Novo</button>
     </div>
@@ -79,7 +92,7 @@
     <div class="fin-table-wrap">
       <table class="fin-table">
         <thead>
-          <tr><th>Data</th><th>Categoria</th><th>Grupo</th><th>Tipo</th><th>Pagamento</th><th>Descrição</th><th>Valor</th><th></th></tr>
+          <tr><th>Data</th><th>Categoria</th><th>Dono</th><th>Tipo</th><th>Pagamento</th><th>Descrição</th><th>Valor</th><th></th></tr>
         </thead>
         <tbody id="fin-tbody-lancamentos"></tbody>
       </table>
@@ -127,6 +140,22 @@
         <tbody id="fin-tbody-indicadores"></tbody>
       </table>
     </div>
+  </div>
+
+  <!-- ── ABA: PLANEJAMENTO ───────────────────────────────────────────────── -->
+  <div class="fin-panel" id="fin-panel-planejamento">
+    <div class="fin-toolbar">
+      <div class="fin-filters">
+        <select id="fin-plan-ano" class="ex-filter-input" onchange="renderPlanejamento()"></select>
+        <select id="fin-plan-tipo" class="ex-filter-input" onchange="renderPlanejamento()">
+          <option value="">Entradas + Saídas</option>
+          <option value="receita">Só Entradas</option>
+          <option value="despesa">Só Saídas</option>
+        </select>
+      </div>
+      <button class="btn-add" onclick="openFinModal('orcamento')">+ Planejar</button>
+    </div>
+    <div id="fin-plan-content"></div>
   </div>
 
 </div>
@@ -234,6 +263,13 @@
         <option value="receita">Receita</option>
         <option value="despesa">Despesa</option>
         <option value="investimento">Investimento</option>
+      </select>
+      <label class="form-label">Dono</label>
+      <select id="fin-cat-dono" class="form-input">
+        <option value="">— Geral —</option>
+        <option value="couple">Couple</option>
+        <option value="mine">Mine</option>
+        <option value="baby">Baby</option>
       </select>
       <label class="form-label">Grupo pai (opcional)</label>
       <select id="fin-cat-pai" class="form-input">

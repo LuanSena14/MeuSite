@@ -25,6 +25,7 @@ with engine.connect() as _conn:
     from sqlalchemy import text as _text
     _conn.execute(_text("ALTER TABLE lancamento_financeiro ADD COLUMN IF NOT EXISTS forma_pagamento VARCHAR DEFAULT 'debito'"))
     _conn.execute(_text("ALTER TABLE orcamento_financeiro  ADD COLUMN IF NOT EXISTS forma_pagamento VARCHAR"))
+    _conn.execute(_text("ALTER TABLE codigo_financa        ADD COLUMN IF NOT EXISTS dono VARCHAR"))
     _conn.commit()
 
 # ── UTILITÁRIO DE BANCO ───────────────────────────────────────────────────────
@@ -343,6 +344,7 @@ class CodigoFinancaInput(BaseModel):
     nome:   str
     tipo:   str
     cd_pai: Optional[int] = None
+    dono:   Optional[str] = None
 
 class LancamentoInput(BaseModel):
     data:            str
@@ -376,12 +378,12 @@ class IndicadorInput(BaseModel):
 def get_financas_codigos():
     with get_db() as db:
         todos = db.query(CodigoFinanca).all()
-        return [{"id": c.id, "nome": c.nome, "tipo": c.tipo, "cd_pai": c.cd_pai} for c in todos]
+        return [{"id": c.id, "nome": c.nome, "tipo": c.tipo, "cd_pai": c.cd_pai, "dono": c.dono} for c in todos]
 
 @app.post("/api/financas/codigos")
 def post_financa_codigo(body: CodigoFinancaInput):
     with get_db() as db:
-        novo = CodigoFinanca(nome=body.nome, tipo=body.tipo, cd_pai=body.cd_pai)
+        novo = CodigoFinanca(nome=body.nome, tipo=body.tipo, cd_pai=body.cd_pai, dono=body.dono)
         db.add(novo)
         db.commit()
         db.refresh(novo)
@@ -416,6 +418,7 @@ def get_lancamentos():
                 "valor": l.valor,
                 "descricao": l.descricao,
                 "forma_pagamento": l.forma_pagamento or 'debito',
+                "dono": cat.dono,
             })
     return resultado
 

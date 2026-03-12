@@ -101,6 +101,7 @@ class CodigoFinanca(Base):
     nome      = Column(String, nullable=False)
     tipo      = Column(String, nullable=False)          # receita | despesa | investimento
     cd_pai    = Column(Integer, ForeignKey("codigo_financa.id"), nullable=True)
+    dono      = Column(String, nullable=True)           # couple | mine | baby
 
     filhos = relationship(
         "CodigoFinanca",

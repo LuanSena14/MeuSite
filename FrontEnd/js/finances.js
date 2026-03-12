@@ -68,6 +68,7 @@ function switchFinTab(tab) {
   if (tab === 'orcamento')     renderOrcamento()
   if (tab === 'investimentos') renderInvestimentos()
   if (tab === 'indicadores')   renderIndicadores()
+  if (tab === 'planejamento')  renderPlanejamento()
 }
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
@@ -92,6 +93,14 @@ function _finNome(id) {
 function _finPagBadge(p) {
   if (p === 'credito') return '<span style="color:#7c9eff;font-size:.74rem;font-weight:600">Crédito</span>'
   return '<span style="color:var(--text-muted);font-size:.74rem">Débito</span>'
+}
+
+// Retorna badge de dono da categoria
+function _donoBadge(d) {
+  const map = { couple: ['#7c9eff','Couple'], mine: ['#4ecca3','Mine'], baby: ['#ff9f47','Baby'] }
+  const entry = map[d]
+  if (!entry) return ''
+  return `<span style="background:${entry[0]}22;color:${entry[0]};font-size:.65rem;font-weight:600;padding:1px 6px;border-radius:3px;letter-spacing:.03em;vertical-align:middle;white-space:nowrap">${entry[1]}</span>`
 }
 
 // Retorna nome do grupo pai de um código
@@ -157,6 +166,7 @@ function renderFinOverview() {
   _renderChartDespesas(despPorCat)
   _renderChartEvolucao()
   _renderOrcOverview(ano, mes)
+  _renderValidador(ano)
 }
 
 function _renderOrcOverview(ano, mes) {
@@ -219,6 +229,48 @@ function _renderOrcOverview(ano, mes) {
       ${rows}
     </div>`
   }).join('')
+}
+
+function _renderValidador(ano) {
+  const container = document.getElementById('fin-validador')
+  const label     = document.getElementById('fin-val-ano-label')
+  if (!container) return
+  if (label) label.textContent = ano
+
+  const lancAno = window.finLancamentos.filter(l => l.data.startsWith(String(ano)))
+  const orcAno  = window.finOrcamento.filter(o => o.ano === ano)
+
+  let realEntradas = 0, realSaidas = 0
+  lancAno.forEach(l => {
+    const cod = window.finCodigos.find(c => c.id === l.cd_financa)
+    if (cod?.tipo === 'receita')  realEntradas += Number(l.valor)
+    if (cod?.tipo === 'despesa') realSaidas   += Number(l.valor)
+  })
+
+  let prevEntradas = 0, prevSaidas = 0
+  orcAno.forEach(o => {
+    const cod = window.finCodigos.find(c => c.id === o.cd_financa)
+    if (cod?.tipo === 'receita')  prevEntradas += Number(o.valor_orcado)
+    if (cod?.tipo === 'despesa') prevSaidas   += Number(o.valor_orcado)
+  })
+
+  const saldoReal = realEntradas - realSaidas
+  const saldoPrev = prevEntradas - prevSaidas
+
+  container.innerHTML = `
+    <div class="fin-val-grid">
+      <div></div><div class="fin-val-hdr">Previsto</div><div class="fin-val-hdr">Realizado</div>
+      <div class="fin-val-label">Entradas</div>
+      <div class="fin-val-prev fin-receita">${_fmtBRL(prevEntradas)}</div>
+      <div class="fin-val-real fin-receita">${_fmtBRL(realEntradas)}</div>
+      <div class="fin-val-label">Saídas</div>
+      <div class="fin-val-prev fin-despesa">${_fmtBRL(prevSaidas)}</div>
+      <div class="fin-val-real fin-despesa">${_fmtBRL(realSaidas)}</div>
+      <div class="fin-val-label fin-val-saldo-row">Saldo</div>
+      <div class="fin-val-prev fin-val-saldo-row" style="color:${saldoPrev>=0?'var(--accent)':'var(--danger)'}">${_fmtBRL(saldoPrev)}</div>
+      <div class="fin-val-real fin-val-saldo-row" style="color:${saldoReal>=0?'var(--accent)':'var(--danger)'}">${_fmtBRL(saldoReal)}</div>
+    </div>
+  `
 }
 
 function _destroyChart(id) {
@@ -325,6 +377,13 @@ function renderLancamentos() {
   if (mesFilter) {
     dados = dados.filter(l => l.data.startsWith(mesFilter))
   }
+  const donoFilter = document.getElementById('fin-filter-dono')?.value || ''
+  if (donoFilter) {
+    dados = dados.filter(l => {
+      const d = l.dono || window.finCodigos.find(c => c.id === l.cd_financa)?.dono
+      return d === donoFilter
+    })
+  }
 
   dados.sort((a, b) => b.data.localeCompare(a.data))
 
@@ -338,7 +397,7 @@ function renderLancamentos() {
     return `<tr>
       <td>${_fmtDate(l.data)}</td>
       <td>${l.categoria_nome || _finNome(l.cd_financa)}</td>
-      <td>${l.grupo_nome || _finGrupo(l.cd_financa)}</td>
+      <td>${_donoBadge(l.dono || window.finCodigos.find(c=>c.id===l.cd_financa)?.dono)}</td>
       <td class="${cls}">${tipo}</td>
       <td>${_finPagBadge(l.forma_pagamento)}</td>
       <td>${l.descricao || '—'}</td>
@@ -575,7 +634,82 @@ async function deleteIndicadorFin(id) {
   _showFinToast('Indicador removido')
 }
 
-// ── MODAL ─────────────────────────────────────────────────────────────────────
+// ── PLANEJAMENTO ANUAL ────────────────────────────────────────────────────
+
+function renderPlanejamento() {
+  const now   = new Date()
+  const anoEl = document.getElementById('fin-plan-ano')
+
+  // Popular seletor de ano na primeira carga
+  if (anoEl && !anoEl.options.length) {
+    const anoAtual = now.getFullYear()
+    for (let a = anoAtual - 1; a <= anoAtual + 1; a++) {
+      const opt = new Option(a, a, a === anoAtual, a === anoAtual)
+      anoEl.options.add(opt)
+    }
+  }
+
+  const ano       = Number(anoEl?.value || now.getFullYear())
+  const tipoFilt  = document.getElementById('fin-plan-tipo')?.value || ''
+  const container = document.getElementById('fin-plan-content')
+  if (!container) return
+
+  const orcAno = window.finOrcamento
+    .filter(o => o.ano === ano)
+    .sort((a, b) => (a.mes || 0) - (b.mes || 0))
+
+  // Realizado: cd_financa + mes → total
+  const realizado = {}
+  window.finLancamentos
+    .filter(l => l.data.startsWith(String(ano)))
+    .forEach(l => {
+      const d   = new Date(l.data + 'T00:00:00')
+      const key = `${l.cd_financa}_${d.getMonth() + 1}`
+      realizado[key] = (realizado[key] || 0) + Number(l.valor)
+    })
+
+  const _tipoOf = o => window.finCodigos.find(c => c.id === o.cd_financa)?.tipo
+
+  const entradas = orcAno.filter(o => !tipoFilt ? _tipoOf(o) === 'receita' : tipoFilt === 'receita' && _tipoOf(o) === 'receita')
+  const saidas   = orcAno.filter(o => !tipoFilt ? _tipoOf(o) === 'despesa' : tipoFilt === 'despesa' && _tipoOf(o) === 'despesa')
+
+  const _row = o => {
+    const cod      = window.finCodigos.find(c => c.id === o.cd_financa)
+    const key      = `${o.cd_financa}_${o.mes}`
+    const real     = realizado[key] || 0
+    const prev     = Number(o.valor_orcado)
+    const mesLabel = o.mes ? new Date(ano, o.mes - 1, 1).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }) : '—'
+    const isFuture = o.mes && (ano > now.getFullYear() || (ano === now.getFullYear() && o.mes > now.getMonth() + 1))
+    const isDone   = real > 0
+    const stCls    = isDone ? 'fin-plan-done' : (isFuture ? 'fin-plan-future' : 'fin-plan-pending')
+    const stIcon   = isDone ? '✓' : (isFuture ? '○' : '!')
+    const valCls   = isDone ? (cod?.tipo === 'receita' ? 'fin-receita' : 'fin-despesa') : ''
+    return `<tr>
+      <td>${cod?.nome || '—'} ${_donoBadge(cod?.dono)}</td>
+      <td>${mesLabel}</td>
+      <td class="fin-col-valor">${prev > 0 ? _fmtBRL(prev) : '—'}</td>
+      <td class="fin-col-valor ${valCls}">${real > 0 ? _fmtBRL(real) : '—'}</td>
+      <td class="${stCls}">${stIcon}</td>
+      <td><button class="fin-del-btn" onclick="deleteOrcamentoFin(${o.id})">✕</button></td>
+    </tr>`
+  }
+
+  const _table = rows => `<div class="fin-table-wrap">
+    <table class="fin-table">
+      <thead><tr><th>Categoria</th><th>Mês</th><th>Previsto</th><th>Realizado</th><th></th><th></th></tr></thead>
+      <tbody>${rows.map(_row).join('')}</tbody>
+    </table></div>`
+
+  if (!entradas.length && !saidas.length) {
+    container.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:40px 0">Nenhum planejamento para este ano. Use <b>+ Planejar</b> para adicionar um orçamento com mês específico.</p>'
+    return
+  }
+
+  container.innerHTML = [
+    entradas.length ? `<div class="fin-plan-section">Entradas</div>${_table(entradas)}` : '',
+    saidas.length   ? `<div class="fin-plan-section" style="margin-top:20px">Saídas</div>${_table(saidas)}` : '',
+  ].join('')
+}──────────────
 
 function openFinModal(type) {
   // Esconder todos os formulários
@@ -742,14 +876,15 @@ async function submitIndicador() {
 }
 
 async function submitCategoria() {
-  const nome  = document.getElementById('fin-cat-nome').value.trim()
-  const tipo  = document.getElementById('fin-cat-tipo').value
-  const paiEl = document.getElementById('fin-cat-pai')
+  const nome   = document.getElementById('fin-cat-nome').value.trim()
+  const tipo   = document.getElementById('fin-cat-tipo').value
+  const paiEl  = document.getElementById('fin-cat-pai')
   const cd_pai = paiEl.value ? Number(paiEl.value) : null
+  const dono   = document.getElementById('fin-cat-dono')?.value || null
 
   if (!nome) { _showFinToastErro('Informe o nome da categoria.'); return }
 
-  const res = await postFinancaCodigo({ nome, tipo, cd_pai })
+  const res = await postFinancaCodigo({ nome, tipo, cd_pai, dono: dono || null })
   if (!res?.id) { _showFinToastErro('Erro ao salvar.'); return }
 
   closeFinModal()
