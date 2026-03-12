@@ -147,6 +147,55 @@ function _groupOrcByGrupo(orcItems, realizadoMap) {
   return Object.values(grupos).sort((a, b) => a.nome.localeCompare(b.nome))
 }
 
+// Agrupa por tipo (receita/despesa/investimento), depois por grupo dentro de cada tipo
+function _groupOrcByTipoAndGrupo(orcItems, realizadoMap) {
+  const tipos = {}
+  const tipoOrder = ['receita', 'despesa', 'investimento']
+  orcItems.forEach(o => {
+    const cod  = window.finCodigos.find(c => c.id === o.cd_financa)
+    const tipo = cod?.tipo || 'outros'
+    const gid  = _findGrupoId(o.cd_financa) || o.cd_financa
+    const gnome = _finNome(gid)
+    if (!tipos[tipo]) tipos[tipo] = { key: tipo, nome: tipo.charAt(0).toUpperCase() + tipo.slice(1), grupos: {}, totalOrc: 0, totalReal: 0 }
+    const t = tipos[tipo]
+    if (!t.grupos[gid]) t.grupos[gid] = { id: gid, nome: gnome, items: [], totalOrc: 0, totalReal: 0 }
+    const orcado = Number(o.valor_orcado)
+    const real   = realizadoMap[o.cd_financa] || 0
+    t.grupos[gid].items.push({ ...o, orcado, real })
+    t.grupos[gid].totalOrc  += orcado
+    t.grupos[gid].totalReal += real
+    t.totalOrc  += orcado
+    t.totalReal += real
+  })
+  return tipoOrder
+    .filter(tp => tipos[tp])
+    .map(tp => ({ ...tipos[tp], grupos: Object.values(tipos[tp].grupos).sort((a, b) => a.nome.localeCompare(b.nome)) }))
+}
+
+// Renderiza tipos como acordeão com grupos aninhados dentro
+function _buildOrcTipoHtml(tipoGroups, showDelete, uidPrefix) {
+  return tipoGroups.map(t => {
+    const pct    = t.totalOrc > 0 ? Math.min((t.totalReal / t.totalOrc) * 100, 100) : 0
+    const over   = t.totalReal > t.totalOrc
+    const uid    = uidPrefix + '-tipo-' + t.key
+    const pctLbl = t.totalOrc > 0 ? ((t.totalReal / t.totalOrc) * 100).toFixed(0) + '%' : '—'
+    const gruposHtml = _buildOrcGroupHtml(t.grupos, showDelete, uidPrefix + '-' + t.key)
+    return `<div class="fin-orc-tipo fin-orc-tipo--${t.key}">
+      <div class="fin-orc-tipo-hd" onclick="toggleOrcGroup('${uid}')">
+        <span class="fin-orc-group-arrow" id="orc-arrow-${uid}">▶</span>
+        <span class="fin-orc-tipo-name">${t.nome}</span>
+        <span class="fin-orc-ov-vals ${over ? 'over' : ''}">
+          <b>${_fmtBRL(t.totalReal)}</b> / ${_fmtBRL(t.totalOrc)} <em>${pctLbl}</em>
+        </span>
+      </div>
+      <div class="fin-orc-bar-bg fin-orc-group-bar">
+        <div class="fin-orc-bar-fill ${over ? 'over' : ''}" style="width:${pct}%"></div>
+      </div>
+      <div class="fin-orc-group-body" id="orc-body-${uid}" style="display:none">${gruposHtml}</div>
+    </div>`
+  }).join('')
+}
+
 // Renderiza lista de grupos como acordeão; showDelete=true adiciona botão ✕
 function _buildOrcGroupHtml(grupos, showDelete, uidPrefix) {
   return grupos.map(g => {
@@ -285,7 +334,7 @@ function _renderOrcOverview(ano, mes) {
     .filter(l => l.data.startsWith(mesStr))
     .forEach(l => { realizado[l.cd_financa] = (realizado[l.cd_financa] || 0) + Number(l.valor) })
 
-  container.innerHTML = _buildOrcGroupHtml(_groupOrcByGrupo(orcVigente, realizado), false, 'ov')
+  container.innerHTML = _buildOrcTipoHtml(_groupOrcByTipoAndGrupo(orcVigente, realizado), false, 'ov')
 }
 
 function _renderValidador(ano, mes) {

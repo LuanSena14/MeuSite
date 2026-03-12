@@ -1667,6 +1667,33 @@ tbody td:first-child { color: var(--text); }
   padding-bottom: 6px;
   border-bottom: 1px solid var(--border);
 }
+.fin-orc-tipo {
+  margin-bottom: 12px;
+}
+.fin-orc-tipo-hd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 60%, var(--bg) 40%);
+  border: 1px solid var(--border);
+  user-select: none;
+  margin-bottom: 4px;
+}
+.fin-orc-tipo-hd:hover { border-color: var(--accent); }
+.fin-orc-tipo-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: .03em;
+  flex: 1;
+  text-transform: uppercase;
+}
+.fin-orc-tipo--receita      .fin-orc-tipo-name { color: var(--accent); }
+.fin-orc-tipo--despesa      .fin-orc-tipo-name { color: var(--danger); }
+.fin-orc-tipo--investimento .fin-orc-tipo-name { color: #7eb8f7; }
+.fin-orc-tipo .fin-orc-group-body { padding-left: 8px; }
 .fin-orc-group {
   margin-bottom: 8px;
 }
