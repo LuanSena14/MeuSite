@@ -94,14 +94,13 @@ class Meta(Base):
 # ── FINANÇAS ──────────────────────────────────────────────────────────────────
 
 class CodigoFinanca(Base):
-    """Categorias hierárquicas (pai/filho). tipo: receita | despesa | investimento"""
+    """Categorias hierárquicas (pai/filho). receita | despesa | investimento são nós raiz (cd_pai=NULL)."""
     __tablename__ = "codigo_financa"
 
     id        = Column(Integer, primary_key=True, autoincrement=True)
     nome      = Column(String, nullable=False)
-    tipo      = Column(String, nullable=False)          # receita | despesa | investimento
     cd_pai    = Column(Integer, ForeignKey("codigo_financa.id"), nullable=True)
-    dono      = Column(String, nullable=True)           # couple | mine | baby
+    dono      = Column(String, nullable=True)           # Couple | Luan | Lele
 
     filhos = relationship(
         "CodigoFinanca",

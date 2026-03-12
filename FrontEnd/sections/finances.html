@@ -195,14 +195,37 @@
         <h2 class="modal-title">Novo orçamento</h2>
         <button class="modal-close" onclick="closeFinModal()">✕</button>
       </div>
-      <label class="form-label">Período</label>
-      <input type="month" id="fin-orc-mes" class="form-input">
-      <label class="form-label">Tipo</label>
-      <select id="fin-orc-tipo" class="form-input" onchange="populateFinCatSelect('fin-orc-cat', this.value, true)">
-        <option value="receita">Receita</option>
+      <div style="display:flex;gap:12px">
+        <div style="flex:1">
+          <label class="form-label">Ano</label>
+          <input type="number" id="fin-orc-ano" class="form-input" placeholder="2026" min="2020" max="2099">
+        </div>
+        <div style="flex:1">
+          <label class="form-label">Mês <span style="color:var(--text-muted);font-size:.73rem">(vazio = anual)</span></label>
+          <select id="fin-orc-mes-sel" class="form-input">
+            <option value="">— Anual —</option>
+            <option value="1">Janeiro</option>
+            <option value="2">Fevereiro</option>
+            <option value="3">Março</option>
+            <option value="4">Abril</option>
+            <option value="5">Maio</option>
+            <option value="6">Junho</option>
+            <option value="7">Julho</option>
+            <option value="8">Agosto</option>
+            <option value="9">Setembro</option>
+            <option value="10">Outubro</option>
+            <option value="11">Novembro</option>
+            <option value="12">Dezembro</option>
+          </select>
+        </div>
+      </div>
+      <label class="form-label" style="margin-top:10px">Tipo</label>
+      <select id="fin-orc-tipo" class="form-input" onchange="populateFinCatSelect('fin-orc-cat', this.value)">
         <option value="despesa">Despesa</option>
+        <option value="receita">Receita</option>
+        <option value="investimento">Investimento</option>
       </select>
-      <label class="form-label">Grupo</label>
+      <label class="form-label">Categoria</label>
       <select id="fin-orc-cat" class="form-input"></select>
       <label class="form-label">Pagamento</label>
       <select id="fin-orc-pagamento" class="form-input">

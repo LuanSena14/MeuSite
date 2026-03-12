@@ -728,9 +728,11 @@ function openFinModal(type) {
     populateFinCatSelect('fin-lanc-cat', tipoEl.value)
   }
   if (type === 'orcamento') {
-    document.getElementById('fin-orc-mes').value = ym
+    const now = new Date()
+    document.getElementById('fin-orc-ano').value     = now.getFullYear()
+    document.getElementById('fin-orc-mes-sel').value = now.getMonth() + 1
     const tipoEl = document.getElementById('fin-orc-tipo')
-    populateFinCatSelect('fin-orc-cat', tipoEl.value, true)
+    populateFinCatSelect('fin-orc-cat', tipoEl.value)
   }
   if (type === 'investimento') {
     document.getElementById('fin-inv-data').value = today
@@ -818,16 +820,17 @@ async function submitLancamento() {
 }
 
 async function submitOrcamento() {
-  const mesStr    = document.getElementById('fin-orc-mes').value
-  const cd        = Number(document.getElementById('fin-orc-cat').value)
-  const valor     = parseFloat(document.getElementById('fin-orc-valor').value)
+  const ano     = parseInt(document.getElementById('fin-orc-ano').value)
+  const mesVal  = document.getElementById('fin-orc-mes-sel').value
+  const mes     = mesVal ? parseInt(mesVal) : null
+  const cd      = Number(document.getElementById('fin-orc-cat').value)
+  const valor   = parseFloat(document.getElementById('fin-orc-valor').value)
   const pagamento = document.getElementById('fin-orc-pagamento').value
 
-  if (!mesStr || !cd || isNaN(valor) || valor <= 0) {
-    _showFinToastErro('Preencha período, categoria e valor.'); return
+  if (!ano || !cd || isNaN(valor) || valor <= 0) {
+    _showFinToastErro('Preencha ano, categoria e valor.'); return
   }
 
-  const [ano, mes] = mesStr.split('-').map(Number)
   const res = await postOrcamento({ ano, mes, cd_financa: cd, valor_orcado: valor, forma_pagamento: pagamento })
   if (!res?.ok) { _showFinToastErro('Erro ao salvar.'); return }
 

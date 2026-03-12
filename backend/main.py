@@ -342,7 +342,7 @@ def post_goal_entrada(body: EntradaGoalInput):
 
 class CodigoFinancaInput(BaseModel):
     nome:   str
-    tipo:   str
+    tipo:   Optional[str] = None   # ignorado — tipo é derivado da hierarquia
     cd_pai: Optional[int] = None
     dono:   Optional[str] = None
 
@@ -373,21 +373,33 @@ class IndicadorInput(BaseModel):
     valor: float
 
 
+# ── helper: deriva tipo subindo até o nó raiz ────────────────────────────────
+def _derive_tipo(c_id: int, lookup: dict) -> str:
+    """Sobe a árvore até o nó raiz (cd_pai=NULL) e devolve o nome em minúsculas."""
+    c = lookup.get(c_id)
+    if not c:
+        return ""
+    if c.cd_pai is None:
+        return c.nome.lower()   # 'receita' | 'despesa' | 'investimento'
+    return _derive_tipo(c.cd_pai, lookup)
+
 # Categorias
 @app.get("/api/financas/codigos")
 def get_financas_codigos():
     with get_db() as db:
         todos = db.query(CodigoFinanca).all()
-        return [{"id": c.id, "nome": c.nome, "tipo": c.tipo, "cd_pai": c.cd_pai, "dono": c.dono} for c in todos]
+        lookup = {c.id: c for c in todos}
+        return [{"id": c.id, "nome": c.nome, "tipo": _derive_tipo(c.id, lookup), "cd_pai": c.cd_pai, "dono": c.dono} for c in todos]
 
 @app.post("/api/financas/codigos")
 def post_financa_codigo(body: CodigoFinancaInput):
     with get_db() as db:
-        novo = CodigoFinanca(nome=body.nome, tipo=body.tipo, cd_pai=body.cd_pai, dono=body.dono)
+        novo = CodigoFinanca(nome=body.nome, cd_pai=body.cd_pai, dono=body.dono)
         db.add(novo)
         db.commit()
         db.refresh(novo)
-        return {"id": novo.id, "nome": novo.nome, "tipo": novo.tipo, "cd_pai": novo.cd_pai}
+        lookup = {c.id: c for c in db.query(CodigoFinanca).all()}
+        return {"id": novo.id, "nome": novo.nome, "tipo": _derive_tipo(novo.id, lookup), "cd_pai": novo.cd_pai}
 
 @app.delete("/api/financas/codigos/{id}")
 def delete_financa_codigo(id: int):
@@ -401,11 +413,11 @@ def delete_financa_codigo(id: int):
 @app.get("/api/financas/lancamentos")
 def get_lancamentos():
     with get_db() as db:
+        todos = {c.id: c for c in db.query(CodigoFinanca).all()}
         rows = (db.query(LancamentoFinanceiro, CodigoFinanca)
                 .join(CodigoFinanca, LancamentoFinanceiro.cd_financa == CodigoFinanca.id)
                 .order_by(LancamentoFinanceiro.data.desc())
                 .all())
-        todos = {c.id: c for c in db.query(CodigoFinanca).all()}
         resultado = []
         for l, cat in rows:
             pai = todos.get(cat.cd_pai)
@@ -414,7 +426,7 @@ def get_lancamentos():
                 "cd_financa": l.cd_financa,
                 "categoria_nome": cat.nome,
                 "grupo_nome": pai.nome if pai else cat.nome,
-                "tipo": cat.tipo,
+                "tipo": _derive_tipo(cat.id, todos),
                 "valor": l.valor,
                 "descricao": l.descricao,
                 "forma_pagamento": l.forma_pagamento or 'debito',
@@ -453,7 +465,7 @@ def get_orcamento():
             "id": r.id, "ano": r.ano, "mes": r.mes,
             "cd_financa": r.cd_financa,
             "categoria_nome": codigos[r.cd_financa].nome if r.cd_financa in codigos else "",
-            "tipo": codigos[r.cd_financa].tipo if r.cd_financa in codigos else "",
+            "tipo": _derive_tipo(r.cd_financa, codigos) if r.cd_financa in codigos else "",
             "valor_orcado": r.valor_orcado,
             "forma_pagamento": r.forma_pagamento,
         } for r in rows]
