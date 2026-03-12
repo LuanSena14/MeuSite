@@ -272,7 +272,8 @@ function _renderOrcOverview(ano, mes) {
       .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
   }
 
-  const orcVigente = _effectiveOrcamento(ano, mes)
+  // apenas orçamentos com mês específico (anuais ficam fora do overview)
+  const orcVigente = _effectiveOrcamento(ano, mes).filter(o => o.mes !== null)
 
   if (orcVigente.length === 0) {
     container.innerHTML = '<p style="color:var(--text-muted);font-size:.82rem;padding:16px 0">Nenhum orçamento cadastrado.</p>'
@@ -297,7 +298,8 @@ function _renderValidador(ano, mes) {
   if (label) label.textContent = mesNome
 
   const lancMes = window.finLancamentos.filter(l => l.data.startsWith(mesStr))
-  const orcMes  = _effectiveOrcamento(ano, mes)
+  // apenas orçamentos mensais (mes !== null)
+  const orcMes  = _effectiveOrcamento(ano, mes).filter(o => o.mes !== null)
 
   let realEntradas = 0, realSaidas = 0
   lancMes.forEach(l => {
