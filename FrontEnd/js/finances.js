@@ -45,10 +45,9 @@ function _setDefaultFilters() {
   const now   = new Date()
   const ym    = now.toISOString().slice(0, 7)   // 'YYYY-MM'
 
-  const mesEl    = document.getElementById('fin-filter-mes')
-  const orcMesEl = document.getElementById('fin-orc-filter-mes')
-  if (mesEl    && !mesEl.value)    mesEl.value    = ym
-  if (orcMesEl && !orcMesEl.value) orcMesEl.value = ym
+  const mesEl = document.getElementById('fin-filter-mes')
+  if (mesEl && !mesEl.value) mesEl.value = ym
+  // orcamento tab não pré-preenche: user vê todos por padrão
 }
 
 // ── ABAS ──────────────────────────────────────────────────────────────────────
@@ -101,6 +100,25 @@ function _donoBadge(d) {
   const entry = map[d]
   if (!entry) return ''
   return `<span style="background:${entry[0]}22;color:${entry[0]};font-size:.65rem;font-weight:600;padding:1px 6px;border-radius:3px;letter-spacing:.03em;vertical-align:middle;white-space:nowrap">${entry[1]}</span>`
+}
+
+// Retorna o orçamento vigente por categoria para um dado (ano, mes)
+// Lógica de vigência: entry é válida se sua data <= (ano, mes)
+// Para cada cd_financa retorna o registro mais recente dentro desse limite
+function _effectiveOrcamento(ano, mes) {
+  const byCode = {}
+  window.finOrcamento.forEach(o => {
+    const valid = o.mes === null
+      ? o.ano <= ano
+      : (o.ano < ano || (o.ano === ano && o.mes <= mes))
+    if (!valid) return
+    const prev = byCode[o.cd_financa]
+    if (!prev) { byCode[o.cd_financa] = o; return }
+    const score  = o.ano    * 100 + (o.mes    ?? 0)
+    const pScore = prev.ano * 100 + (prev.mes ?? 0)
+    if (score > pScore) byCode[o.cd_financa] = o
+  })
+  return Object.values(byCode)
 }
 
 // Retorna nome do grupo pai de um código
@@ -180,10 +198,11 @@ function _renderOrcOverview(ano, mes) {
       .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
   }
 
-  const orcMes = window.finOrcamento.filter(o => o.ano === ano && o.mes === mes)
+  // orçamento vigente = mais recente válido até (ano, mes)
+  const orcMes = _effectiveOrcamento(ano, mes)
 
   if (orcMes.length === 0) {
-    container.innerHTML = '<p style="color:var(--text-muted);font-size:.82rem;padding:16px 0">Nenhum orçamento cadastrado para este mês.</p>'
+    container.innerHTML = '<p style="color:var(--text-muted);font-size:.82rem;padding:16px 0">Nenhum orçamento cadastrado.</p>'
     return
   }
 
@@ -238,7 +257,7 @@ function _renderValidador(ano) {
   if (label) label.textContent = ano
 
   const lancAno = window.finLancamentos.filter(l => l.data.startsWith(String(ano)))
-  const orcAno  = window.finOrcamento.filter(o => o.ano === ano)
+  const orcAno  = _effectiveOrcamento(ano, 12)   // vigente até dez do ano
 
   let realEntradas = 0, realSaidas = 0
   lancAno.forEach(l => {
@@ -440,7 +459,11 @@ function renderOrcamento() {
   let orc = window.finOrcamento.slice()
   if (mesFilter) {
     const [ano, mes] = mesFilter.split('-').map(Number)
-    orc = orc.filter(o => o.ano === ano && o.mes === mes)
+    orc = _effectiveOrcamento(ano, mes)
+  } else {
+    // sem filtro: mostrar vigente hoje
+    const now = new Date()
+    orc = _effectiveOrcamento(now.getFullYear(), now.getMonth() + 1)
   }
   if (tipoFilter) {
     const ids = window.finCodigos.filter(c => c.tipo === tipoFilter).map(c => c.id)
