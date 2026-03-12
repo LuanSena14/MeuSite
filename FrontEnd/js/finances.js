@@ -123,36 +123,50 @@ function _findGrupoId(id) {
   return _findGrupoId(cod.cd_pai)
 }
 
-// Agrupa lista de itens de orçamento por grupo, calculando totais e sub-grupos intermediários
-function _groupOrcByGrupo(orcItems, realizadoMap) {
-  const grupos = {}
-  orcItems.forEach(o => {
-    const gid  = _findGrupoId(o.cd_financa) || o.cd_financa
-    const nome = _finNome(gid)
-    if (!grupos[gid]) grupos[gid] = { id: gid, nome, subGrupos: {}, items: [], totalOrc: 0, totalReal: 0 }
-
-    const cod            = window.finCodigos.find(c => c.id === o.cd_financa)
-    const directParentId = cod?.cd_pai
-    const orcado = Number(o.valor_orcado)
-    const real   = realizadoMap[o.cd_financa] || 0
-
-    if (directParentId && directParentId !== gid) {
-      // há nível intermediário (dono, Subscription, etc.)
-      const sg = grupos[gid].subGrupos
-      if (!sg[directParentId]) sg[directParentId] = { id: directParentId, nome: _finNome(directParentId), items: [], totalOrc: 0, totalReal: 0 }
-      sg[directParentId].items.push({ ...o, orcado, real })
-      sg[directParentId].totalOrc  += orcado
-      sg[directParentId].totalReal += real
-    } else {
-      grupos[gid].items.push({ ...o, orcado, real })
-    }
-    grupos[gid].totalOrc  += orcado
-    grupos[gid].totalReal += real
-  })
-  return Object.values(grupos).sort((a, b) => a.nome.localeCompare(b.nome))
+// Retorna a lista de IDs intermediários entre grupoId (exclusive) e itemId (exclusive)
+// Ex: Energy → Obrig_Couple → Couple → Recorrente(=grupoId)  →  [Couple, Obrig_Couple]
+function _pathFromGrupo(itemId, grupoId) {
+  if (itemId === grupoId) return []
+  const cod = window.finCodigos.find(c => c.id === itemId)
+  if (!cod || cod.cd_pai === null || cod.cd_pai === grupoId) return []
+  return [..._pathFromGrupo(cod.cd_pai, grupoId), cod.cd_pai]
 }
 
-// Agrupa por tipo (receita/despesa/investimento), reutilizando _groupOrcByGrupo
+// Constrói uma árvore de nós de orçamento com profundidade arbitrária
+function _buildOrcTree(orcItems, realizadoMap) {
+  const root = {}
+
+  function ensureNode(map, id) {
+    if (!map[id]) map[id] = { id, nome: _finNome(id), children: {}, items: [], totalOrc: 0, totalReal: 0 }
+    return map[id]
+  }
+
+  orcItems.forEach(o => {
+    const gid    = _findGrupoId(o.cd_financa) || o.cd_financa
+    const path   = _pathFromGrupo(o.cd_financa, gid)
+    const orcado = Number(o.valor_orcado)
+    const real   = realizadoMap[o.cd_financa] || 0
+    let node = ensureNode(root, gid)
+    for (const pid of path) node = ensureNode(node.children, pid)
+    node.items.push({ ...o, orcado, real })
+  })
+
+  function computeTotals(node) {
+    node.totalOrc = 0; node.totalReal = 0
+    Object.values(node.children).forEach(child => {
+      computeTotals(child)
+      node.totalOrc  += child.totalOrc
+      node.totalReal += child.totalReal
+    })
+    node.items.forEach(o => { node.totalOrc += o.orcado; node.totalReal += o.real })
+  }
+
+  const groups = Object.values(root)
+  groups.forEach(computeTotals)
+  return groups.sort((a, b) => a.nome.localeCompare(b.nome))
+}
+
+// Agrupa por tipo (receita/despesa/investimento), usando _buildOrcTree
 function _groupOrcByTipoAndGrupo(orcItems, realizadoMap) {
   const tipoOrder = ['receita', 'despesa', 'investimento']
   const tipoItems = {}
@@ -164,7 +178,7 @@ function _groupOrcByTipoAndGrupo(orcItems, realizadoMap) {
   return tipoOrder
     .filter(tp => tipoItems[tp])
     .map(tp => {
-      const grupos    = _groupOrcByGrupo(tipoItems[tp], realizadoMap)
+      const grupos    = _buildOrcTree(tipoItems[tp], realizadoMap)
       const totalOrc  = grupos.reduce((s, g) => s + g.totalOrc,  0)
       const totalReal = grupos.reduce((s, g) => s + g.totalReal, 0)
       const nome = tp.charAt(0).toUpperCase() + tp.slice(1)
@@ -212,51 +226,35 @@ function _renderOrcChild(o, showDelete) {
   </div>`
 }
 
+// Renderiza recursivamente um nó de orçamento (profundidade arbitrária)
+function _renderOrcNode(node, showDelete, uidPrefix, depth) {
+  const pct    = node.totalOrc > 0 ? Math.min((node.totalReal / node.totalOrc) * 100, 100) : 0
+  const over   = node.totalReal > node.totalOrc
+  const uid    = uidPrefix + '-' + node.id
+  const pctLbl = node.totalOrc > 0 ? ((node.totalReal / node.totalOrc) * 100).toFixed(0) + '%' : '—'
+  const childNodes = Object.values(node.children).sort((a, b) => a.nome.localeCompare(b.nome))
+  const innerHtml  = childNodes.map(c => _renderOrcNode(c, showDelete, uidPrefix, depth + 1)).join('')
+                   + node.items.map(o => _renderOrcChild(o, showDelete)).join('')
+  const wrapCls = depth === 0 ? 'fin-orc-group'    : 'fin-orc-subgroup'
+  const hdCls   = depth === 0 ? 'fin-orc-group-hd' : 'fin-orc-subgroup-hd'
+  const nameCls = depth === 0 ? 'fin-orc-group-name' : 'fin-orc-subgroup-name'
+  return `<div class="${wrapCls}">
+    <div class="${hdCls}" onclick="toggleOrcGroup('${uid}')">
+      <span class="fin-orc-group-arrow" id="orc-arrow-${uid}">▶</span>
+      <span class="${nameCls}">${node.nome}</span>
+      <span class="fin-orc-ov-vals ${over ? 'over' : ''}">
+        <b>${_fmtBRL(node.totalReal)}</b> / ${_fmtBRL(node.totalOrc)} <em>${pctLbl}</em>
+      </span>
+    </div>
+    <div class="fin-orc-bar-bg fin-orc-group-bar">
+      <div class="fin-orc-bar-fill ${over ? 'over' : ''}" style="width:${pct}%"></div>
+    </div>
+    <div class="fin-orc-group-body" id="orc-body-${uid}" style="display:none">${innerHtml}</div>
+  </div>`
+}
+
 function _buildOrcGroupHtml(grupos, showDelete, uidPrefix) {
-  return grupos.map(g => {
-    const pct  = g.totalOrc > 0 ? Math.min((g.totalReal / g.totalOrc) * 100, 100) : 0
-    const over = g.totalReal > g.totalOrc
-    const uid  = uidPrefix + '-' + g.id
-    const pctLbl = g.totalOrc > 0 ? ((g.totalReal / g.totalOrc) * 100).toFixed(0) + '%' : '—'
-
-    const subGrupoList = Object.values(g.subGrupos || {}).sort((a, b) => a.nome.localeCompare(b.nome))
-    const subGruposHtml = subGrupoList.map(sg => {
-      const sgPct    = sg.totalOrc > 0 ? Math.min((sg.totalReal / sg.totalOrc) * 100, 100) : 0
-      const sgOver   = sg.totalReal > sg.totalOrc
-      const sgUid    = uidPrefix + '-sg-' + sg.id
-      const sgPctLbl = sg.totalOrc > 0 ? ((sg.totalReal / sg.totalOrc) * 100).toFixed(0) + '%' : '—'
-      return `<div class="fin-orc-subgroup">
-        <div class="fin-orc-subgroup-hd" onclick="toggleOrcGroup('${sgUid}')">
-          <span class="fin-orc-group-arrow" id="orc-arrow-${sgUid}">▶</span>
-          <span class="fin-orc-subgroup-name">${sg.nome}</span>
-          <span class="fin-orc-ov-vals ${sgOver ? 'over' : ''}">
-            <b>${_fmtBRL(sg.totalReal)}</b> / ${_fmtBRL(sg.totalOrc)} <em>${sgPctLbl}</em>
-          </span>
-        </div>
-        <div class="fin-orc-bar-bg fin-orc-group-bar">
-          <div class="fin-orc-bar-fill ${sgOver ? 'over' : ''}" style="width:${sgPct}%"></div>
-        </div>
-        <div class="fin-orc-group-body" id="orc-body-${sgUid}" style="display:none">
-          ${sg.items.map(o => _renderOrcChild(o, showDelete)).join('')}
-        </div>
-      </div>`
-    }).join('')
-    const directChildren = g.items.map(o => _renderOrcChild(o, showDelete)).join('')
-
-    return `<div class="fin-orc-group">
-      <div class="fin-orc-group-hd" onclick="toggleOrcGroup('${uid}')">
-        <span class="fin-orc-group-arrow" id="orc-arrow-${uid}">▶</span>
-        <span class="fin-orc-group-name">${g.nome}</span>
-        <span class="fin-orc-ov-vals ${over ? 'over' : ''}">
-          <b>${_fmtBRL(g.totalReal)}</b> / ${_fmtBRL(g.totalOrc)} <em>${pctLbl}</em>
-        </span>
-      </div>
-      <div class="fin-orc-bar-bg fin-orc-group-bar">
-        <div class="fin-orc-bar-fill ${over ? 'over' : ''}" style="width:${pct}%"></div>
-      </div>
-      <div class="fin-orc-group-body" id="orc-body-${uid}" style="display:none">${subGruposHtml}${directChildren}</div>
-    </div>`
-  }).join('')
+  return grupos.map(g => _renderOrcNode(g, showDelete, uidPrefix, 0)).join('')
 }
 
 function toggleOrcGroup(uid) {
@@ -597,11 +595,11 @@ function renderOrcamento() {
   let html = ''
   if (mensais.length > 0) {
     html += `<div class="fin-orc-section-label">Vigente — ${mesLabel}</div>`
-    html += _buildOrcGroupHtml(_groupOrcByGrupo(mensais, realizado), true, 'tab-m')
+    html += _buildOrcGroupHtml(_buildOrcTree(mensais, realizado), true, 'tab-m')
   }
   if (anuais.length > 0) {
     html += `<div class="fin-orc-section-label" style="margin-top:20px">Base anual</div>`
-    html += _buildOrcGroupHtml(_groupOrcByGrupo(anuais, realizado), true, 'tab-a')
+    html += _buildOrcGroupHtml(_buildOrcTree(anuais, realizado), true, 'tab-a')
   }
   container.innerHTML = html
 }
