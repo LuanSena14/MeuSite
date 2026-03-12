@@ -114,11 +114,12 @@ class LancamentoFinanceiro(Base):
     """Receitas e despesas diárias."""
     __tablename__ = "lancamento_financeiro"
 
-    id          = Column(Integer, primary_key=True, autoincrement=True)
-    data        = Column(Date,    nullable=False)
-    cd_financa  = Column(Integer, ForeignKey("codigo_financa.id"), nullable=False)
-    valor       = Column(Float,   nullable=False)
-    descricao   = Column(String,  nullable=True)
+    id              = Column(Integer, primary_key=True, autoincrement=True)
+    data            = Column(Date,    nullable=False)
+    cd_financa      = Column(Integer, ForeignKey("codigo_financa.id"), nullable=False)
+    valor           = Column(Float,   nullable=False)
+    descricao       = Column(String,  nullable=True)
+    forma_pagamento = Column(String,  nullable=True, default='debito')
 
     categoria = relationship("CodigoFinanca")
 
@@ -127,11 +128,12 @@ class OrcamentoFinanceiro(Base):
     """Orçamento mensal por grupo (categoria pai)."""
     __tablename__ = "orcamento_financeiro"
 
-    id          = Column(Integer, primary_key=True, autoincrement=True)
-    ano         = Column(Integer, nullable=False)
-    mes         = Column(Integer, nullable=True)   # None = anual
-    cd_financa  = Column(Integer, ForeignKey("codigo_financa.id"), nullable=False)
-    valor_orcado = Column(Float,  nullable=False)
+    id              = Column(Integer, primary_key=True, autoincrement=True)
+    ano             = Column(Integer, nullable=False)
+    mes             = Column(Integer, nullable=True)   # None = anual
+    cd_financa      = Column(Integer, ForeignKey("codigo_financa.id"), nullable=False)
+    valor_orcado    = Column(Float,   nullable=False)
+    forma_pagamento = Column(String,  nullable=True)
 
     categoria = relationship("CodigoFinanca")
 

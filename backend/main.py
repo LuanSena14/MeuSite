@@ -20,6 +20,13 @@ app.add_middleware(
 
 Base.metadata.create_all(engine)
 
+# Migrações incrementais (adiciona colunas sem recriar tabelas existentes)
+with engine.connect() as _conn:
+    from sqlalchemy import text as _text
+    _conn.execute(_text("ALTER TABLE lancamento_financeiro ADD COLUMN IF NOT EXISTS forma_pagamento VARCHAR DEFAULT 'debito'"))
+    _conn.execute(_text("ALTER TABLE orcamento_financeiro  ADD COLUMN IF NOT EXISTS forma_pagamento VARCHAR"))
+    _conn.commit()
+
 # ── UTILITÁRIO DE BANCO ───────────────────────────────────────────────────────
 
 @contextmanager
@@ -338,16 +345,18 @@ class CodigoFinancaInput(BaseModel):
     cd_pai: Optional[int] = None
 
 class LancamentoInput(BaseModel):
-    data:       str
-    cd_financa: int
-    valor:      float
-    descricao:  Optional[str] = None
+    data:            str
+    cd_financa:      int
+    valor:           float
+    descricao:       Optional[str] = None
+    forma_pagamento: Optional[str] = 'debito'
 
 class OrcamentoInput(BaseModel):
-    ano:          int
-    mes:          Optional[int] = None
-    cd_financa:   int
-    valor_orcado: float
+    ano:             int
+    mes:             Optional[int] = None
+    cd_financa:      int
+    valor_orcado:    float
+    forma_pagamento: Optional[str] = None
 
 class SnapshotInvestimentoInput(BaseModel):
     data:       str
@@ -367,20 +376,16 @@ class IndicadorInput(BaseModel):
 def get_financas_codigos():
     with get_db() as db:
         todos = db.query(CodigoFinanca).all()
-        grupos = [c for c in todos if c.cd_pai is None]
-        resultado = []
-        for g in grupos:
-            filhos = [{"id": f.id, "nome": f.nome, "tipo": f.tipo}
-                      for f in todos if f.cd_pai == g.id]
-            resultado.append({"id": g.id, "nome": g.nome, "tipo": g.tipo, "filhos": filhos})
-    return resultado
+        return [{"id": c.id, "nome": c.nome, "tipo": c.tipo, "cd_pai": c.cd_pai} for c in todos]
 
 @app.post("/api/financas/codigos")
 def post_financa_codigo(body: CodigoFinancaInput):
     with get_db() as db:
-        db.add(CodigoFinanca(nome=body.nome, tipo=body.tipo, cd_pai=body.cd_pai))
+        novo = CodigoFinanca(nome=body.nome, tipo=body.tipo, cd_pai=body.cd_pai)
+        db.add(novo)
         db.commit()
-    return {"ok": True}
+        db.refresh(novo)
+        return {"id": novo.id, "nome": novo.nome, "tipo": novo.tipo, "cd_pai": novo.cd_pai}
 
 @app.delete("/api/financas/codigos/{id}")
 def delete_financa_codigo(id: int):
@@ -410,6 +415,7 @@ def get_lancamentos():
                 "tipo": cat.tipo,
                 "valor": l.valor,
                 "descricao": l.descricao,
+                "forma_pagamento": l.forma_pagamento or 'debito',
             })
     return resultado
 
@@ -421,6 +427,7 @@ def post_lancamento(body: LancamentoInput):
             cd_financa=body.cd_financa,
             valor=body.valor,
             descricao=body.descricao,
+            forma_pagamento=body.forma_pagamento,
         ))
         db.commit()
     return {"ok": True}
@@ -445,6 +452,7 @@ def get_orcamento():
             "categoria_nome": codigos[r.cd_financa].nome if r.cd_financa in codigos else "",
             "tipo": codigos[r.cd_financa].tipo if r.cd_financa in codigos else "",
             "valor_orcado": r.valor_orcado,
+            "forma_pagamento": r.forma_pagamento,
         } for r in rows]
 
 @app.post("/api/financas/orcamento")
@@ -456,12 +464,14 @@ def post_orcamento(body: OrcamentoInput):
             OrcamentoFinanceiro.cd_financa == body.cd_financa,
         ).first()
         if existing:
-            existing.valor_orcado = body.valor_orcado
+            existing.valor_orcado    = body.valor_orcado
+            existing.forma_pagamento = body.forma_pagamento
         else:
             db.add(OrcamentoFinanceiro(
                 ano=body.ano, mes=body.mes,
                 cd_financa=body.cd_financa,
                 valor_orcado=body.valor_orcado,
+                forma_pagamento=body.forma_pagamento,
             ))
         db.commit()
     return {"ok": True}

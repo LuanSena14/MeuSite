@@ -88,6 +88,12 @@ function _finNome(id) {
   return cod ? cod.nome : '—'
 }
 
+// Retorna badge HTML para forma de pagamento
+function _finPagBadge(p) {
+  if (p === 'credito') return '<span style="color:#7c9eff;font-size:.74rem;font-weight:600">Crédito</span>'
+  return '<span style="color:var(--text-muted);font-size:.74rem">Débito</span>'
+}
+
 // Retorna nome do grupo pai de um código
 function _finGrupo(id) {
   const cod = window.finCodigos.find(c => c.id === id)
@@ -123,6 +129,11 @@ function renderFinOverview() {
     }
   })
 
+  // Total no cartão de crédito no mês
+  const totalCredito = lancMes
+    .filter(l => l.forma_pagamento === 'credito')
+    .reduce((s, l) => s + Number(l.valor), 0)
+
   // Último saldo total de investimentos (maior data disponível)
   let totalInv = 0
   const invPorCod = {}
@@ -137,6 +148,7 @@ function renderFinOverview() {
   document.getElementById('fin-kpi-despesas').textContent  = _fmtBRL(despesas)
   document.getElementById('fin-kpi-saldo').textContent     = _fmtBRL(receitas - despesas)
   document.getElementById('fin-kpi-investido').textContent = _fmtBRL(totalInv)
+  document.getElementById('fin-kpi-credito').textContent   = _fmtBRL(totalCredito)
 
   // Colorir saldo positivo/negativo
   const saldoEl = document.getElementById('fin-kpi-saldo')
@@ -325,9 +337,10 @@ function renderLancamentos() {
     const cls  = tipo === 'receita' ? 'fin-receita' : 'fin-despesa'
     return `<tr>
       <td>${_fmtDate(l.data)}</td>
-      <td>${_finNome(l.cd_financa)}</td>
-      <td>${_finGrupo(l.cd_financa)}</td>
+      <td>${l.categoria_nome || _finNome(l.cd_financa)}</td>
+      <td>${l.grupo_nome || _finGrupo(l.cd_financa)}</td>
       <td class="${cls}">${tipo}</td>
+      <td>${_finPagBadge(l.forma_pagamento)}</td>
       <td>${l.descricao || '—'}</td>
       <td class="fin-col-valor ${cls}">${_fmtBRL(l.valor)}</td>
       <td><button class="fin-del-btn" onclick="deleteLancamentoFin(${l.id})">✕</button></td>
@@ -404,7 +417,7 @@ function renderOrcamento() {
     return `<div class="fin-orc-item">
       <div class="fin-orc-item-header">
         <div>
-          <div class="fin-orc-label">${nome} <span class="fin-ind-tipo">${tipo}</span></div>
+          <div class="fin-orc-label">${nome} <span class="fin-ind-tipo">${tipo}</span> ${_finPagBadge(o.forma_pagamento)}</div>
         </div>
         <div class="fin-orc-amounts">${_fmtBRL(real)} / ${_fmtBRL(orcado)}</div>
         <button class="fin-del-btn" onclick="deleteOrcamentoFin(${o.id})">✕</button>
@@ -598,11 +611,11 @@ function openFinModal(type) {
   }
 
   const overlay = document.getElementById('fin-modal-overlay')
-  overlay.style.display = 'flex'
+  overlay.classList.add('open')
 }
 
 function closeFinModal() {
-  document.getElementById('fin-modal-overlay').style.display = 'none'
+  document.getElementById('fin-modal-overlay').classList.remove('open')
 }
 
 function closeFinModalOutside(e) {
@@ -652,41 +665,40 @@ function toggleFinIndNome(tipo) {
 // ── SUBMIT FORMS ──────────────────────────────────────────────────────────────
 
 async function submitLancamento() {
-  const data     = document.getElementById('fin-lanc-data').value
-  const cd       = Number(document.getElementById('fin-lanc-cat').value)
-  const valor    = parseFloat(document.getElementById('fin-lanc-valor').value)
+  const data      = document.getElementById('fin-lanc-data').value
+  const cd        = Number(document.getElementById('fin-lanc-cat').value)
+  const valor     = parseFloat(document.getElementById('fin-lanc-valor').value)
   const descricao = document.getElementById('fin-lanc-desc').value.trim()
+  const pagamento = document.getElementById('fin-lanc-pagamento').value
 
   if (!data || !cd || isNaN(valor) || valor <= 0) {
     _showFinToastErro('Preencha data, categoria e valor.'); return
   }
 
-  const novo = await postLancamento({ data, cd_financa: cd, valor, descricao: descricao || null })
-  if (!novo?.id) { _showFinToastErro('Erro ao salvar.'); return }
+  const res = await postLancamento({ data, cd_financa: cd, valor, descricao: descricao || null, forma_pagamento: pagamento })
+  if (!res?.ok) { _showFinToastErro('Erro ao salvar.'); return }
 
-  window.finLancamentos.push(novo)
   closeFinModal()
-  renderLancamentos()
-  if (_finActiveTab === 'overview') renderFinOverview()
+  await initFinancesSection()
   _showFinToast('Lançamento adicionado!')
 }
 
 async function submitOrcamento() {
-  const mesStr = document.getElementById('fin-orc-mes').value
-  const cd     = Number(document.getElementById('fin-orc-cat').value)
-  const valor  = parseFloat(document.getElementById('fin-orc-valor').value)
+  const mesStr    = document.getElementById('fin-orc-mes').value
+  const cd        = Number(document.getElementById('fin-orc-cat').value)
+  const valor     = parseFloat(document.getElementById('fin-orc-valor').value)
+  const pagamento = document.getElementById('fin-orc-pagamento').value
 
   if (!mesStr || !cd || isNaN(valor) || valor <= 0) {
     _showFinToastErro('Preencha período, categoria e valor.'); return
   }
 
   const [ano, mes] = mesStr.split('-').map(Number)
-  const novo = await postOrcamento({ ano, mes, cd_financa: cd, valor_orcado: valor })
-  if (!novo?.id) { _showFinToastErro('Erro ao salvar.'); return }
+  const res = await postOrcamento({ ano, mes, cd_financa: cd, valor_orcado: valor, forma_pagamento: pagamento })
+  if (!res?.ok) { _showFinToastErro('Erro ao salvar.'); return }
 
-  window.finOrcamento.push(novo)
   closeFinModal()
-  renderOrcamento()
+  await initFinancesSection()
   _showFinToast('Orçamento salvo!')
 }
 
@@ -699,12 +711,11 @@ async function submitInvestimento() {
     _showFinToastErro('Preencha todos os campos.'); return
   }
 
-  const novo = await postInvestimento({ data, cd_financa: cd, saldo })
-  if (!novo?.id) { _showFinToastErro('Erro ao salvar.'); return }
+  const res = await postInvestimento({ data, cd_financa: cd, saldo })
+  if (!res?.ok) { _showFinToastErro('Erro ao salvar.'); return }
 
-  window.finInvestimentos.push(novo)
   closeFinModal()
-  renderInvestimentos()
+  await initFinancesSection()
   _showFinToast('Saldo registrado!')
 }
 
@@ -722,12 +733,11 @@ async function submitIndicador() {
   }
 
   const [ano, mes] = mesStr.split('-').map(Number)
-  const novo = await postIndicador({ ano, mes, tipo, nome: tipo === 'custom' ? nome : tipo, valor })
-  if (!novo?.id) { _showFinToastErro('Erro ao salvar.'); return }
+  const res = await postIndicador({ ano, mes, tipo, nome: tipo === 'custom' ? nome : tipo, valor })
+  if (!res?.ok) { _showFinToastErro('Erro ao salvar.'); return }
 
-  window.finIndicadores.push(novo)
   closeFinModal()
-  renderIndicadores()
+  await initFinancesSection()
   _showFinToast('Indicador salvo!')
 }
 
@@ -739,11 +749,11 @@ async function submitCategoria() {
 
   if (!nome) { _showFinToastErro('Informe o nome da categoria.'); return }
 
-  const novo = await postFinancaCodigo({ nome, tipo, cd_pai })
-  if (!novo?.id) { _showFinToastErro('Erro ao salvar.'); return }
+  const res = await postFinancaCodigo({ nome, tipo, cd_pai })
+  if (!res?.id) { _showFinToastErro('Erro ao salvar.'); return }
 
-  window.finCodigos.push(novo)
   closeFinModal()
+  await initFinancesSection()
   _showFinToast('Categoria criada!')
 }
 
