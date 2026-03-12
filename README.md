@@ -21,12 +21,13 @@ exercises
 
 ## 1. O que é o BodyLog?
 
-BodyLog é um app pessoal de acompanhamento com três seções:
+BodyLog é um app pessoal de acompanhamento com quatro seções:
 
 | Seção | O que faz |
 |---|---|
 | **Body** | Registra e visualiza métricas corporais (peso, gordura, músculo, FFMI, etc.) via check-ins periódicos |
 | **Exercises** | Registra treinos (grupo muscular, exercício, duração, esforço) e mostra dashboards com frequência, distribuição e histórico |
+| **Goals** | Sistema de pontuação mensal: metas diárias, semanais e mensais com score em %, calendário heatmap e KPIs de desempenho |
 | **Finances** | Placeholder — ainda não implementado |
 
 ---
@@ -38,7 +39,7 @@ BodyLog é um app pessoal de acompanhamento com três seções:
 │        FRONTEND             │ ──────────────────► │         BACKEND              │
 │   HTML + CSS + JS puro      │                      │   Python + FastAPI           │
 │   Sem framework (Vanilla)   │ ◄────────────────── │   PostgreSQL (Render.com)    │
-│   Hospedado localmente      │        JSON          │   Hospedado em Render.com    │
+│   Hospedado em Render.com   │        JSON          │   Hospedado em Render.com    │
 └─────────────────────────────┘                      └──────────────────────────────┘
 ```
 
@@ -70,30 +71,34 @@ MeuSite/
     ├── sections/              ← cada seção é um fragmento HTML carregado sob demanda
     │   ├── body.html          ← KPIs + gráficos de métricas corporais
     │   ├── exercises.html     ← KPIs + gráficos de treinos
+    │   ├── goals.html         ← overview de meses + detalhe + calendário heatmap
     │   └── finances.html      ← placeholder
     │
     ├── modals/                ← modais carregados sob demanda
     │   ├── checkin-modal.html ← formulário de novo check-in
-    │   └── exercise-modal.html← formulário de novo treino
+    │   ├── exercise-modal.html← formulário de novo treino
+    │   └── goals-modal.html   ← registro diário de metas semanais
     │
     └── js/
         ├── nav.js             ← NAVEGAÇÃO: troca de seções, sidebar, filtros
         ├── api.js             ← DADOS: todas as chamadas ao backend ficam aqui
-        ├── app.js             ← INIT: carrega HTML, inicializa seções, modais, toast
+        ├── app.js             ← INIT: APP_VERSION, loadHTML, modais, ESC handler
         ├── checkin.js         ← FORMULÁRIO: submit do check-in
         ├── dashboard.js       ← RENDERIZAÇÃO: gráficos e KPIs da seção Body
-        └── exercicios.js      ← RENDERIZAÇÃO: gráficos e KPIs da seção Exercises
+        ├── exercicios.js      ← RENDERIZAÇÃO: gráficos e KPIs da seção Exercises
+        └── goals.js           ← RENDERIZAÇÃO: score mensal, calendário e KPIs de Goals
 ```
 
 **Regra de ouro dos arquivos JS:**
 
 | Arquivo | Responsabilidade única |
 |---|---|
-| `nav.js` | Sabe *onde* o usuário está e *troca* de lugar |
-| `api.js` | Sabe *como falar* com o backend |
-| `app.js` | Sabe *o que carregar* quando a seção muda |
+| `nav.js` | Navegação: `DEFAULT_SECTION`, `SECTION_META`, `switchSection()` |
+| `api.js` | Comunicação HTTP: helper `_apiFetch()` + uma função por endpoint |
+| `app.js` | Init: `APP_VERSION`, `loadHTML()`, `init()`, handlers de modal e ESC |
 | `dashboard.js` | Sabe *como desenhar* o dashboard Body |
 | `exercicios.js` | Sabe *como desenhar* o dashboard Exercises |
+| `goals.js` | Calcula scores e desenha o dashboard Goals |
 | `checkin.js` | Sabe *como enviar* o formulário de check-in |
 
 ---
@@ -132,9 +137,10 @@ const DEFAULT_SECTION = 'body'
 **`SECTION_META`** — dicionário com tudo que cada seção precisa exibir:
 ```js
 const SECTION_META = {
-  body:      { title: 'Body metrics',      action: { label: 'Novo check-in', fn: 'openModal()' },   filters: false },
-  exercises: { title: 'Exercises tracker', action: { label: 'Novo treino',   fn: 'openExModal()' }, filters: true  },
-  finances:  { title: 'Finances overview', action: null,                                              filters: false },
+  body:      { title: 'Body metrics',      action: { label: 'Novo check-in', fn: 'openModal()' },      filters: false },
+  exercises: { title: 'Exercises tracker', action: { label: 'Novo treino',   fn: 'openExModal()' },    filters: true  },
+  goals:     { title: 'Goals overview',    action: { label: 'Registrar dia', fn: 'openGoalsModal()' }, filters: false },
+  finances:  { title: 'Finances overview', action: null,                                                 filters: false },
 }
 ```
 
@@ -167,7 +173,7 @@ async function loadHTML(file, targetId) {
   document.getElementById(targetId).innerHTML = html
 }
 ```
-> O `?v=3` é um **cache buster** — força o browser a baixar sempre a versão mais recente.
+> O `?v=${APP_VERSION}` é um **cache buster** — força o browser a baixar sempre a versão mais recente. `APP_VERSION` é definido em `app.js` — incremente ao fazer deploy.
 
 **`loadedSections`** — Set que guarda quais seções já foram carregadas. Evita baixar o mesmo HTML duas vezes:
 ```js
@@ -198,7 +204,13 @@ Centraliza **todas** as chamadas HTTP. Se o endereço do backend mudar, você mu
 const API = "https://meusite-3.onrender.com"
 ```
 
-Cada função é `async` e retorna dados como objeto JavaScript (`.json()`):
+Um helper interno `_apiFetch(path, options)` faz o fetch e lança erro se o status não for 2xx. Cada função pública é uma linha que chama `_apiFetch`:
+
+```js
+async function fetchCheckins() {
+  return _apiFetch('/api/checkins')
+}
+```
 
 | Função | Método | Endpoint | O que retorna |
 |---|---|---|---|
@@ -208,6 +220,10 @@ Cada função é `async` e retorna dados como objeto JavaScript (`.json()`):
 | `fetchCodigosExercicio()` | GET | `/api/exercicios/codigos` | Árvore de grupos e exercícios |
 | `fetchExercicios()` | GET | `/api/exercicios` | Array de treinos |
 | `postExercise(entry)` | POST | `/api/exercicios` | `{ok: true}` |
+| `fetchGoalsCodigos()` | GET | `/api/goals/codigos` | Árvore de grupos e goals |
+| `fetchGoalsMetas()` | GET | `/api/goals/metas` | Regras de pontuação + valor medido |
+| `fetchGoalsEntradas()` | GET | `/api/goals/entradas` | Histórico de checks diários |
+| `postGoalEntrada(date, cd_goal, progresso)` | POST | `/api/goals/entradas` | `{ok: true}` |
 
 ### 4.5 Dashboard Body: `dashboard.js`
 
@@ -248,7 +264,35 @@ const exDrill = {
 }
 ```
 
-### 4.7 Estilos: `style.css`
+### 4.7 Goals: `goals.js`
+
+Contém toda a lógica de scoring e renderização da seção Goals. Nenhum dado é armazenado no DOM fora das variáveis globais:
+
+```js
+window.goalsCodigos  = []  // árvore de grupos e goals
+window.goalsMetas    = []  // regras de pontuação (tp_metrica, valor_alvo, pts, cd_medida)
+window.goalsEntradas = []  // histórico de checks diários
+```
+
+**Algoritmo de score mensal** — função `_gMonthScore(mesKey)`:
+
+| `tp_metrica` | Fórmula | Exemplo |
+|---|---|---|
+| `diario` | `feitos / lastDay × pts` | 18 de 30 dias → 60% |
+| `semanal` | `feitos / (lastDay × alvo/7) × pts` (capped em 100%) | meta 5×/sem, 20 feitos de 21 esperados → 95% |
+| `mensal` | `feito=1` se `valor_medido <= valor_alvo` (ou entrada manual) | peso 82 ≤ alvo 83 → 100% |
+
+**Calendário heatmap** — `_gRenderCalendar(mk, data)`:
+- Modo geral: cor da célula = score do dia (% das metas cumpridas)
+- Modo filtrado: um goal por vez, célula binária (feito/não feito)
+- Chips de filtro clicáveis para cada meta semanal
+
+**Modal de registro** — `openGoalsModal()` / `saveGoalEntradas()`:
+- Carregado sob demanda de `modals/goals-modal.html`
+- Toggle por meta semanal; salva todas de uma vez ao clicar "Salvar"
+- Faz upsert no banco (atualiza se já existe entrada para aquele dia)
+
+### 4.8 Estilos: `style.css`
 
 Um único arquivo organizado em seções com comentários:
 
@@ -292,6 +336,16 @@ codigo_exercicio        ← árvore de grupos e exercícios (auto-referência)
 
 entrada_exercicio       ← cada linha é UM treino
     id, data, hora, cd_exercicio, duracao, esforco
+
+codigo_goals            ← árvore de grupos e metas (auto-referência)
+    id, nome, descricao, cd_pai (NULL = é grupo)
+
+pontuacao_goal          ← regras de pontuação por meta
+    id, data (NULL = sempre válida | YYYY-MM-01 = mensal), tp_metrica,
+    cd_goal, valor (freq. alvo), pts, cd_medida (FK para medição automática)
+
+entrada_goals           ← cada linha é UM check diário
+    id, data, cd_goal, realizado_no_dia (Boolean)
 ```
 
 **Por que `codigo_medida` tem `cd_pai`?**
@@ -310,6 +364,11 @@ POST /api/checkins             → salva novo check-in (body: {date, medidas: {.
 GET  /api/exercicios/codigos   → árvore de grupos e exercícios
 GET  /api/exercicios           → todos os treinos com nome do exercício e grupo
 POST /api/exercicios           → salva novo treino
+
+GET  /api/goals/codigos        → árvore de grupos e goals
+GET  /api/goals/metas          → regras de pontuação + valor medido (se cd_medida)
+GET  /api/goals/entradas       → histórico de checks diários
+POST /api/goals/entradas       → salva/atualiza check de um goal num dia
 
 GET  /health                   → verifica se a API está no ar
 ```
@@ -423,9 +482,7 @@ Dentro de `<div id="main-content">`:
 
 ```js
 async function fetchSleep() {
-  const response = await fetch(`${API}/api/sleep`)
-  if (!response.ok) throw new Error(`Erro: ${response.status}`)
-  return response.json()
+  return _apiFetch('/api/sleep')
 }
 ```
 
@@ -480,7 +537,7 @@ def get_sleep():
 - [ ] `index.html` → sidebar — novo botão `<button class="sidebar-item">`
 - [ ] `index.html` → `#main-content` — novo `<section id="section-sleep">`
 - [ ] `index.html` → scripts — `<script src="js/sleep.js">` (antes de `app.js`)
-- [ ] `api.js` — funções de fetch para a nova seção
+- [ ] `api.js` — funções de fetch para a nova seção (usam `_apiFetch()`)
 - [ ] `js/sleep.js` — `initSleepSection()` + `renderSleepDash()`
 - [ ] `main.py` — rotas GET e POST (se precisar salvar dados)
 - [ ] `models.py` + `bodylog.sql` — tabelas novas (se precisar)
@@ -495,6 +552,7 @@ def get_sleep():
 |---|---|
 | `kpi-*` | Componentes da seção Body |
 | `ex-*` | Componentes da seção Exercises |
+| `goals-*`, `g-*`, `gm-*` | Componentes da seção Goals |
 | `section-*` | Containers de seção no shell |
 | `modal-*` | Elementos de modal |
 
@@ -532,7 +590,8 @@ A ordem importa porque não há módulos:
 <script src="js/checkin.js"></script>   <!-- 3. formulário -->
 <script src="js/dashboard.js"></script> <!-- 4. renderização body -->
 <script src="js/exercicios.js"></script><!-- 5. renderização exercises -->
-<script src="js/app.js"></script>       <!-- 6. SEMPRE POR ÚLTIMO — usa tudo que veio antes -->
+<script src="js/goals.js"></script>     <!-- 6. renderização goals -->
+<script src="js/app.js"></script>       <!-- 7. SEMPRE POR ÚLTIMO — usa tudo que veio antes -->
 ```
 
 ---
@@ -582,7 +641,7 @@ Definidas em `:root` em `style.css`. Use sempre variáveis, nunca valores hardco
 2. O Render.com "dorme" serviços gratuitos — pode demorar ~30s para acordar na primeira requisição
 
 **Seção não atualiza após editar o HTML:**
-- O `loadHTML` usa `?v=3` como cache buster. Se não aparecer, incremente: `?v=4`
+- `APP_VERSION` está em `app.js`. Incremente o valor (ex: `'13'` → `'14'`) e faça deploy.
 - Ou force hard-refresh: `Ctrl+Shift+R`
 
 **Gráfico não aparece:**

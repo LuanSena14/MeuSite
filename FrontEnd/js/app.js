@@ -2,8 +2,10 @@
 // app.js — inicialização da aplicação, carregamento de HTML e controle de modais
 // ─────────────────────────────────────────────────────────────────────────────
 
+const APP_VERSION = '13'
+
 async function loadHTML(file, targetId) {
-  const response = await fetch(file + '?v=3', { cache: 'no-cache' })
+  const response = await fetch(`${file}?v=${APP_VERSION}`, { cache: 'no-cache' })
   const html = await response.text()
   document.getElementById(targetId).innerHTML = html
 }
@@ -75,7 +77,6 @@ async function initExSection() {
   try {
     window.codigosEx  = await fetchCodigosExercicio()
     window.exercicios = await fetchExercicios()
-    console.log('exercicios:', exercicios)
   } catch (err) {
     console.error('Erro ao carregar exercícios:', err)
     codigosEx  = []

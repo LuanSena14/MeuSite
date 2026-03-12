@@ -1,8 +1,5 @@
-from sqlite3.dbapi2 import Timestamp
-
 from sqlalchemy import Column, Integer, Float, String, Date, ForeignKey, Time, Boolean
-from sqlalchemy.orm import declarative_base, relationship
-from sqlalchemy.orm import backref
+from sqlalchemy.orm import declarative_base, relationship, backref
 
 Base = declarative_base()
 

@@ -2,18 +2,19 @@
 // goals.js — Sistema de pontuação mensal baseado em dados reais do banco
 //
 // Tabelas consumidas (via API):
-//   codigo_goal   → cadastro de metas (árvore: grupos + metas folha)
-//   meta          → regras de pontuação:
+//   codigo_goals  → cadastro de metas (árvore: grupos + metas folha)
+//   pontuacao_goal→ regras de pontuação:
 //                     tp_metrica  = 'diario' | 'semanal' | 'mensal'
-//                     valor_alvo  = frequência alvo (diario=1, semanal=Nxsemana, mensal=1)
+//                     valor       = frequência alvo (diario=1, semanal=Nxsemana, mensal=1)
 //                     pts         = pontos que vale se cumprir
 //                     data        = NULL para sempre | 'YYYY-MM-01' para meta mensal de peso
-//   entrada_goal  → check diário: data, cd_goal, progresso (0=não fez, 1=fez)
+//                     cd_medida   = FK para codigo_medida (medição automática, ex: peso)
+//   entrada_goals → check diário: data, cd_goal, realizado_no_dia (Boolean)
 //
 // Algoritmo de score mensal:
-//   diario  → (dias com progresso≥1 no mês) / lastDay  × pts
+//   diario  → (dias com realizado_no_dia no mês) / lastDay  × pts
 //   semanal → feitos / (lastDay × valor_alvo/7)  × pts   [crédito parcial]
-//   mensal  → pts inteiros se há entrada com progresso≥1 no mês
+//   mensal  → pts inteiros se há medição <= valor_alvo (ou entrada manual)
 //
 // Calendário: usa TODAS as metas (diario + semanal), colore por % de goals feitos no dia
 // ─────────────────────────────────────────────────────────────────────────────
@@ -71,8 +72,8 @@ function _gMonthScore(mesKey) {
   // Metas aplicáveis ao mês:
   //   data=null  → sempre válida
   //   data set   → só vale se data.startsWith(mesKey)
-  const metas = window.goalsMetas.filter(m =>
-    m.data === null || m.data === undefined || m.data.startsWith(mesKey)
+  const metas = window.goalsMetas.filter(mm =>
+    mm.data === null || mm.data === undefined || mm.data.startsWith(mesKey)
   )
 
   if (metas.length === 0 && entradasMes.length === 0) return null
@@ -187,9 +188,7 @@ function _gGetMeses() {
 
 function goalsRenderOverview() {
   const meses  = _gGetMeses()
-  console.log('[Goals] goalsRenderOverview — meses:', meses.length, meses)
   const scores = meses.map(mk => ({ mk, data: _gMonthScore(mk) })).filter(x => x.data)
-  console.log('[Goals] scores:', scores.length, scores.map(s => ({ mk: s.mk, pct: s.data?.pct })))
 
   if (window.goalsMetas.length === 0) {
     document.getElementById('goals-months-grid').innerHTML = `
@@ -586,7 +585,6 @@ async function initGoalsSection() {
         return { ...m, tp_metrica: tp === 'meta' ? 'mensal' : tp }
       })
       window.goalsEntradas = entradas
-      console.log('[Goals] metas:', window.goalsMetas.length, 'entradas:', window.goalsEntradas.length)
       erroApi = null
       break
     } catch (err) {
@@ -625,7 +623,7 @@ async function initGoalsSection() {
 async function openGoalsModal() {
   // Carrega o modal se ainda não foi carregado
   if (!document.getElementById('goals-modal-overlay')) {
-    const r = await fetch('modals/goals-modal.html?v=10', { cache: 'no-cache' })
+    const r = await fetch(`modals/goals-modal.html?v=${APP_VERSION}`, { cache: 'no-cache' })
     document.getElementById('modal-container-goals').innerHTML = await r.text()
   }
 
