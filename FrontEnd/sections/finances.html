@@ -19,15 +19,14 @@
 
   <!-- ── ABA: OVERVIEW ─────────────────────────────────────────────────────── -->
   <div class="fin-panel active" id="fin-panel-overview">
+
+    <!-- Barra de filtro de mês ativo -->
+    <div id="fin-overview-month-bar" style="display:none;align-items:center;gap:12px;margin-bottom:12px;padding:8px 14px;background:var(--surface);border:1px solid var(--accent);border-radius:6px;font-size:.84rem;color:var(--accent)">
+      <span>Filtro: <b id="fin-overview-month-label">—</b></span>
+      <button onclick="_clearEvoFilter()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:.88rem;padding:0 4px;line-height:1">✕ Limpar</button>
+    </div>
+
     <div class="kpi-grid" id="fin-kpi-grid">
-      <div class="kpi-card" style="--kpi-color: var(--accent)">
-        <div class="kpi-label">Receitas do mês</div>
-        <div class="kpi-value" id="fin-kpi-receitas">—</div>
-      </div>
-      <div class="kpi-card" style="--kpi-color: var(--danger)">
-        <div class="kpi-label">Despesas do mês</div>
-        <div class="kpi-value" id="fin-kpi-despesas">—</div>
-      </div>
       <div class="kpi-card" style="--kpi-color: var(--accent2)">
         <div class="kpi-label">Saldo do mês</div>
         <div class="kpi-value" id="fin-kpi-saldo">—</div>
@@ -40,32 +39,33 @@
         <div class="kpi-label">Cartão de crédito</div>
         <div class="kpi-value" id="fin-kpi-credito">—</div>
       </div>
-    </div>
-    <!-- Validador Mensal -->
-    <div class="dash-card fin-validador-card" style="margin-top:16px">
-      <div class="dash-card-title" style="margin-bottom:12px">Validador — <span id="fin-val-ano-label"></span></div>
-      <div id="fin-validador"></div>
-    </div>
-
-    <!-- Orçado x Realizado do mês -->
-    <div class="dash-card" style="margin-top:16px">
-      <div class="fin-orc-overview-header">
-        <div class="dash-card-title" style="margin-bottom:0">Orçado × Realizado — <span id="fin-orc-mes-label"></span></div>
-        <button class="btn-add" style="font-size:.78rem;padding:5px 12px" onclick="openFinModal('orcamento')">+ Orçamento</button>
+      <div class="kpi-card" style="--kpi-color: #4ecca3">
+        <div class="kpi-label">Taxa de poupança</div>
+        <div class="kpi-value" id="fin-kpi-poupanca">—</div>
       </div>
-      <div id="fin-orc-overview"></div>
     </div>
 
-    <div class="fin-overview-grid">
+    <!-- Donut de despesas + Validador lado a lado -->
+    <div class="fin-overview-top-row">
       <div class="dash-card">
         <div class="dash-card-title">Despesas por categoria</div>
         <div class="fin-chart-wrap"><canvas id="fin-chart-despesas"></canvas></div>
       </div>
-      <div class="dash-card">
-        <div class="dash-card-title">Evolução mensal (receitas × despesas)</div>
-        <div class="fin-chart-wrap"><canvas id="fin-chart-evolucao"></canvas></div>
+      <div class="dash-card fin-validador-card">
+        <div class="dash-card-title" style="margin-bottom:12px">Validador — <span id="fin-val-ano-label"></span></div>
+        <div id="fin-validador"></div>
       </div>
     </div>
+
+    <!-- Evolução mensal — largura total -->
+    <div class="dash-card" style="margin-top:16px">
+      <div class="dash-card-title">Evolução mensal — <span id="fin-evo-period-label" style="color:var(--text-muted);font-size:.8rem;font-weight:400">clique em um mês para filtrar a tela</span></div>
+      <div class="fin-chart-wrap fin-chart-evolucao-wrap"><canvas id="fin-chart-evolucao"></canvas></div>
+    </div>
+
+    <!-- Orçado × Realizado (oculto, mantido para renderização interna) -->
+    <div style="display:none"><div id="fin-orc-overview"></div><span id="fin-orc-mes-label"></span></div>
+
   </div>
 
   <!-- ── ABA: LANÇAMENTOS ──────────────────────────────────────────────────── -->

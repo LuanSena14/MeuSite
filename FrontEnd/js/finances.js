@@ -17,6 +17,7 @@ window.finInvestimentos = []  // [{id, data, cd_financa, saldo}]
 
 let _finActiveTab = 'overview'
 let _finChartsInstances = {}
+let _finEvoSelectedMonth = null   // {ano, mes} | null
 
 // ── INICIALIZAÇÃO ─────────────────────────────────────────────────────────────
 
@@ -273,14 +274,31 @@ function _finGrupo(id) {
 // ── OVERVIEW ─────────────────────────────────────────────────────────────────
 
 function renderFinOverview() {
-  const now = new Date()
-  const ano = now.getFullYear()
-  const mes = now.getMonth() + 1
+  let ano, mes
+  if (_finEvoSelectedMonth) {
+    ano = _finEvoSelectedMonth.ano
+    mes = _finEvoSelectedMonth.mes
+  } else {
+    const now = new Date()
+    ano = now.getFullYear()
+    mes = now.getMonth() + 1
+  }
 
-  const lancMes = window.finLancamentos.filter(l => {
-    const d = new Date(l.data + 'T00:00:00')
-    return d.getFullYear() === ano && d.getMonth() + 1 === mes
-  })
+  // Barra de filtro de mês ativo
+  const filterBar = document.getElementById('fin-overview-month-bar')
+  const filterLbl = document.getElementById('fin-overview-month-label')
+  if (filterBar) {
+    if (_finEvoSelectedMonth) {
+      const name = new Date(ano, mes - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+      filterBar.style.display = 'flex'
+      if (filterLbl) filterLbl.textContent = name
+    } else {
+      filterBar.style.display = 'none'
+    }
+  }
+
+  const mesKey  = `${ano}-${String(mes).padStart(2, '0')}`
+  const lancMes = window.finLancamentos.filter(l => l.data.startsWith(mesKey))
 
   let receitas = 0, despesas = 0
   const despPorCat = {}
@@ -301,21 +319,31 @@ function renderFinOverview() {
     .filter(l => l.forma_pagamento === 'credito')
     .reduce((s, l) => s + Number(l.valor), 0)
 
-  // Último saldo total de investimentos (maior data disponível)
+  // Total investido — exclui indicadores (id=78 e descendentes), igual à aba Investimentos
+  const indicIds = new Set([78, ..._getDescendantIds(78)])
   let totalInv = 0
   const invPorCod = {}
-  window.finInvestimentos.forEach(s => {
-    if (!invPorCod[s.cd_financa] || s.data > invPorCod[s.cd_financa].data) {
-      invPorCod[s.cd_financa] = s
-    }
-  })
+  window.finInvestimentos
+    .filter(s => !indicIds.has(s.cd_financa))
+    .forEach(s => {
+      if (!invPorCod[s.cd_financa] || s.data > invPorCod[s.cd_financa].data) {
+        invPorCod[s.cd_financa] = s
+      }
+    })
   Object.values(invPorCod).forEach(s => { totalInv += Number(s.saldo) })
 
-  document.getElementById('fin-kpi-receitas').textContent  = _fmtBRL(receitas)
-  document.getElementById('fin-kpi-despesas').textContent  = _fmtBRL(despesas)
+  // Taxa de poupança = (receitas - despesas) / receitas
+  const taxaPoupanca = receitas > 0 ? ((receitas - despesas) / receitas * 100) : null
+
   document.getElementById('fin-kpi-saldo').textContent     = _fmtBRL(receitas - despesas)
   document.getElementById('fin-kpi-investido').textContent = _fmtBRL(totalInv)
   document.getElementById('fin-kpi-credito').textContent   = _fmtBRL(totalCredito)
+  const poupEl = document.getElementById('fin-kpi-poupanca')
+  if (poupEl) {
+    poupEl.textContent = taxaPoupanca !== null ? taxaPoupanca.toFixed(1) + '%' : '—'
+    poupEl.style.color = taxaPoupanca !== null && taxaPoupanca >= 20
+      ? 'var(--accent)' : (taxaPoupanca !== null && taxaPoupanca < 0 ? 'var(--danger)' : '')
+  }
 
   // Colorir saldo positivo/negativo
   const saldoEl = document.getElementById('fin-kpi-saldo')
@@ -439,43 +467,84 @@ function _renderChartEvolucao() {
   if (!canvas) return
   _destroyChart('evolucao')
 
-  // Últimos 6 meses
-  const meses = []
-  const now = new Date()
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    meses.push({ ano: d.getFullYear(), mes: d.getMonth() + 1, label: d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }) })
-  }
+  // Todos os meses com lançamentos de receita ou despesa
+  const mesSet = new Set()
+  window.finLancamentos.forEach(l => {
+    const cod = window.finCodigos.find(c => c.id === l.cd_financa)
+    if (cod?.tipo === 'receita' || cod?.tipo === 'despesa') mesSet.add(l.data.slice(0, 7))
+  })
+  if (mesSet.size === 0) return
 
-  const receitas = meses.map(m => {
-    return window.finLancamentos
-      .filter(l => {
-        const d = new Date(l.data + 'T00:00:00')
-        const cod = window.finCodigos.find(c => c.id === l.cd_financa)
-        return cod?.tipo === 'receita' && d.getFullYear() === m.ano && d.getMonth() + 1 === m.mes
-      })
-      .reduce((s, l) => s + Number(l.valor), 0)
+  const meses = [...mesSet].sort().map(mk => {
+    const [y, m] = mk.split('-')
+    return {
+      ano: Number(y), mes: Number(m), key: mk,
+      label: new Date(Number(y), Number(m) - 1, 1)
+        .toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }),
+    }
   })
-  const despesas = meses.map(m => {
-    return window.finLancamentos
-      .filter(l => {
-        const d = new Date(l.data + 'T00:00:00')
-        const cod = window.finCodigos.find(c => c.id === l.cd_financa)
-        return cod?.tipo === 'despesa' && d.getFullYear() === m.ano && d.getMonth() + 1 === m.mes
-      })
-      .reduce((s, l) => s + Number(l.valor), 0)
-  })
+
+  const receitas = meses.map(m =>
+    window.finLancamentos.filter(l => {
+      const cod = window.finCodigos.find(c => c.id === l.cd_financa)
+      return cod?.tipo === 'receita' && l.data.startsWith(m.key)
+    }).reduce((s, l) => s + Number(l.valor), 0)
+  )
+  const despesas = meses.map(m =>
+    window.finLancamentos.filter(l => {
+      const cod = window.finCodigos.find(c => c.id === l.cd_financa)
+      return cod?.tipo === 'despesa' && l.data.startsWith(m.key)
+    }).reduce((s, l) => s + Number(l.valor), 0)
+  )
+  const nets = meses.map((_, i) => receitas[i] - despesas[i])
+
+  const selKey = _finEvoSelectedMonth
+    ? `${_finEvoSelectedMonth.ano}-${String(_finEvoSelectedMonth.mes).padStart(2, '0')}`
+    : null
+
+  // Cores: mês selecionado fica sólido, outros ficam suaves
+  const recBg  = meses.map(m => selKey ? (m.key === selKey ? '#4ecca3' : '#4ecca320') : '#4ecca355')
+  const despBg = meses.map(m => selKey ? (m.key === selKey ? '#e05c5ccc' : '#e05c5c20') : '#e05c5c55')
+  const netPt  = nets.map(n => n >= 0 ? '#4ecca3' : '#e05c5c')
 
   _finChartsInstances['evolucao'] = new Chart(canvas, {
     type: 'bar',
     data: {
       labels: meses.map(m => m.label),
       datasets: [
-        { label: 'Receitas', data: receitas, backgroundColor: '#4ecca355' },
-        { label: 'Despesas', data: despesas, backgroundColor: '#e05c5c55' },
+        {
+          label: 'Receitas', data: receitas,
+          backgroundColor: recBg, borderRadius: 3, order: 2,
+        },
+        {
+          label: 'Despesas', data: despesas,
+          backgroundColor: despBg, borderRadius: 3, order: 2,
+        },
+        {
+          label: 'Net', data: nets,
+          type: 'line',
+          borderColor: '#f5d742',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          pointRadius: meses.map(m => selKey ? (m.key === selKey ? 7 : 4) : 4),
+          pointBackgroundColor: netPt,
+          pointBorderColor: netPt,
+          tension: 0.2,
+          order: 1,
+        },
       ],
     },
     options: {
+      onClick: (evt, elements) => {
+        if (!elements.length) return
+        const idx = elements[0].index
+        const m   = meses[idx]
+        if (selKey === m.key) _clearEvoFilter()
+        else _selectEvolucaoMonth(m.ano, m.mes)
+      },
+      onHover: (evt, elements) => {
+        evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'
+      },
       scales: {
         x: { ticks: { color: '#a0a8a4', font: { size: 11 } }, grid: { color: '#2a2f2c' } },
         y: { ticks: { color: '#a0a8a4', font: { size: 11 }, callback: v => _fmtBRL(v) }, grid: { color: '#2a2f2c' } },
@@ -487,6 +556,16 @@ function _renderChartEvolucao() {
       },
     },
   })
+}
+
+function _selectEvolucaoMonth(ano, mes) {
+  _finEvoSelectedMonth = { ano, mes }
+  renderFinOverview()
+}
+
+function _clearEvoFilter() {
+  _finEvoSelectedMonth = null
+  renderFinOverview()
 }
 
 // ── LANÇAMENTOS ───────────────────────────────────────────────────────────────

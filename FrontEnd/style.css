@@ -1793,6 +1793,12 @@ tbody td:first-child { color: var(--text); }
 .fin-inv-card-rend.neg { color: var(--danger); }
 
 /* OVERVIEW */
+.fin-overview-top-row {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 16px;
+}
 .fin-overview-grid {
   display: grid;
   gap: 16px;
@@ -1804,6 +1810,9 @@ tbody td:first-child { color: var(--text); }
   padding: 8px 0;
   position: relative;
 }
+.fin-chart-evolucao-wrap {
+  max-height: 340px;
+}
 
 /* INDICADORES */
 .fin-ind-tipo {
@@ -1814,6 +1823,7 @@ tbody td:first-child { color: var(--text); }
 }
 
 @media (max-width: 680px) {
+  .fin-overview-top-row { grid-template-columns: 1fr; }
   .fin-overview-grid { grid-template-columns: 1fr; }
   .fin-inv-cards     { grid-template-columns: 1fr 1fr; }
 }
@@ -1857,7 +1867,7 @@ tbody td:first-child { color: var(--text); }
 .fin-plan-done    { color: var(--accent);   font-size: .9rem; }
 .fin-plan-future  { color: var(--text-muted); font-size: .85rem; }
 .fin-plan-pending { color: var(--danger);   font-size: .9rem; font-weight: 700; }
-/* -- PAINEL RECORRENTE (orçamento spreadsheet) ---------------------------- */
+/* -- PAINEL RECORRENTE (orï¿½amento spreadsheet) ---------------------------- */
 .fin-orc-details {
   margin-top: 24px;
   border: 1px solid var(--surface-3);
@@ -2035,7 +2045,7 @@ tbody td:first-child { color: var(--text); }
   vertical-align: middle;
 }
 
-/* -- Investimentos: card total + tabela evolução --------------------------- */
+/* -- Investimentos: card total + tabela evoluï¿½ï¿½o --------------------------- */
 .fin-inv-card-total {
   border: 1px solid var(--accent);
   grid-column: 1 / -1;
