@@ -1838,62 +1838,39 @@ tbody td:first-child { color: var(--text); }
   .fin-inv-cards     { grid-template-columns: 1fr 1fr; }
 }
 
-/* Validador anual */
-.fin-val-grid {
-  display: grid;
-  grid-template-columns: auto 1fr 1fr;
-  align-items: center;
-  gap: 6px 20px;
+/* Validador table */
+.fin-val-table {
+  width: 100%;
+  border-collapse: collapse;
   font-size: .84rem;
   font-variant-numeric: tabular-nums;
-  max-width: 480px;
 }
-.fin-val-hdr {
+.fin-val-tbl-head th {
   color: var(--text-muted);
   font-size: .72rem;
   font-weight: 500;
   letter-spacing: .05em;
-  text-align: right;
   text-transform: uppercase;
+  padding: 0 0 8px;
 }
-.fin-val-label { color: var(--text-muted); white-space: nowrap; }
-.fin-val-prev  { text-align: right; opacity: .5; }
-.fin-val-real  { text-align: right; font-weight: 600; }
-.fin-val-saldo-row {
+.fin-val-tbl-num {
+  text-align: right;
+  white-space: nowrap;
+  padding-left: 24px;
+}
+.fin-val-tbl-label-cell { width: 100%; }
+.fin-val-tbl-hd { cursor: pointer; user-select: none; }
+.fin-val-tbl-hd td { padding: 8px 0 7px; border-top: 1px solid var(--border); }
+.fin-val-tbl-hd:hover td { opacity: .82; }
+.fin-val-acc-arrow { color: var(--text-muted); font-size: .68rem; }
+.fin-val-tbl-children-wrap { padding: 2px 0 8px 18px; }
+.fin-val-tbl-children { width: 100%; border-collapse: collapse; }
+.fin-val-tbl-child td { padding: 3px 0; font-size: .8rem; }
+.fin-val-tbl-name { width: 100%; color: var(--text-muted); }
+.fin-val-tbl-saldo td {
+  padding: 10px 0 2px;
   border-top: 1px solid var(--border);
   font-weight: 600;
-  padding-top: 6px;
-}
-
-/* Validador — breakdowns accordion */
-.fin-val-details { margin-top: 14px; }
-.fin-val-acc { border-top: 1px solid var(--border); }
-.fin-val-acc-hd {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 0;
-  cursor: pointer;
-  user-select: none;
-  font-size: .82rem;
-}
-.fin-val-acc-hd:hover { opacity: .82; }
-.fin-val-acc-arrow { color: var(--text-muted); font-size: .68rem; flex-shrink: 0; }
-.fin-val-acc-total { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
-.fin-val-acc-body { padding: 2px 0 10px 16px; }
-.fin-val-detail-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 3px 0;
-  font-size: .8rem;
-  color: var(--text-muted);
-  gap: 12px;
-}
-.fin-val-detail-row span:last-child {
-  font-weight: 600;
-  font-family: 'DM Mono', monospace;
-  white-space: nowrap;
 }
 
 /* Planejamento anual */

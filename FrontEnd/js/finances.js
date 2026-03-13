@@ -410,95 +410,111 @@ function _renderValidador(ano, mes) {
   const lancMes = window.finLancamentos.filter(l => l.data.startsWith(mesStr))
   const orcMes  = _effectiveOrcamento(ano, mes).filter(o => o.mes !== null)
 
-  // Mapa realizado por cd_financa (para os barGráficos de orçamento)
-  const realizado = {}
-  lancMes.forEach(l => { realizado[l.cd_financa] = (realizado[l.cd_financa] || 0) + Number(l.valor) })
+  // Realizado por cd_financa
+  const realPorCat = {}
+  lancMes.forEach(l => { realPorCat[l.cd_financa] = (realPorCat[l.cd_financa] || 0) + Number(l.valor) })
 
-  let realEntradas = 0, realSaidas = 0
-  lancMes.forEach(l => {
-    const cod = window.finCodigos.find(c => c.id === l.cd_financa)
-    if (cod?.tipo === 'receita')  realEntradas += Number(l.valor)
-    if (cod?.tipo === 'despesa') realSaidas   += Number(l.valor)
-  })
-
-  let prevEntradas = 0, prevSaidas = 0
-  orcMes.forEach(o => {
-    const cod = window.finCodigos.find(c => c.id === o.cd_financa)
-    if (cod?.tipo === 'receita')  prevEntradas += Number(o.valor_orcado)
-    if (cod?.tipo === 'despesa') prevSaidas   += Number(o.valor_orcado)
-  })
-
-  const saldoReal = realEntradas - realSaidas
-  const saldoPrev = prevEntradas - prevSaidas
-
-  // ── Acordeões com drill orçado × realizado por categoria ─────────────────
-  const _accOrc = (id, tipo, labelText, colorCls) => {
-    const tipoItems = orcMes.filter(o => window.finCodigos.find(c => c.id === o.cd_financa)?.tipo === tipo)
-    const totalOrc  = tipoItems.reduce((s, o) => s + Number(o.valor_orcado), 0)
-    let totalReal = 0
-    lancMes.forEach(l => {
-      const cod = window.finCodigos.find(c => c.id === l.cd_financa)
-      if (cod?.tipo === tipo) totalReal += Number(l.valor)
+  // Categorias com orçado ou realizado para um tipo
+  const _catRows = (tipo) => {
+    const orcTipo = orcMes.filter(o => window.finCodigos.find(c => c.id === o.cd_financa)?.tipo === tipo)
+    const allIds  = new Set([
+      ...orcTipo.map(o => o.cd_financa),
+      ...lancMes.filter(l => window.finCodigos.find(c => c.id === l.cd_financa)?.tipo === tipo).map(l => l.cd_financa)
+    ])
+    const rows = []
+    allIds.forEach(id => {
+      const orc = orcTipo.find(o => o.cd_financa === id)
+      rows.push({ nome: _finNome(id), orcado: orc ? Number(orc.valor_orcado) : 0, real: realPorCat[id] || 0 })
     })
-    const over    = totalReal > totalOrc
-    const pct     = totalOrc > 0 ? ((totalReal / totalOrc) * 100).toFixed(0) + '%' : '—'
-    const bodyHtml = tipoItems.length > 0
-      ? _buildOrcGroupHtml(_buildOrcTree(tipoItems, realizado), false, 'vd-' + id)
-      : '<p style="color:var(--text-muted);font-size:.82rem;padding:8px 0">Sem orçamento cadastrado para o período.</p>'
-    return `
-      <div class="fin-val-acc">
-        <div class="fin-val-acc-hd" onclick="toggleFinValAcc('${id}')">
-          <span class="fin-val-acc-arrow" id="fin-val-acc-arrow-${id}">▶</span>
-          <span class="${colorCls}">${labelText}</span>
-          <span class="fin-orc-ov-vals ${over ? 'over' : ''}" style="margin-left:auto">
-            <b>${_fmtBRL(totalReal)}</b> / ${_fmtBRL(totalOrc)} <em>${pct}</em>
-          </span>
-        </div>
-        <div class="fin-val-acc-body" id="fin-val-acc-${id}" style="display:none">${bodyHtml}</div>
-      </div>`
+    rows.sort((a, b) => b.real - a.real)
+    const totalOrc  = orcTipo.reduce((s, o) => s + Number(o.valor_orcado), 0)
+    const totalReal = rows.reduce((s, r) => s + r.real, 0)
+    return { rows, totalOrc, totalReal }
   }
 
-  // Investimentos: último saldo por categoria (excluindo indicadores)
-  const _indicIds = new Set([78, ..._getDescendantIds(78)])
-  const _invPorCod = {}
-  window.finInvestimentos.filter(s => !_indicIds.has(s.cd_financa)).forEach(s => {
-    if (!_invPorCod[s.cd_financa] || s.data > _invPorCod[s.cd_financa].data) _invPorCod[s.cd_financa] = s
-  })
-  let totalInvVal = 0
-  const invRows = Object.values(_invPorCod).sort((a, b) => Number(b.saldo) - Number(a.saldo)).map(s => {
-    totalInvVal += Number(s.saldo)
-    const nome = window.finCodigos.find(c => c.id === s.cd_financa)?.nome || '—'
-    return `<div class="fin-val-detail-row"><span>${nome}</span><span style="color:#f5d742">${_fmtBRL(s.saldo)}</span></div>`
-  }).join('') || '<div class="fin-val-detail-row" style="color:var(--text-muted)">Nenhum snapshot.</div>'
+  const rec  = _catRows('receita')
+  const desp = _catRows('despesa')
+  const saldoOrc  = rec.totalOrc  - desp.totalOrc
+  const saldoReal = rec.totalReal - desp.totalReal
 
-  const _accInv = `
-    <div class="fin-val-acc">
-      <div class="fin-val-acc-hd" onclick="toggleFinValAcc('inv')">
-        <span class="fin-val-acc-arrow" id="fin-val-acc-arrow-inv">▶</span>
-        <span style="color:#f5d742">Investimentos</span>
-        <span style="margin-left:auto;font-weight:600;color:#f5d742">${_fmtBRL(totalInvVal)}</span>
-      </div>
-      <div class="fin-val-acc-body" id="fin-val-acc-inv" style="display:none">${invRows}</div>
-    </div>`
+  // Investimentos do mês (snapshots registrados no mês + orçado)
+  const indicIds = new Set([78, ..._getDescendantIds(78)])
+  const orcInv   = orcMes.filter(o => window.finCodigos.find(c => c.id === o.cd_financa)?.tipo === 'investimento')
+  const invSnaps = window.finInvestimentos.filter(s => s.data.startsWith(mesStr) && !indicIds.has(s.cd_financa))
+  const invIds   = new Set([...orcInv.map(o => o.cd_financa), ...invSnaps.map(s => s.cd_financa)])
+  const invRows  = []
+  invIds.forEach(id => {
+    const orc  = orcInv.find(o => o.cd_financa === id)
+    const snap = invSnaps.filter(s => s.cd_financa === id).sort((a, b) => b.data.localeCompare(a.data))[0]
+    invRows.push({ nome: _finNome(id), orcado: orc ? Number(orc.valor_orcado) : null, real: snap ? Number(snap.saldo) : null })
+  })
+  invRows.sort((a, b) => (b.real || 0) - (a.real || 0))
+  const totalInvOrc  = orcInv.reduce((s, o) => s + Number(o.valor_orcado), 0)
+  const totalInvReal = invRows.reduce((s, r) => s + (r.real || 0), 0)
+
+  // ── HTML helpers ──────────────────────────────────────────────────────────
+  const _nc = (val, color) =>
+    val !== null && val !== undefined
+      ? `<td class="fin-val-tbl-num" style="color:${color}">${_fmtBRL(val)}</td>`
+      : `<td class="fin-val-tbl-num" style="color:var(--text-muted)">—</td>`
+
+  const _childHtml = (rows, realColor) =>
+    rows.length
+      ? rows.map(r => `<tr class="fin-val-tbl-child">
+          <td class="fin-val-tbl-name">${r.nome}</td>
+          ${_nc(r.orcado || null, 'var(--text-muted)')}
+          ${_nc(r.real, r.real > 0 ? realColor : 'var(--text-muted)')}
+        </tr>`).join('')
+      : `<tr class="fin-val-tbl-child"><td colspan="3" style="color:var(--text-muted)">Nenhum lançamento.</td></tr>`
+
+  const _invChildHtml =
+    invRows.length
+      ? invRows.map(r => `<tr class="fin-val-tbl-child">
+          <td class="fin-val-tbl-name">${r.nome}</td>
+          ${_nc(r.orcado, 'var(--text-muted)')}
+          ${_nc(r.real, r.real > 0 ? '#f5d742' : 'var(--text-muted)')}
+        </tr>`).join('')
+      : `<tr class="fin-val-tbl-child"><td colspan="3" style="color:var(--text-muted)">Nenhum snapshot registrado para o período.</td></tr>`
+
+  const _groupRows = (id, labelText, colorCls, totalOrc, totalReal, childHtml, realColor) => {
+    const orcStr    = totalOrc > 0 ? _fmtBRL(totalOrc) : '—'
+    const realColor2 = totalReal > 0 ? realColor : 'var(--text-muted)'
+    return `
+      <tr class="fin-val-tbl-hd" onclick="toggleFinValAcc('${id}')">
+        <td class="fin-val-tbl-label-cell">
+          <span class="fin-val-acc-arrow" id="fin-val-acc-arrow-${id}">▶</span>
+          <span class="${colorCls}" style="margin-left:6px">${labelText}</span>
+        </td>
+        <td class="fin-val-tbl-num" style="color:var(--text-muted)">${orcStr}</td>
+        <td class="fin-val-tbl-num" style="color:${realColor2}">${_fmtBRL(totalReal)}</td>
+      </tr>
+      <tr id="fin-val-acc-${id}" style="display:none">
+        <td colspan="3" class="fin-val-tbl-children-wrap">
+          <table class="fin-val-tbl-children"><tbody>${childHtml}</tbody></table>
+        </td>
+      </tr>`
+  }
 
   container.innerHTML = `
-    <div class="fin-val-grid">
-      <div></div><div class="fin-val-hdr">Previsto</div><div class="fin-val-hdr">Realizado</div>
-      <div class="fin-val-label">Entradas</div>
-      <div class="fin-val-prev fin-receita">${_fmtBRL(prevEntradas)}</div>
-      <div class="fin-val-real fin-receita">${_fmtBRL(realEntradas)}</div>
-      <div class="fin-val-label">Saídas</div>
-      <div class="fin-val-prev fin-despesa">${_fmtBRL(prevSaidas)}</div>
-      <div class="fin-val-real fin-despesa">${_fmtBRL(realSaidas)}</div>
-      <div class="fin-val-label fin-val-saldo-row">Saldo</div>
-      <div class="fin-val-prev fin-val-saldo-row" style="color:${saldoPrev>=0?'var(--accent)':'var(--danger)'}">${_fmtBRL(saldoPrev)}</div>
-      <div class="fin-val-real fin-val-saldo-row" style="color:${saldoReal>=0?'var(--accent)':'var(--danger)'}">${_fmtBRL(saldoReal)}</div>
-    </div>
-    <div class="fin-val-details">
-      ${_accOrc('rec',  'receita', 'Receitas', 'fin-receita')}
-      ${_accOrc('desp', 'despesa', 'Despesas', 'fin-despesa')}
-      ${_accInv}
-    </div>
+    <table class="fin-val-table">
+      <thead>
+        <tr class="fin-val-tbl-head">
+          <th></th>
+          <th class="fin-val-tbl-num">Orçado</th>
+          <th class="fin-val-tbl-num">Realizado</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${_groupRows('rec',  'Entradas',      'fin-receita', rec.totalOrc,  rec.totalReal,  _childHtml(rec.rows,  'var(--accent)'),  'var(--accent)')}
+        ${_groupRows('desp', 'Saídas',        'fin-despesa', desp.totalOrc, desp.totalReal, _childHtml(desp.rows, 'var(--danger)'),  'var(--danger)')}
+        ${_groupRows('inv',  'Investimentos', '',            totalInvOrc,   totalInvReal,   _invChildHtml,                          '#f5d742')}
+        <tr class="fin-val-tbl-saldo">
+          <td>Saldo</td>
+          <td class="fin-val-tbl-num" style="color:${saldoOrc >=0?'var(--accent)':'var(--danger)'}">${_fmtBRL(saldoOrc)}</td>
+          <td class="fin-val-tbl-num" style="color:${saldoReal>=0?'var(--accent)':'var(--danger)'}">${_fmtBRL(saldoReal)}</td>
+        </tr>
+      </tbody>
+    </table>
   `
 }
 
@@ -507,7 +523,7 @@ function toggleFinValAcc(id) {
   const arrow = document.getElementById('fin-val-acc-arrow-' + id)
   if (!body) return
   const open = body.style.display !== 'none'
-  body.style.display = open ? 'none' : 'block'
+  body.style.display = open ? 'none' : (body.tagName === 'TR' ? 'table-row' : 'block')
   if (arrow) arrow.textContent = open ? '▶' : '▼'
 }
 
