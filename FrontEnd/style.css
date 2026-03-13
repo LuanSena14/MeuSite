@@ -2034,3 +2034,26 @@ tbody td:first-child { color: var(--text); }
   margin-left: 4px;
   vertical-align: middle;
 }
+
+/* -- Investimentos: card total + tabela evolução --------------------------- */
+.fin-inv-card-total {
+  border: 1px solid var(--accent);
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+}
+.fin-inv-card-total .fin-inv-card-saldo {
+  font-size: 1.3rem;
+  color: var(--accent);
+}
+.fin-inv-evo-table td,
+.fin-inv-evo-table th { font-size: .78rem; }
+.fin-inv-evo-table td:first-child,
+.fin-inv-evo-table th:first-child { font-weight: 600; }
+
+/* -- Indicadores: colunas delta -------------------------------------------- */
+.fin-ind-table    { font-size: .8rem; }
+.fin-ind-delta-h  { color: var(--text-muted); font-size: .7rem; }
+.fin-ind-table td { white-space: nowrap; }

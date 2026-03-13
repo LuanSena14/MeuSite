@@ -741,36 +741,126 @@ function renderInvestimentos() {
   const container = document.getElementById('fin-inv-cards')
   if (!container) return
 
-  // Pegar categorias de investimento
-  const cats = window.finCodigos.filter(c => c.tipo === 'investimento')
+  // Nós de indicadores (id=78 e descendentes) — excluir da aba investimentos
+  const indicIds = new Set([78, ..._getDescendantIds(78)])
 
-  // Por categoria: primeiro snapshot, último snapshot
+  // Snapshots só de investimentos financeiros
+  const invSnaps = window.finInvestimentos.filter(s => !indicIds.has(s.cd_financa))
+
+  // Agrupar por categoria
   const snapsPorCat = {}
-  window.finInvestimentos.forEach(s => {
+  invSnaps.forEach(s => {
     if (!snapsPorCat[s.cd_financa]) snapsPorCat[s.cd_financa] = []
     snapsPorCat[s.cd_financa].push(s)
   })
 
-  container.innerHTML = cats.map(cat => {
-    const snaps = (snapsPorCat[cat.id] || []).sort((a, b) => a.data.localeCompare(b.data))
-    const ultimo   = snaps[snaps.length - 1]
+  // Apenas categorias que têm ao menos um snapshot
+  const cats = window.finCodigos
+    .filter(c => c.tipo === 'investimento' && snapsPorCat[c.id]?.length > 0)
+
+  if (cats.length === 0) {
+    container.innerHTML = '<p style="color:var(--text-muted);font-size:.85rem;text-align:center;padding:40px 0">Nenhum snapshot de investimento registrado.</p>'
+    _renderChartInvestimentos({}, [])
+    return
+  }
+
+  // ── Cards: saldo atual + variação total ──
+  let totalGeral = 0
+  const cardsHtml = cats.map(cat => {
+    const snaps  = (snapsPorCat[cat.id] || []).sort((a, b) => a.data.localeCompare(b.data))
+    const ultimo  = snaps[snaps.length - 1]
     const primeiro = snaps[0]
-    const saldo    = ultimo ? Number(ultimo.saldo) : null
+    const saldo   = Number(ultimo.saldo)
+    totalGeral   += saldo
 
     let rendHtml = ''
-    if (primeiro && ultimo && primeiro.id !== ultimo.id) {
-      const rend = Number(ultimo.saldo) - Number(primeiro.saldo)
+    if (primeiro.id !== ultimo.id) {
+      const rend = saldo - Number(primeiro.saldo)
       const pct  = Number(primeiro.saldo) > 0 ? (rend / Number(primeiro.saldo) * 100).toFixed(1) : null
       const cls  = rend >= 0 ? 'pos' : 'neg'
-      rendHtml   = `<div class="fin-inv-card-rend ${cls}">${rend >= 0 ? '+' : ''}${_fmtBRL(rend)}${pct !== null ? ` (${pct}%)` : ''} total</div>`
+      rendHtml = `<div class="fin-inv-card-rend ${cls}">${rend >= 0 ? '+' : ''}${_fmtBRL(rend)}${pct !== null ? ` (${pct}%)` : ''} total</div>`
     }
-
     return `<div class="fin-inv-card">
       <div class="fin-inv-card-name">${cat.nome}</div>
-      <div class="fin-inv-card-saldo">${saldo !== null ? _fmtBRL(saldo) : '—'}</div>
+      <div class="fin-inv-card-saldo">${_fmtBRL(saldo)}</div>
       ${rendHtml}
     </div>`
   }).join('')
+
+  // Card de total geral
+  const totalCard = `<div class="fin-inv-card fin-inv-card-total">
+    <div class="fin-inv-card-name">Total geral</div>
+    <div class="fin-inv-card-saldo">${_fmtBRL(totalGeral)}</div>
+  </div>`
+
+  // ── Tabela de evolução mensal ──
+  // Agrupar snapshots por mês (yyyy-mm): último snapshot do mês por categoria
+  const mesesSet = new Set(invSnaps.map(s => s.data.slice(0, 7)))
+  const allMes   = [...mesesSet].sort().reverse().slice(0, 18)
+
+  const mesLookup = {}   // mesLookup[mes][cd_financa] = saldo
+  invSnaps.forEach(s => {
+    const mk = s.data.slice(0, 7)
+    if (!mesLookup[mk]) mesLookup[mk] = {}
+    if (!mesLookup[mk][s.cd_financa] || s.data > mesLookup[mk][s.cd_financa].data)
+      mesLookup[mk][s.cd_financa] = s
+  })
+
+  const _mesLabel = mk => {
+    const [y, m] = mk.split('-')
+    return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
+  }
+
+  const _diffCell = (cur, prev) => {
+    if (cur === null || prev === null) return '<td></td><td></td>'
+    const d = cur - prev
+    const p = prev > 0 ? (d / prev * 100).toFixed(1) : null
+    const cls = d >= 0 ? 'fin-under' : 'fin-over'
+    return `<td class="${cls}">${d >= 0 ? '+' : ''}${_fmtBRL(d)}</td>` +
+           `<td class="${cls}">${p !== null ? (d >= 0 ? '+' : '') + p + '%' : '—'}</td>`
+  }
+
+  const evoHeader = '<tr><th>Mês</th>' +
+    cats.flatMap(c => [`<th>${c.nome}</th>`, '<th></th>', '<th>Δ%</th>']).join('') +
+    '<th>Total</th><th></th><th>Δ%</th></tr>'
+
+  const evoRows = allMes.map((mk, idx) => {
+    const prevMk = allMes[idx + 1] || null
+    let rowTotal = 0, prevTotal = 0, hasAll = true
+    const cells = cats.map(c => {
+      const cur  = mesLookup[mk]?.[c.id]  ? Number(mesLookup[mk][c.id].saldo)  : null
+      const prev = prevMk && mesLookup[prevMk]?.[c.id] ? Number(mesLookup[prevMk][c.id].saldo) : null
+      if (cur !== null) rowTotal += cur; else hasAll = false
+      if (prev !== null) prevTotal += prev
+      return `<td class="fin-rec-val">${cur !== null ? _fmtBRL(cur) : '—'}</td>` + _diffCell(cur, prev)
+    }).join('')
+    const totalDiff = _diffCell(rowTotal, prevTotal > 0 ? prevTotal : null)
+    const [y, m] = mk.split('-')
+    const label = new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
+    return `<tr><td>${label}</td>${cells}<td class="fin-rec-val"><b>${_fmtBRL(rowTotal)}</b></td>${totalDiff}</tr>`
+  }).join('')
+
+  const evoTable = `<div class="fin-table-wrap" style="margin-top:16px">
+    <table class="fin-table fin-inv-evo-table">
+      <thead>${evoHeader}</thead>
+      <tbody>${evoRows}</tbody>
+    </table>
+  </div>`
+
+  container.innerHTML = totalCard + cardsHtml
+  const chartWrap = document.querySelector('#fin-panel-investimentos .dash-card')
+  if (chartWrap) {
+    let evoEl = document.getElementById('fin-inv-evo')
+    if (!evoEl) {
+      evoEl = document.createElement('div')
+      evoEl.id = 'fin-inv-evo'
+      chartWrap.after(evoEl)
+    }
+    evoEl.innerHTML = `<div class="dash-card" style="margin-top:16px">
+      <div class="dash-card-title">Evolução mensal</div>
+      ${evoTable}
+    </div>`
+  }
 
   _renderChartInvestimentos(snapsPorCat, cats)
 }
@@ -862,19 +952,41 @@ function renderIndicadores() {
       lookup[mk][s.cd_financa] = s
   })
 
-  const header = '<tr><th>Mês</th>' + allCats.map(c => `<th>${c.nome}</th>`).join('') + '</tr>'
-  const rows = allMes.map(mk => {
+  // Pivot: colunas = [ Valor | Δ | Δ% ] por categoria
+  const header = '<tr><th>Mês</th>' +
+    allCats.flatMap(c => [
+      `<th>${c.nome}</th>`,
+      '<th class="fin-ind-delta-h">Δ</th>',
+      '<th class="fin-ind-delta-h">Δ%</th>',
+    ]).join('') + '</tr>'
+
+  const rows = allMes.map((mk, idx) => {
+    const prevMk = allMes[idx + 1] || null
     const [y, m] = mk.split('-')
     const label = new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
-    const cells = allCats.map(c => {
-      const s = lookup[mk]?.[c.id]
-      return `<td>${s !== undefined ? Number(s.saldo).toLocaleString('pt-BR') : '—'}</td>`
+    const cells = allCats.flatMap(c => {
+      const cur  = lookup[mk]?.[c.id]
+      const prev = prevMk ? lookup[prevMk]?.[c.id] : null
+      const curVal  = cur  ? Number(cur.saldo)  : null
+      const prevVal = prev ? Number(prev.saldo) : null
+
+      const valCell = `<td>${curVal !== null ? Number(curVal).toLocaleString('pt-BR') : '—'}</td>`
+      if (curVal === null || prevVal === null) return [valCell, '<td></td>', '<td></td>']
+
+      const d   = curVal - prevVal
+      const pct = prevVal > 0 ? (d / prevVal * 100).toFixed(1) : null
+      const cls = d >= 0 ? 'fin-under' : 'fin-over'
+      return [
+        valCell,
+        `<td class="${cls}">${d >= 0 ? '+' : ''}${Number(d).toLocaleString('pt-BR')}</td>`,
+        `<td class="${cls}">${pct !== null ? (d >= 0 ? '+' : '') + pct + '%' : '—'}</td>`,
+      ]
     })
     return `<tr><td>${label}</td>${cells.join('')}</tr>`
   }).join('')
 
   container.innerHTML = `<div class="fin-table-wrap">
-    <table class="fin-table">
+    <table class="fin-table fin-ind-table">
       <thead>${header}</thead>
       <tbody>${rows}</tbody>
     </table>
