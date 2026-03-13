@@ -72,6 +72,14 @@ function _fmtBRL(v) {
   return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
+function _fmtShort(v) {
+  if (v === null || v === undefined) return null
+  const abs  = Math.abs(v)
+  const sign = v < 0 ? '-' : ''
+  if (abs >= 1000) return sign + (abs / 1000).toFixed(1).replace('.', ',') + 'k'
+  return sign + Math.round(abs)
+}
+
 function _fmtDate(d) {
   if (!d) return '—'
   const [y, m, day] = d.slice(0, 10).split('-')
@@ -419,6 +427,43 @@ function _renderValidador(ano, mes) {
   const saldoReal = realEntradas - realSaidas
   const saldoPrev = prevEntradas - prevSaidas
 
+  // ── Abertura por grupo ────────────────────────────────────────────────────
+  const _rows = (tipo, colorCls) => {
+    const por = {}
+    lancMes.forEach(l => {
+      const cod = window.finCodigos.find(c => c.id === l.cd_financa)
+      if (cod?.tipo !== tipo) return
+      const grp = _finGrupo(l.cd_financa)
+      por[grp] = (por[grp] || 0) + Number(l.valor)
+    })
+    return Object.entries(por).sort((a, b) => b[1] - a[1]).map(([nome, val]) =>
+      `<div class="fin-val-detail-row"><span>${nome}</span><span class="${colorCls}">${_fmtBRL(val)}</span></div>`
+    ).join('') || `<div class="fin-val-detail-row" style="color:var(--text-muted)">Nenhum lançamento.</div>`
+  }
+
+  // Investimentos: último saldo por categoria (excluindo indicadores)
+  const _indicIds = new Set([78, ..._getDescendantIds(78)])
+  const _invPorCod = {}
+  window.finInvestimentos.filter(s => !_indicIds.has(s.cd_financa)).forEach(s => {
+    if (!_invPorCod[s.cd_financa] || s.data > _invPorCod[s.cd_financa].data) _invPorCod[s.cd_financa] = s
+  })
+  let totalInvVal = 0
+  const invRows = Object.values(_invPorCod).sort((a, b) => Number(b.saldo) - Number(a.saldo)).map(s => {
+    totalInvVal += Number(s.saldo)
+    const nome = window.finCodigos.find(c => c.id === s.cd_financa)?.nome || '—'
+    return `<div class="fin-val-detail-row"><span>${nome}</span><span style="color:#f5d742">${_fmtBRL(s.saldo)}</span></div>`
+  }).join('') || `<div class="fin-val-detail-row" style="color:var(--text-muted)">Nenhum snapshot.</div>`
+
+  const _acc = (id, label, totalHtml, colorCls, rowsHtml) => `
+    <div class="fin-val-acc">
+      <div class="fin-val-acc-hd" onclick="toggleFinValAcc('${id}')">
+        <span class="fin-val-acc-arrow" id="fin-val-acc-arrow-${id}">▶</span>
+        <span class="${colorCls}">${label}</span>
+        <span class="fin-val-acc-total ${colorCls}">${totalHtml}</span>
+      </div>
+      <div class="fin-val-acc-body" id="fin-val-acc-${id}" style="display:none">${rowsHtml}</div>
+    </div>`
+
   container.innerHTML = `
     <div class="fin-val-grid">
       <div></div><div class="fin-val-hdr">Previsto</div><div class="fin-val-hdr">Realizado</div>
@@ -432,7 +477,21 @@ function _renderValidador(ano, mes) {
       <div class="fin-val-prev fin-val-saldo-row" style="color:${saldoPrev>=0?'var(--accent)':'var(--danger)'}">${_fmtBRL(saldoPrev)}</div>
       <div class="fin-val-real fin-val-saldo-row" style="color:${saldoReal>=0?'var(--accent)':'var(--danger)'}">${_fmtBRL(saldoReal)}</div>
     </div>
+    <div class="fin-val-details">
+      ${_acc('rec',  'Receitas',      _fmtBRL(realEntradas), 'fin-receita', _rows('receita',  'fin-receita'))}
+      ${_acc('desp', 'Despesas',      _fmtBRL(realSaidas),   'fin-despesa', _rows('despesa',  'fin-despesa'))}
+      ${_acc('inv',  'Investimentos', _fmtBRL(totalInvVal),  '',            invRows)}
+    </div>
   `
+}
+
+function toggleFinValAcc(id) {
+  const body  = document.getElementById('fin-val-acc-' + id)
+  const arrow = document.getElementById('fin-val-acc-arrow-' + id)
+  if (!body) return
+  const open = body.style.display !== 'none'
+  body.style.display = open ? 'none' : 'block'
+  if (arrow) arrow.textContent = open ? '▶' : '▼'
 }
 
 function _destroyChart(id) {
@@ -463,7 +522,15 @@ function _renderChartDespesas(despPorCat) {
       cutout: '65%',
       plugins: {
         legend: { position: 'right', labels: { color: '#a0a8a4', boxWidth: 12, padding: 12, font: { size: 11 } } },
-        datalabels: { display: false },
+        datalabels: {
+          color: '#fff',
+          font: { size: 10, weight: '600', family: 'DM Mono' },
+          formatter: (v, ctx) => {
+            const total = ctx.dataset.data.reduce((a, b) => a + b, 0)
+            const pct = total > 0 ? (v / total * 100) : 0
+            return pct >= 4 ? pct.toFixed(0) + '%' : null
+          },
+        },
       },
     },
   })
@@ -509,7 +576,6 @@ function _renderChartEvolucao() {
     ? `${_finEvoSelectedMonth.ano}-${String(_finEvoSelectedMonth.mes).padStart(2, '0')}`
     : null
 
-  // Cores: sem filtro = sólido normal; com filtro = selecionado sólido, demais esmaecidos
   const recBg  = meses.map(m => {
     if (!selKey)           return 'rgba(78,204,163,0.55)'
     return m.key === selKey ? 'rgba(78,204,163,0.9)' : 'rgba(78,204,163,0.12)'
@@ -519,7 +585,15 @@ function _renderChartEvolucao() {
     return m.key === selKey ? 'rgba(224,92,92,0.9)' : 'rgba(224,92,92,0.12)'
   })
   const netPt  = nets.map(n => n >= 0 ? '#4ecca3' : '#e05c5c')
-  const netOpa = meses.map(m => selKey && m.key !== selKey ? 0.25 : 1)
+
+  // Scroll: canvas de largura fixa
+  const BAR_W = 90
+  const totalW = Math.max(meses.length * BAR_W, 600)
+  const H = 300
+  canvas.style.width  = totalW + 'px'
+  canvas.style.height = H + 'px'
+  canvas.width  = totalW
+  canvas.height = H
 
   _finChartsInstances['evolucao'] = new Chart(canvas, {
     type: 'bar',
@@ -529,10 +603,22 @@ function _renderChartEvolucao() {
         {
           label: 'Receitas', data: receitas,
           backgroundColor: recBg, borderRadius: 3, order: 2,
+          datalabels: {
+            anchor: 'end', align: 'top',
+            color: 'rgba(78,204,163,0.9)',
+            font: { size: 9, family: 'DM Mono', weight: '600' },
+            formatter: v => v > 0 ? _fmtShort(v) : null,
+          },
         },
         {
           label: 'Despesas', data: despesas,
           backgroundColor: despBg, borderRadius: 3, order: 2,
+          datalabels: {
+            anchor: 'end', align: 'top',
+            color: 'rgba(224,92,92,0.9)',
+            font: { size: 9, family: 'DM Mono', weight: '600' },
+            formatter: v => v > 0 ? _fmtShort(v) : null,
+          },
         },
         {
           label: 'Net (R-D)', data: nets,
@@ -546,12 +632,22 @@ function _renderChartEvolucao() {
           pointBorderColor: netPt,
           tension: 0.25,
           order: 1,
+          datalabels: {
+            align: 'top', offset: 6,
+            color: ctx => nets[ctx.dataIndex] >= 0 ? '#4ecca3' : '#e05c5c',
+            font: { size: 9, family: 'DM Mono', weight: '700' },
+            backgroundColor: 'rgba(16,20,18,0.75)',
+            borderRadius: 3,
+            padding: { top: 2, bottom: 2, left: 4, right: 4 },
+            formatter: v => _fmtShort(v),
+          },
         },
       ],
     },
     options: {
-      responsive: true,
+      responsive: false,
       maintainAspectRatio: false,
+      layout: { padding: { top: 28, right: 8, left: 8 } },
       onClick: (evt, _elements, chart) => {
         const pts = chart.getElementsAtEventForMode(evt.native, 'index', { intersect: false }, true)
         if (!pts.length) return
@@ -568,11 +664,23 @@ function _renderChartEvolucao() {
       },
       plugins: {
         legend: { labels: { color: '#a0a8a4', font: { size: 11 }, boxWidth: 12 } },
-        datalabels: { display: false },
+        datalabels: {},  // configurado por dataset acima
         tooltip: { callbacks: { label: ctx => ' ' + _fmtBRL(ctx.raw) } },
       },
     },
   })
+
+  // Scroll automático para o mês atual / selecionado
+  setTimeout(() => {
+    const wrap = document.querySelector('.fin-evo-scroll-wrap')
+    if (!wrap) return
+    if (selKey) {
+      const idx = meses.findIndex(m => m.key === selKey)
+      if (idx !== -1) wrap.scrollLeft = Math.max(0, idx * BAR_W - wrap.clientWidth / 2)
+    } else {
+      wrap.scrollLeft = wrap.scrollWidth
+    }
+  }, 60)
 }
 
 function _selectEvolucaoMonth(ano, mes) {

@@ -1810,10 +1810,19 @@ tbody td:first-child { color: var(--text); }
   padding: 8px 0;
   position: relative;
 }
-.fin-chart-evolucao-wrap {
-  height: 340px;
-  max-height: 340px;
+.fin-evo-scroll-wrap {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #3a3e3c #1a1e1c;
+  padding-bottom: 6px;
+  cursor: grab;
 }
+.fin-evo-scroll-wrap:active { cursor: grabbing; }
+.fin-evo-scroll-wrap::-webkit-scrollbar { height: 4px; }
+.fin-evo-scroll-wrap::-webkit-scrollbar-track { background: #1a1e1c; border-radius: 2px; }
+.fin-evo-scroll-wrap::-webkit-scrollbar-thumb { background: #3a3e3c; border-radius: 2px; }
+.fin-evo-scroll-wrap::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
 /* INDICADORES */
 .fin-ind-tipo {
@@ -1854,6 +1863,37 @@ tbody td:first-child { color: var(--text); }
   border-top: 1px solid var(--border);
   font-weight: 600;
   padding-top: 6px;
+}
+
+/* Validador — breakdowns accordion */
+.fin-val-details { margin-top: 14px; }
+.fin-val-acc { border-top: 1px solid var(--border); }
+.fin-val-acc-hd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  cursor: pointer;
+  user-select: none;
+  font-size: .82rem;
+}
+.fin-val-acc-hd:hover { opacity: .82; }
+.fin-val-acc-arrow { color: var(--text-muted); font-size: .68rem; flex-shrink: 0; }
+.fin-val-acc-total { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
+.fin-val-acc-body { padding: 2px 0 10px 16px; }
+.fin-val-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 0;
+  font-size: .8rem;
+  color: var(--text-muted);
+  gap: 12px;
+}
+.fin-val-detail-row span:last-child {
+  font-weight: 600;
+  font-family: 'DM Mono', monospace;
+  white-space: nowrap;
 }
 
 /* Planejamento anual */
