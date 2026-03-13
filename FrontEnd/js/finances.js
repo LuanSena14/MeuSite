@@ -19,6 +19,8 @@ let _finActiveTab = 'overview'
 let _finChartsInstances = {}
 let _finEvoSelectedMonth = null   // {ano, mes} | null
 
+const _finDL = (typeof ChartDataLabels !== 'undefined') ? [ChartDataLabels] : []
+
 // ── INICIALIZAÇÃO ─────────────────────────────────────────────────────────────
 
 async function initFinancesSection() {
@@ -366,7 +368,6 @@ function renderFinOverview() {
 
   _renderChartDespesas(despPorCat)
   _renderChartEvolucao()
-  _renderOrcOverview(ano, mes)
   _renderValidador(ano, mes)
 }
 
@@ -407,8 +408,11 @@ function _renderValidador(ano, mes) {
   if (label) label.textContent = mesNome
 
   const lancMes = window.finLancamentos.filter(l => l.data.startsWith(mesStr))
-  // apenas orçamentos mensais (mes !== null)
   const orcMes  = _effectiveOrcamento(ano, mes).filter(o => o.mes !== null)
+
+  // Mapa realizado por cd_financa (para os barGráficos de orçamento)
+  const realizado = {}
+  lancMes.forEach(l => { realizado[l.cd_financa] = (realizado[l.cd_financa] || 0) + Number(l.valor) })
 
   let realEntradas = 0, realSaidas = 0
   lancMes.forEach(l => {
@@ -427,18 +431,31 @@ function _renderValidador(ano, mes) {
   const saldoReal = realEntradas - realSaidas
   const saldoPrev = prevEntradas - prevSaidas
 
-  // ── Abertura por grupo ────────────────────────────────────────────────────
-  const _rows = (tipo, colorCls) => {
-    const por = {}
+  // ── Acordeões com drill orçado × realizado por categoria ─────────────────
+  const _accOrc = (id, tipo, labelText, colorCls) => {
+    const tipoItems = orcMes.filter(o => window.finCodigos.find(c => c.id === o.cd_financa)?.tipo === tipo)
+    const totalOrc  = tipoItems.reduce((s, o) => s + Number(o.valor_orcado), 0)
+    let totalReal = 0
     lancMes.forEach(l => {
       const cod = window.finCodigos.find(c => c.id === l.cd_financa)
-      if (cod?.tipo !== tipo) return
-      const grp = _finGrupo(l.cd_financa)
-      por[grp] = (por[grp] || 0) + Number(l.valor)
+      if (cod?.tipo === tipo) totalReal += Number(l.valor)
     })
-    return Object.entries(por).sort((a, b) => b[1] - a[1]).map(([nome, val]) =>
-      `<div class="fin-val-detail-row"><span>${nome}</span><span class="${colorCls}">${_fmtBRL(val)}</span></div>`
-    ).join('') || `<div class="fin-val-detail-row" style="color:var(--text-muted)">Nenhum lançamento.</div>`
+    const over    = totalReal > totalOrc
+    const pct     = totalOrc > 0 ? ((totalReal / totalOrc) * 100).toFixed(0) + '%' : '—'
+    const bodyHtml = tipoItems.length > 0
+      ? _buildOrcGroupHtml(_buildOrcTree(tipoItems, realizado), false, 'vd-' + id)
+      : '<p style="color:var(--text-muted);font-size:.82rem;padding:8px 0">Sem orçamento cadastrado para o período.</p>'
+    return `
+      <div class="fin-val-acc">
+        <div class="fin-val-acc-hd" onclick="toggleFinValAcc('${id}')">
+          <span class="fin-val-acc-arrow" id="fin-val-acc-arrow-${id}">▶</span>
+          <span class="${colorCls}">${labelText}</span>
+          <span class="fin-orc-ov-vals ${over ? 'over' : ''}" style="margin-left:auto">
+            <b>${_fmtBRL(totalReal)}</b> / ${_fmtBRL(totalOrc)} <em>${pct}</em>
+          </span>
+        </div>
+        <div class="fin-val-acc-body" id="fin-val-acc-${id}" style="display:none">${bodyHtml}</div>
+      </div>`
   }
 
   // Investimentos: último saldo por categoria (excluindo indicadores)
@@ -452,16 +469,16 @@ function _renderValidador(ano, mes) {
     totalInvVal += Number(s.saldo)
     const nome = window.finCodigos.find(c => c.id === s.cd_financa)?.nome || '—'
     return `<div class="fin-val-detail-row"><span>${nome}</span><span style="color:#f5d742">${_fmtBRL(s.saldo)}</span></div>`
-  }).join('') || `<div class="fin-val-detail-row" style="color:var(--text-muted)">Nenhum snapshot.</div>`
+  }).join('') || '<div class="fin-val-detail-row" style="color:var(--text-muted)">Nenhum snapshot.</div>'
 
-  const _acc = (id, label, totalHtml, colorCls, rowsHtml) => `
+  const _accInv = `
     <div class="fin-val-acc">
-      <div class="fin-val-acc-hd" onclick="toggleFinValAcc('${id}')">
-        <span class="fin-val-acc-arrow" id="fin-val-acc-arrow-${id}">▶</span>
-        <span class="${colorCls}">${label}</span>
-        <span class="fin-val-acc-total ${colorCls}">${totalHtml}</span>
+      <div class="fin-val-acc-hd" onclick="toggleFinValAcc('inv')">
+        <span class="fin-val-acc-arrow" id="fin-val-acc-arrow-inv">▶</span>
+        <span style="color:#f5d742">Investimentos</span>
+        <span style="margin-left:auto;font-weight:600;color:#f5d742">${_fmtBRL(totalInvVal)}</span>
       </div>
-      <div class="fin-val-acc-body" id="fin-val-acc-${id}" style="display:none">${rowsHtml}</div>
+      <div class="fin-val-acc-body" id="fin-val-acc-inv" style="display:none">${invRows}</div>
     </div>`
 
   container.innerHTML = `
@@ -478,9 +495,9 @@ function _renderValidador(ano, mes) {
       <div class="fin-val-real fin-val-saldo-row" style="color:${saldoReal>=0?'var(--accent)':'var(--danger)'}">${_fmtBRL(saldoReal)}</div>
     </div>
     <div class="fin-val-details">
-      ${_acc('rec',  'Receitas',      _fmtBRL(realEntradas), 'fin-receita', _rows('receita',  'fin-receita'))}
-      ${_acc('desp', 'Despesas',      _fmtBRL(realSaidas),   'fin-despesa', _rows('despesa',  'fin-despesa'))}
-      ${_acc('inv',  'Investimentos', _fmtBRL(totalInvVal),  '',            invRows)}
+      ${_accOrc('rec',  'receita', 'Receitas', 'fin-receita')}
+      ${_accOrc('desp', 'despesa', 'Despesas', 'fin-despesa')}
+      ${_accInv}
     </div>
   `
 }
@@ -514,6 +531,7 @@ function _renderChartDespesas(despPorCat) {
 
   _finChartsInstances['despesas'] = new Chart(canvas, {
     type: 'doughnut',
+    plugins: _finDL,
     data: {
       labels,
       datasets: [{ data, backgroundColor: COLORS.slice(0, labels.length), borderWidth: 0 }],
@@ -541,11 +559,14 @@ function _renderChartEvolucao() {
   if (!canvas) return
   _destroyChart('evolucao')
 
-  // Todos os meses com lançamentos de receita ou despesa
+  // Todos os meses com lançamentos de receita ou despesa, até o mês atual
+  const now = new Date()
+  const nowKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   const mesSet = new Set()
   window.finLancamentos.forEach(l => {
     const cod = window.finCodigos.find(c => c.id === l.cd_financa)
-    if (cod?.tipo === 'receita' || cod?.tipo === 'despesa') mesSet.add(l.data.slice(0, 7))
+    if ((cod?.tipo === 'receita' || cod?.tipo === 'despesa') && l.data.slice(0, 7) <= nowKey)
+      mesSet.add(l.data.slice(0, 7))
   })
   if (mesSet.size === 0) return
 
@@ -597,6 +618,7 @@ function _renderChartEvolucao() {
 
   _finChartsInstances['evolucao'] = new Chart(canvas, {
     type: 'bar',
+    plugins: _finDL,
     data: {
       labels: meses.map(m => m.label),
       datasets: [
