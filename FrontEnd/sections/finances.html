@@ -21,9 +21,14 @@
   <div class="fin-panel active" id="fin-panel-overview">
 
     <!-- Barra de filtro de mês ativo -->
-    <div id="fin-overview-month-bar" style="display:none;align-items:center;gap:12px;margin-bottom:12px;padding:8px 14px;background:var(--surface);border:1px solid var(--accent);border-radius:6px;font-size:.84rem;color:var(--accent)">
+    <div id="fin-overview-month-bar" style="display:none;align-items:center;gap:12px;margin-bottom:8px;padding:8px 14px;background:var(--surface);border:1px solid var(--accent);border-radius:6px;font-size:.84rem;color:var(--accent)">
       <span>Filtro: <b id="fin-overview-month-label">—</b></span>
       <button onclick="_clearEvoFilter()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:.88rem;padding:0 4px;line-height:1">✕ Limpar</button>
+    </div>
+    <!-- Barra de filtro de categoria ativo -->
+    <div id="fin-cat-filter-bar" style="display:none;align-items:center;gap:12px;margin-bottom:12px;padding:8px 14px;background:var(--surface);border:1px solid var(--danger);border-radius:6px;font-size:.84rem;color:var(--danger)">
+      <span>Categoria: <b id="fin-cat-filter-label">—</b></span>
+      <button onclick="_clearDespCatFilter()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:.88rem;padding:0 4px;line-height:1">✕ Limpar</button>
     </div>
 
     <div class="kpi-grid" id="fin-kpi-grid">
@@ -45,15 +50,16 @@
       </div>
     </div>
 
-    <!-- Donut de despesas + Validador lado a lado -->
+    <!-- Validador + Donut lado a lado (validador esquerda, rosca direita) -->
     <div class="fin-overview-top-row">
-      <div class="dash-card">
-        <div class="dash-card-title">Despesas por categoria</div>
-        <div class="fin-chart-wrap"><canvas id="fin-chart-despesas"></canvas></div>
-      </div>
       <div class="dash-card fin-validador-card">
         <div class="dash-card-title" style="margin-bottom:12px">Validador — <span id="fin-val-ano-label"></span></div>
         <div id="fin-validador"></div>
+      </div>
+      <div class="dash-card">
+        <div class="dash-card-title">Despesas por categoria</div>
+        <div class="fin-chart-wrap"><canvas id="fin-chart-despesas"></canvas></div>
+        <div id="fin-desp-drill" style="display:none"></div>
       </div>
     </div>
 

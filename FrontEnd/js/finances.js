@@ -18,6 +18,7 @@ window.finInvestimentos = []  // [{id, data, cd_financa, saldo}]
 let _finActiveTab = 'overview'
 let _finChartsInstances = {}
 let _finEvoSelectedMonth = null   // {ano, mes} | null
+let _finDespCatSelected  = null   // { nome: string } | null
 
 const _finDL = (typeof ChartDataLabels !== 'undefined') ? [ChartDataLabels] : []
 
@@ -307,11 +308,23 @@ function renderFinOverview() {
     }
   }
 
+  // Barra de filtro de categoria ativo
+  const catBar = document.getElementById('fin-cat-filter-bar')
+  const catLbl = document.getElementById('fin-cat-filter-label')
+  if (catBar) {
+    if (_finDespCatSelected) {
+      catBar.style.display = 'flex'
+      if (catLbl) catLbl.textContent = _finDespCatSelected.nome
+    } else {
+      catBar.style.display = 'none'
+    }
+  }
+
   const mesKey  = `${ano}-${String(mes).padStart(2, '0')}`
   const lancMes = window.finLancamentos.filter(l => l.data.startsWith(mesKey))
 
   let receitas = 0, despesas = 0
-  const despPorCat = {}
+  const despGrupos = {}   // grupoNome -> { total, lancs[] }
 
   lancMes.forEach(l => {
     const cod = window.finCodigos.find(c => c.id === l.cd_financa)
@@ -320,7 +333,9 @@ function renderFinOverview() {
     if (cod.tipo === 'despesa') {
       despesas += Number(l.valor)
       const grupo = _finGrupo(l.cd_financa)
-      despPorCat[grupo] = (despPorCat[grupo] || 0) + Number(l.valor)
+      if (!despGrupos[grupo]) despGrupos[grupo] = { total: 0, lancs: [] }
+      despGrupos[grupo].total += Number(l.valor)
+      despGrupos[grupo].lancs.push(l)
     }
   })
 
@@ -366,8 +381,9 @@ function renderFinOverview() {
   const saldoEl = document.getElementById('fin-kpi-saldo')
   saldoEl.style.color = (receitas - despesas) >= 0 ? 'var(--accent)' : 'var(--danger)'
 
-  _renderChartDespesas(despPorCat)
+  _renderChartDespesas(despGrupos)
   _renderChartEvolucao()
+  _renderDespDrill(despGrupos)
   _renderValidador(ano, mes)
 }
 
@@ -534,26 +550,40 @@ function _destroyChart(id) {
   }
 }
 
-function _renderChartDespesas(despPorCat) {
+function _renderChartDespesas(despGrupos) {
   const canvas = document.getElementById('fin-chart-despesas')
   if (!canvas) return
   _destroyChart('despesas')
 
-  const labels = Object.keys(despPorCat)
-  const data   = Object.values(despPorCat)
-  if (labels.length === 0) { canvas.closest('.dash-card').querySelector('.dash-card-title').nextSibling?.remove(); return }
+  const labels = Object.keys(despGrupos)
+  const data   = labels.map(k => despGrupos[k].total)
+  if (labels.length === 0) return
 
   const COLORS = ['#4ecca3','#e05c5c','#f5d742','#7c9eff','#ff9f47','#9b59b6','#1abc9c','#e74c3c']
+  const selNome = _finDespCatSelected?.nome
+
+  const bgColors = labels.map((lbl, i) => {
+    const hex = COLORS[i % COLORS.length]
+    if (!selNome || lbl === selNome) return hex
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16)
+    return `rgba(${r},${g},${b},0.2)`
+  })
 
   _finChartsInstances['despesas'] = new Chart(canvas, {
     type: 'doughnut',
     plugins: _finDL,
     data: {
       labels,
-      datasets: [{ data, backgroundColor: COLORS.slice(0, labels.length), borderWidth: 0 }],
+      datasets: [{ data, backgroundColor: bgColors, borderWidth: 0 }],
     },
     options: {
       cutout: '65%',
+      onClick: (e, elements) => {
+        if (!elements.length) { _clearDespCatFilter(); return }
+        const nome = labels[elements[0].index]
+        if (_finDespCatSelected?.nome === nome) _clearDespCatFilter()
+        else _selectDespCat(nome)
+      },
       plugins: {
         legend: { position: 'right', labels: { color: '#a0a8a4', boxWidth: 12, padding: 12, font: { size: 11 } } },
         datalabels: {
@@ -604,7 +634,9 @@ function _renderChartEvolucao() {
   const despesas = meses.map(m =>
     window.finLancamentos.filter(l => {
       const cod = window.finCodigos.find(c => c.id === l.cd_financa)
-      return cod?.tipo === 'despesa' && l.data.startsWith(m.key)
+      if (!cod || cod.tipo !== 'despesa' || !l.data.startsWith(m.key)) return false
+      if (_finDespCatSelected) return _finGrupo(l.cd_financa) === _finDespCatSelected.nome
+      return true
     }).reduce((s, l) => s + Number(l.valor), 0)
   )
   const nets = meses.map((_, i) => receitas[i] - despesas[i])
@@ -731,7 +763,47 @@ function _clearEvoFilter() {
   renderFinOverview()
 }
 
-// ── LANÇAMENTOS ───────────────────────────────────────────────────────────────
+function _selectDespCat(nome) {
+  _finDespCatSelected = { nome }
+  renderFinOverview()
+}
+
+function _clearDespCatFilter() {
+  _finDespCatSelected = null
+  renderFinOverview()
+}
+
+// Drill de despesas por categoria — lista de lançamentos do grupo selecionado
+function _renderDespDrill(despGrupos) {
+  const container = document.getElementById('fin-desp-drill')
+  if (!container) return
+  if (!_finDespCatSelected) { container.style.display = 'none'; return }
+
+  const grupo = despGrupos[_finDespCatSelected.nome]
+  if (!grupo || !grupo.lancs.length) { container.style.display = 'none'; return }
+
+  const lancs = grupo.lancs.slice().sort((a, b) => Number(b.valor) - Number(a.valor))
+  const rows  = lancs.map(l => {
+    const catNome = l.categoria_nome || _finNome(l.cd_financa)
+    const desc    = l.descricao ? ` · ${l.descricao}` : ''
+    return `<tr class="fin-val-tbl-child">
+      <td class="fin-val-tbl-name">${_fmtDate(l.data)} — ${catNome}${desc}</td>
+      <td class="fin-val-tbl-num" style="color:var(--danger)">${_fmtBRL(l.valor)}</td>
+    </tr>`
+  }).join('')
+
+  container.style.display = 'block'
+  container.innerHTML = `
+    <div class="fin-desp-drill-wrap">
+      <div class="fin-desp-drill-title">${_finDespCatSelected.nome} — ${_fmtBRL(grupo.total)}</div>
+      <table class="fin-val-table">
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `
+}
+
+
 
 function renderLancamentos() {
   const tipoFilter = document.getElementById('fin-filter-tipo')?.value || ''

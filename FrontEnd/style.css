@@ -1796,7 +1796,7 @@ tbody td:first-child { color: var(--text); }
 .fin-overview-top-row {
   display: grid;
   gap: 16px;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1.8fr 1fr;
   margin-top: 16px;
 }
 .fin-overview-grid {
@@ -1823,6 +1823,25 @@ tbody td:first-child { color: var(--text); }
 .fin-evo-scroll-wrap::-webkit-scrollbar-track { background: #1a1e1c; border-radius: 2px; }
 .fin-evo-scroll-wrap::-webkit-scrollbar-thumb { background: #3a3e3c; border-radius: 2px; }
 .fin-evo-scroll-wrap::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* Drill de categoria dentro do card de rosca */
+.fin-desp-drill-wrap {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  max-height: 200px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #3a3e3c #1a1e1c;
+}
+.fin-desp-drill-title {
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--danger);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
 
 /* INDICADORES */
 .fin-ind-tipo {
