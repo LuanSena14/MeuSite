@@ -1811,6 +1811,7 @@ tbody td:first-child { color: var(--text); }
   position: relative;
 }
 .fin-chart-evolucao-wrap {
+  height: 340px;
   max-height: 340px;
 }
 

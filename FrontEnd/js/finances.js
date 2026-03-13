@@ -332,17 +332,24 @@ function renderFinOverview() {
     })
   Object.values(invPorCod).forEach(s => { totalInv += Number(s.saldo) })
 
-  // Taxa de poupança = (receitas - despesas) / receitas
-  const taxaPoupanca = receitas > 0 ? ((receitas - despesas) / receitas * 100) : null
+  // Saldo acumulado no ano (YTD)
+  const anoAtual = ano
+  let recYTD = 0, despYTD = 0
+  window.finLancamentos.forEach(l => {
+    if (!l.data.startsWith(String(anoAtual))) return
+    const cod = window.finCodigos.find(c => c.id === l.cd_financa)
+    if (cod?.tipo === 'receita')  recYTD  += Number(l.valor)
+    if (cod?.tipo === 'despesa') despYTD += Number(l.valor)
+  })
+  const saldoAno = recYTD - despYTD
 
   document.getElementById('fin-kpi-saldo').textContent     = _fmtBRL(receitas - despesas)
   document.getElementById('fin-kpi-investido').textContent = _fmtBRL(totalInv)
   document.getElementById('fin-kpi-credito').textContent   = _fmtBRL(totalCredito)
-  const poupEl = document.getElementById('fin-kpi-poupanca')
-  if (poupEl) {
-    poupEl.textContent = taxaPoupanca !== null ? taxaPoupanca.toFixed(1) + '%' : '—'
-    poupEl.style.color = taxaPoupanca !== null && taxaPoupanca >= 20
-      ? 'var(--accent)' : (taxaPoupanca !== null && taxaPoupanca < 0 ? 'var(--danger)' : '')
+  const saldoAnoEl = document.getElementById('fin-kpi-saldo-ano')
+  if (saldoAnoEl) {
+    saldoAnoEl.textContent = _fmtBRL(saldoAno)
+    saldoAnoEl.style.color = saldoAno >= 0 ? 'var(--accent)' : 'var(--danger)'
   }
 
   // Colorir saldo positivo/negativo
@@ -502,10 +509,17 @@ function _renderChartEvolucao() {
     ? `${_finEvoSelectedMonth.ano}-${String(_finEvoSelectedMonth.mes).padStart(2, '0')}`
     : null
 
-  // Cores: mês selecionado fica sólido, outros ficam suaves
-  const recBg  = meses.map(m => selKey ? (m.key === selKey ? '#4ecca3' : '#4ecca320') : '#4ecca355')
-  const despBg = meses.map(m => selKey ? (m.key === selKey ? '#e05c5ccc' : '#e05c5c20') : '#e05c5c55')
+  // Cores: sem filtro = sólido normal; com filtro = selecionado sólido, demais esmaecidos
+  const recBg  = meses.map(m => {
+    if (!selKey)           return 'rgba(78,204,163,0.55)'
+    return m.key === selKey ? 'rgba(78,204,163,0.9)' : 'rgba(78,204,163,0.12)'
+  })
+  const despBg = meses.map(m => {
+    if (!selKey)           return 'rgba(224,92,92,0.55)'
+    return m.key === selKey ? 'rgba(224,92,92,0.9)' : 'rgba(224,92,92,0.12)'
+  })
   const netPt  = nets.map(n => n >= 0 ? '#4ecca3' : '#e05c5c')
+  const netOpa = meses.map(m => selKey && m.key !== selKey ? 0.25 : 1)
 
   _finChartsInstances['evolucao'] = new Chart(canvas, {
     type: 'bar',
@@ -521,24 +535,27 @@ function _renderChartEvolucao() {
           backgroundColor: despBg, borderRadius: 3, order: 2,
         },
         {
-          label: 'Net', data: nets,
+          label: 'Net (R-D)', data: nets,
           type: 'line',
           borderColor: '#f5d742',
           backgroundColor: 'transparent',
-          borderWidth: 2,
-          pointRadius: meses.map(m => selKey ? (m.key === selKey ? 7 : 4) : 4),
+          borderWidth: 2.5,
+          pointRadius: meses.map(m => selKey ? (m.key === selKey ? 8 : 3) : 4),
+          pointHoverRadius: 7,
           pointBackgroundColor: netPt,
           pointBorderColor: netPt,
-          tension: 0.2,
+          tension: 0.25,
           order: 1,
         },
       ],
     },
     options: {
-      onClick: (evt, elements) => {
-        if (!elements.length) return
-        const idx = elements[0].index
-        const m   = meses[idx]
+      responsive: true,
+      maintainAspectRatio: false,
+      onClick: (evt, _elements, chart) => {
+        const pts = chart.getElementsAtEventForMode(evt.native, 'index', { intersect: false }, true)
+        if (!pts.length) return
+        const m = meses[pts[0].index]
         if (selKey === m.key) _clearEvoFilter()
         else _selectEvolucaoMonth(m.ano, m.mes)
       },

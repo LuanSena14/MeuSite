@@ -39,9 +39,9 @@
         <div class="kpi-label">Cartão de crédito</div>
         <div class="kpi-value" id="fin-kpi-credito">—</div>
       </div>
-      <div class="kpi-card" style="--kpi-color: #4ecca3">
-        <div class="kpi-label">Taxa de poupança</div>
-        <div class="kpi-value" id="fin-kpi-poupanca">—</div>
+      <div class="kpi-card" style="--kpi-color: #ff9f47">
+        <div class="kpi-label">Saldo acumulado no ano</div>
+        <div class="kpi-value" id="fin-kpi-saldo-ano">—</div>
       </div>
     </div>
 
@@ -63,8 +63,11 @@
       <div class="fin-chart-wrap fin-chart-evolucao-wrap"><canvas id="fin-chart-evolucao"></canvas></div>
     </div>
 
-    <!-- Orçado × Realizado (oculto, mantido para renderização interna) -->
-    <div style="display:none"><div id="fin-orc-overview"></div><span id="fin-orc-mes-label"></span></div>
+    <!-- Orçado × Realizado do mês -->
+    <div class="dash-card" style="margin-top:16px">
+      <div class="dash-card-title">Orçado × Realizado — <span id="fin-orc-mes-label"></span></div>
+      <div id="fin-orc-overview"></div>
+    </div>
 
   </div>
 
