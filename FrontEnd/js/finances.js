@@ -1141,7 +1141,7 @@ function _renderCreditoPanel(ano, mes, mesLabel) {
 
   const mesStr = `${ano}-${String(mes).padStart(2, '0')}`
 
-  const orcCredito = _effectiveOrcamento(ano, mes).filter(o => o.forma_pagamento === 'credito')
+  const orcCredito = _effectiveOrcamento(ano, mes).filter(o => o.forma_pagamento === 'credito' && o.mes !== null)
   const orcMap = {}
   orcCredito.forEach(o => { orcMap[o.cd_financa] = (orcMap[o.cd_financa] || 0) + Number(o.valor_orcado) })
 
