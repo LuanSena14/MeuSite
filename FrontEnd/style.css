@@ -1798,9 +1798,19 @@ tbody td:first-child { color: var(--text); }
   letter-spacing: .08em;
   text-transform: uppercase;
   color: var(--text-muted);
-  margin: 24px 0 12px;
+  margin: 0 0 12px;
   padding-bottom: 6px;
   border-bottom: 1px solid var(--border);
+}
+
+.fin-inv-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+@media (max-width: 900px) {
+  .fin-inv-layout { grid-template-columns: 1fr; }
 }
 
 /* OVERVIEW */

@@ -548,7 +548,7 @@ function _renderValidador(ano, mes) {
     const real = invLancs.filter(l => l.cd_financa === id).reduce((s, l) => s + Number(l.valor), 0)
     invRows.push({ nome: _finNome(id), orc: orc ? Number(orc.valor_orcado) : null, real: real || null })
   })
-  invRows.sort((a, b) => (b.real || 0) - (a.real || 0))
+  invRows.sort((a, b) => ((b.orc || 0) - (a.orc || 0)) || ((b.real || 0) - (a.real || 0)))
   const totalInvOrc  = orcInv.reduce((s, o) => s + Number(o.valor_orcado), 0)
   const totalInvReal = invRows.reduce((s, r) => s + (r.real || 0), 0)
   const invChildHtml = invRows.length
@@ -1171,7 +1171,7 @@ function _renderCreditoPanel(ano, mes, mesLabel) {
   const over      = totalOrc > 0 && totalReal > totalOrc
 
   const rows = allIds
-    .sort((a, b) => _finNome(a).localeCompare(_finNome(b)))
+    .sort((a, b) => ((orcMap[b] || 0) - (orcMap[a] || 0)) || ((lancMap[b] || 0) - (lancMap[a] || 0)))
     .map(id => {
       const orc  = orcMap[id]  || 0
       const real = lancMap[id] || 0
@@ -1256,7 +1256,7 @@ function renderInvestimentos() {
         totalAtual += saldo
         if (prevSnap) { totalAnterior += Number(prevSnap.saldo); prevCount++ }
         return { nome: cat.nome, saldo, prevSaldo: prevSnap ? Number(prevSnap.saldo) : null }
-      }).filter(Boolean)
+      }).filter(Boolean).sort((a, b) => b.saldo - a.saldo)
 
       const cardsHtml = cardsData.map(({ nome, saldo, prevSaldo }) => {
         let deltaHtml = ''
@@ -1298,9 +1298,15 @@ function renderInvestimentos() {
     indSnapsPorCat[s.cd_financa].push(s)
   })
   const indCats = [...new Map(indSnaps.map(s => [s.cd_financa, s.nome])).entries()]
-    .sort((a, b) => a[1].localeCompare(b[1]))
     .map(([id, nome]) => ({ id, nome }))
     .filter(c => (indSnapsPorCat[c.id] || []).some(s => s.data.slice(0, 7) <= mesStr))
+
+  // Sort indicator cats by current saldo desc
+  indCats.sort((a, b) => {
+    const va = latestUpTo(indSnapsPorCat[a.id] || [], mesStr)
+    const vb = latestUpTo(indSnapsPorCat[b.id] || [], mesStr)
+    return (vb ? Number(vb.saldo) : 0) - (va ? Number(va.saldo) : 0)
+  })
 
   if (indCats.length === 0) { indContainer.innerHTML = ''; return }
 
@@ -1323,8 +1329,10 @@ function renderInvestimentos() {
   }).filter(Boolean).join('')
 
   indContainer.innerHTML = `
-    <div class="fin-inv-section-label">Indicadores \u2014 ${mesLabel}</div>
+    <div class="fin-inv-section-label">Indicadores — ${mesLabel}</div>
     <div class="fin-inv-cards">${indCardsHtml}</div>`
+
+  _renderChartIndicadores(indSnapsPorCat, indCats)
 }
 
 function _renderChartInvestimentos(snapsPorCat, cats) {
@@ -1379,6 +1387,57 @@ async function deleteInvestimentoFin(id) {
   window.finInvestimentos = window.finInvestimentos.filter(s => s.id !== id)
   renderInvestimentos()
   _showFinToast('Registro removido')
+}
+
+function _renderChartIndicadores(snapsPorCat, cats) {
+  const card   = document.getElementById('fin-ind-chart-card')
+  const canvas = document.getElementById('fin-chart-ind')
+  if (!canvas) return
+  _destroyChart('ind')
+
+  if (!cats || cats.length === 0) {
+    if (card) card.style.display = 'none'
+    return
+  }
+  if (card) card.style.display = ''
+
+  const allSnaps = Object.values(snapsPorCat).flat()
+  const allDates = [...new Set(allSnaps.map(s => s.data))].sort()
+  if (allDates.length === 0) return
+
+  const COLORS = ['#7c9eff','#4ecca3','#f5d742','#ff9f47','#9b59b6','#e05c5c','#1abc9c']
+
+  const datasets = cats.map((cat, i) => {
+    const snaps = snapsPorCat[cat.id] || []
+    return {
+      label: cat.nome,
+      data: allDates.map(d => {
+        const s = snaps.filter(x => x.data <= d).sort((a, b) => b.data.localeCompare(a.data))[0]
+        return s ? Number(s.saldo) : null
+      }),
+      borderColor: COLORS[i % COLORS.length],
+      backgroundColor: COLORS[i % COLORS.length] + '20',
+      fill: false,
+      tension: 0.3,
+      spanGaps: true,
+    }
+  })
+
+  _finChartsInstances['ind'] = new Chart(canvas, {
+    type: 'line',
+    data: { labels: allDates.map(d => _fmtDate(d)), datasets },
+    options: {
+      scales: {
+        x: { ticks: { color: '#a0a8a4', font: { size: 11 } }, grid: { color: '#2a2f2c' } },
+        y: { ticks: { color: '#a0a8a4', font: { size: 11 }, callback: v => Number(v).toLocaleString('pt-BR') }, grid: { color: '#2a2f2c' } },
+      },
+      plugins: {
+        legend: { labels: { color: '#a0a8a4', font: { size: 11 }, boxWidth: 12 } },
+        datalabels: { display: false },
+        tooltip: { callbacks: { label: ctx => ' ' + Number(ctx.raw).toLocaleString('pt-BR') } },
+      },
+    },
+  })
 }
 
 // ── INDICADORES ───────────────────────────────────────────────────────────────
