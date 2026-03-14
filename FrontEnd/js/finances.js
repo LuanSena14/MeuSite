@@ -440,7 +440,7 @@ function _renderValidador(ano, mes) {
     const rows = []
     allIds.forEach(id => {
       const orc = orcTipo.find(o => o.cd_financa === id)
-      rows.push({ nome: _finNome(id), orcado: orc ? Number(orc.valor_orcado) : 0, real: realPorCat[id] || 0 })
+      rows.push({ id, nome: _finNome(id), orcado: orc ? Number(orc.valor_orcado) : 0, real: realPorCat[id] || 0 })
     })
     rows.sort((a, b) => b.real - a.real)
     const totalOrc  = orcTipo.reduce((s, o) => s + Number(o.valor_orcado), 0)
@@ -474,20 +474,60 @@ function _renderValidador(ano, mes) {
       ? `<td class="fin-val-tbl-num" style="color:${color}">${_fmtBRL(val)}</td>`
       : `<td class="fin-val-tbl-num" style="color:var(--text-muted)">—</td>`
 
-  const _childHtml = (rows, realColor) =>
-    rows.length
-      ? rows.map(r => `<tr class="fin-val-tbl-child">
+  // Renderiza linhas com hierarquia de grupos (cd_pai)
+  const _hierChildHtml = (rows, realColor, idPfx) => {
+    if (!rows.length) return `<tr class="fin-val-tbl-child"><td colspan="3" style="color:var(--text-muted)">Nenhum lançamento.</td></tr>`
+    const groups = {}
+    rows.forEach(r => {
+      const cod      = window.finCodigos.find(c => c.id === r.id)
+      const parentId = cod?.cd_pai != null ? cod.cd_pai : null
+      const parentCod = parentId != null ? window.finCodigos.find(c => c.id === parentId) : null
+      const gKey     = parentId != null ? String(parentId) : 'root_' + r.id
+      const gNome    = parentCod?.nome || r.nome
+      if (!groups[gKey]) groups[gKey] = { nome: gNome, children: [], totalOrc: 0, totalReal: 0 }
+      groups[gKey].children.push(r)
+      groups[gKey].totalOrc  += r.orcado
+      groups[gKey].totalReal += r.real
+    })
+    return Object.entries(groups).map(([gKey, g]) => {
+      // Grupo com filho único de mesmo nome → linha simples
+      if (g.children.length === 1 && g.children[0].nome === g.nome) {
+        const r = g.children[0]
+        return `<tr class="fin-val-tbl-child">
           <td class="fin-val-tbl-name">${r.nome}</td>
-          ${_nc(r.orcado || null, 'var(--text-muted)')}
+          ${_nc(r.orcado || null, 'var(--text)')}
+          ${_nc(r.real, r.real > 0 ? realColor : 'var(--text-muted)')}
+        </tr>`
+      }
+      const uid = `${idPfx}-${gKey}`
+      const childRows = g.children.map(r => `
+        <tr class="fin-val-tbl-child">
+          <td class="fin-val-tbl-name" style="padding-left:16px">${r.nome}</td>
+          ${_nc(r.orcado || null, 'var(--text)')}
           ${_nc(r.real, r.real > 0 ? realColor : 'var(--text-muted)')}
         </tr>`).join('')
-      : `<tr class="fin-val-tbl-child"><td colspan="3" style="color:var(--text-muted)">Nenhum lançamento.</td></tr>`
+      return `
+        <tr class="fin-val-tbl-child fin-val-tbl-hd" onclick="toggleFinValAcc('${uid}')">
+          <td class="fin-val-tbl-name">
+            <span class="fin-val-acc-arrow" id="fin-val-acc-arrow-${uid}">▶</span>
+            <span style="margin-left:4px">${g.nome}</span>
+          </td>
+          ${_nc(g.totalOrc || null, 'var(--text)')}
+          ${_nc(g.totalReal, g.totalReal > 0 ? realColor : 'var(--text-muted)')}
+        </tr>
+        <tr id="fin-val-acc-${uid}" style="display:none">
+          <td colspan="3" style="padding:0 0 6px 18px">
+            <table class="fin-val-tbl-children"><tbody>${childRows}</tbody></table>
+          </td>
+        </tr>`
+    }).join('')
+  }
 
   const _invChildHtml =
     invRows.length
       ? invRows.map(r => `<tr class="fin-val-tbl-child">
           <td class="fin-val-tbl-name">${r.nome}</td>
-          ${_nc(r.orcado, 'var(--text-muted)')}
+          ${_nc(r.orcado, 'var(--text)')}
           ${_nc(r.real, r.real > 0 ? '#f5d742' : 'var(--text-muted)')}
         </tr>`).join('')
       : `<tr class="fin-val-tbl-child"><td colspan="3" style="color:var(--text-muted)">Nenhum snapshot registrado para o período.</td></tr>`
@@ -501,7 +541,7 @@ function _renderValidador(ano, mes) {
           <span class="fin-val-acc-arrow" id="fin-val-acc-arrow-${id}">▶</span>
           <span class="${colorCls}" style="margin-left:6px">${labelText}</span>
         </td>
-        <td class="fin-val-tbl-num" style="color:var(--text-muted)">${orcStr}</td>
+        <td class="fin-val-tbl-num" style="color:var(--text)">${orcStr}</td>
         <td class="fin-val-tbl-num" style="color:${realColor2}">${_fmtBRL(totalReal)}</td>
       </tr>
       <tr id="fin-val-acc-${id}" style="display:none">
@@ -521,8 +561,8 @@ function _renderValidador(ano, mes) {
         </tr>
       </thead>
       <tbody>
-        ${_groupRows('rec',  'Entradas',      'fin-receita', rec.totalOrc,  rec.totalReal,  _childHtml(rec.rows,  'var(--accent)'),  'var(--accent)')}
-        ${_groupRows('desp', 'Saídas',        'fin-despesa', desp.totalOrc, desp.totalReal, _childHtml(desp.rows, 'var(--danger)'),  'var(--danger)')}
+        ${_groupRows('rec',  'Entradas',      'fin-receita', rec.totalOrc,  rec.totalReal,  _hierChildHtml(rec.rows,  'var(--accent)', 'rec-g'),  'var(--accent)')}
+        ${_groupRows('desp', 'Saídas',        'fin-despesa', desp.totalOrc, desp.totalReal, _hierChildHtml(desp.rows, 'var(--danger)', 'dep-g'),  'var(--danger)')}
         ${_groupRows('inv',  'Investimentos', '',            totalInvOrc,   totalInvReal,   _invChildHtml,                          '#f5d742')}
         <tr class="fin-val-tbl-saldo">
           <td>Saldo</td>
