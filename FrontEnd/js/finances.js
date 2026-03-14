@@ -965,6 +965,7 @@ function renderOrcamento() {
     .forEach(l => { realizado[l.cd_financa] = (realizado[l.cd_financa] || 0) + Number(l.valor) })
 
   _renderRecorrentePanel(refAno, refMes, mesLabel, realizado)
+  _renderCreditoPanel(refAno, refMes, mesLabel)
 
   // Painel de detalhes (acorde\u00e3o completo)
   const orc = _effectiveOrcamento(refAno, refMes)
@@ -1018,6 +1019,9 @@ function _renderRecorrentePanel(ano, mes, mesLabel, realizadoMap) {
   const totalCredito = window.finLancamentos
     .filter(l => l.data.startsWith(`${ano}-${String(mes).padStart(2,'0')}`) && l.forma_pagamento === 'credito')
     .reduce((s, l) => s + Number(l.valor), 0)
+  const totalCreditoOrc = orc
+    .filter(o => o.forma_pagamento === 'credito' && o.mes !== null)
+    .reduce((s, o) => s + Number(o.valor_orcado), 0)
 
   const _pct = (real, prev) => prev > 0 ? ((real / prev) * 100).toFixed(0) + '%' : '\u2014'
   const _cls = (real, prev, invert = false) => {
@@ -1051,9 +1055,9 @@ function _renderRecorrentePanel(ano, mes, mesLabel, realizadoMap) {
             <td style="color:${realSaldo >= 0 ? 'var(--accent)' : 'var(--danger)'}">${_fmtBRL(realSaldo)}</td>
             <td></td></tr>
           <tr class="fin-rec-sum-credito"><td>Cart\u00e3o cr\u00e9dito</td>
-            <td>\u2014</td>
-            <td style="color:#7c9eff">${_fmtBRL(totalCredito)}</td>
-            <td></td></tr>
+            <td>${totalCreditoOrc > 0 ? _fmtBRL(totalCreditoOrc) : '\u2014'}</td>
+            <td style="color:${totalCreditoOrc > 0 && totalCredito > totalCreditoOrc ? 'var(--danger)' : '#7c9eff'}">${_fmtBRL(totalCredito)}</td>
+            <td>${totalCreditoOrc > 0 ? ((totalCredito / totalCreditoOrc) * 100).toFixed(0) + '%' : ''}</td></tr>
         </tbody>
       </table>
     </div>`
@@ -1128,6 +1132,61 @@ async function deleteOrcamentoFin(id) {
   window.finOrcamento = window.finOrcamento.filter(o => o.id !== id)
   renderOrcamento()
   _showFinToast('Orçamento removido')
+}
+
+function _renderCreditoPanel(ano, mes, mesLabel) {
+  const container = document.getElementById('fin-credito-panel')
+  if (!container) return
+
+  const mesStr = `${ano}-${String(mes).padStart(2, '0')}`
+
+  const orcCredito = _effectiveOrcamento(ano, mes).filter(o => o.forma_pagamento === 'credito')
+  const orcMap = {}
+  orcCredito.forEach(o => { orcMap[o.cd_financa] = (orcMap[o.cd_financa] || 0) + Number(o.valor_orcado) })
+
+  const lancCredito = window.finLancamentos.filter(l =>
+    l.data.startsWith(mesStr) && l.forma_pagamento === 'credito'
+  )
+  const lancMap = {}
+  lancCredito.forEach(l => { lancMap[l.cd_financa] = (lancMap[l.cd_financa] || 0) + Number(l.valor) })
+
+  const allIds = [...new Set([...Object.keys(orcMap).map(Number), ...Object.keys(lancMap).map(Number)])]
+
+  if (allIds.length === 0) { container.innerHTML = ''; return }
+
+  const totalOrc  = Object.values(orcMap).reduce((s, v) => s + v, 0)
+  const totalReal = Object.values(lancMap).reduce((s, v) => s + v, 0)
+  const barPct    = totalOrc > 0 ? Math.min((totalReal / totalOrc) * 100, 100) : 0
+  const over      = totalOrc > 0 && totalReal > totalOrc
+
+  const rows = allIds
+    .sort((a, b) => _finNome(a).localeCompare(_finNome(b)))
+    .map(id => {
+      const orc  = orcMap[id]  || 0
+      const real = lancMap[id] || 0
+      const rowOver = orc > 0 && real > orc
+      const pctVal  = orc > 0 ? ((real / orc) * 100).toFixed(0) + '%' : '\u2014'
+      return `<tr>
+        <td class="fin-rec-cat-name">${_finNome(id)}</td>
+        <td class="fin-rec-val">${orc > 0 ? _fmtBRL(orc) : '\u2014'}</td>
+        <td class="fin-rec-val ${rowOver ? 'fin-over' : (real > 0 ? 'fin-under' : '')}">${_fmtBRL(real)}</td>
+        <td class="fin-rec-pct">${pctVal}</td>
+      </tr>`
+    }).join('')
+
+  container.innerHTML = `
+    <div class="dash-card" style="margin-top:16px">
+      <div class="dash-card-title" style="color:#7c9eff">Cartão de Crédito \u2014 ${mesLabel}</div>
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">
+        <span style="font-size:1.4rem;font-weight:700;color:#7c9eff">${_fmtBRL(totalReal)}</span>
+        ${totalOrc > 0 ? `<span style="color:var(--text-muted);font-size:.85rem">de ${_fmtBRL(totalOrc)} orçado \u2014 ${((totalReal / totalOrc) * 100).toFixed(0)}%</span>` : ''}
+      </div>
+      ${totalOrc > 0 ? `<div class="fin-orc-bar-bg" style="margin-bottom:14px"><div class="fin-orc-bar-fill ${over ? 'over' : ''}" style="width:${barPct}%"></div></div>` : ''}
+      <table class="fin-rec-cat-table">
+        <thead><tr><th>Categoria</th><th>Or\u00e7ado</th><th>Realizado</th><th>%</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`
 }
 
 // ── INVESTIMENTOS ─────────────────────────────────────────────────────────────
