@@ -26,33 +26,6 @@ with engine.connect() as _conn:
     _conn.execute(_text("ALTER TABLE lancamento_financeiro ADD COLUMN IF NOT EXISTS forma_pagamento VARCHAR DEFAULT 'debito'"))
     _conn.execute(_text("ALTER TABLE orcamento_financeiro  ADD COLUMN IF NOT EXISTS forma_pagamento VARCHAR"))
     _conn.execute(_text("ALTER TABLE codigo_financa        DROP COLUMN IF EXISTS dono"))
-    # Enforce allowed values for forma_pagamento
-    _conn.execute(_text("""
-        DO $$ BEGIN
-            IF NOT EXISTS (
-                SELECT 1 FROM information_schema.table_constraints
-                WHERE constraint_name = 'chk_lanc_forma_pagamento'
-                  AND table_name = 'lancamento_financeiro'
-            ) THEN
-                ALTER TABLE lancamento_financeiro
-                    ADD CONSTRAINT chk_lanc_forma_pagamento
-                    CHECK (forma_pagamento IN ('debito', 'credito') OR forma_pagamento IS NULL);
-            END IF;
-        END $$;
-    """))
-    _conn.execute(_text("""
-        DO $$ BEGIN
-            IF NOT EXISTS (
-                SELECT 1 FROM information_schema.table_constraints
-                WHERE constraint_name = 'chk_orc_forma_pagamento'
-                  AND table_name = 'orcamento_financeiro'
-            ) THEN
-                ALTER TABLE orcamento_financeiro
-                    ADD CONSTRAINT chk_orc_forma_pagamento
-                    CHECK (forma_pagamento IN ('debito', 'credito') OR forma_pagamento IS NULL);
-            END IF;
-        END $$;
-    """))
     _conn.commit()
 
 # ── UTILITÁRIO DE BANCO ───────────────────────────────────────────────────────
