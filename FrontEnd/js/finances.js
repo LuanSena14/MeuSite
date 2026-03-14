@@ -426,32 +426,110 @@ function _renderValidador(ano, mes) {
   const lancMes = window.finLancamentos.filter(l => l.data.startsWith(mesStr))
   const orcMes  = _effectiveOrcamento(ano, mes).filter(o => o.mes !== null)
 
-  // Realizado por cd_financa
-  const realPorCat = {}
-  lancMes.forEach(l => { realPorCat[l.cd_financa] = (realPorCat[l.cd_financa] || 0) + Number(l.valor) })
+  // ── Build recursive tree following exact DB hierarchy ───────────────────
+  const isTypeRoot = id => window.finCodigos.find(c => c.id === id)?.cd_pai == null
 
-  // Categorias com orçado ou realizado para um tipo
-  const _catRows = (tipo) => {
-    const orcTipo = orcMes.filter(o => window.finCodigos.find(c => c.id === o.cd_financa)?.tipo === tipo)
-    const allIds  = new Set([
+  const buildTree = (tipo) => {
+    const orcTipo  = orcMes.filter(o => window.finCodigos.find(c => c.id === o.cd_financa)?.tipo === tipo)
+    const activeIds = new Set([
       ...orcTipo.map(o => o.cd_financa),
       ...lancMes.filter(l => window.finCodigos.find(c => c.id === l.cd_financa)?.tipo === tipo).map(l => l.cd_financa)
     ])
-    const rows = []
-    allIds.forEach(id => {
-      const orc = orcTipo.find(o => o.cd_financa === id)
-      rows.push({ id, nome: _finNome(id), orcado: orc ? Number(orc.valor_orcado) : 0, real: realPorCat[id] || 0 })
+    if (!activeIds.size) return { roots: [], totalOrc: 0, totalReal: 0 }
+
+    const orcById  = {}
+    orcTipo.forEach(o => { orcById[o.cd_financa] = Number(o.valor_orcado) })
+    const realById = {}
+    lancMes.filter(l => window.finCodigos.find(c => c.id === l.cd_financa)?.tipo === tipo)
+           .forEach(l => { realById[l.cd_financa] = (realById[l.cd_financa] || 0) + Number(l.valor) })
+
+    const nodes = {}
+    const getNode = id => {
+      if (!nodes[id]) {
+        const cod = window.finCodigos.find(c => c.id === id)
+        nodes[id] = { id, nome: cod?.nome || String(id), cd_pai: cod?.cd_pai,
+                      dirOrc: 0, dirReal: 0, totalOrc: 0, totalReal: 0, children: {} }
+      }
+      return nodes[id]
+    }
+
+    activeIds.forEach(id => {
+      getNode(id).dirOrc  = orcById[id]  || 0
+      getNode(id).dirReal = realById[id] || 0
+      let cur = id
+      while (true) {
+        const cod = window.finCodigos.find(c => c.id === cur)
+        if (!cod || cod.cd_pai == null || isTypeRoot(cod.cd_pai)) break
+        getNode(cod.cd_pai)
+        cur = cod.cd_pai
+      }
     })
-    rows.sort((a, b) => b.real - a.real)
-    const totalOrc  = orcTipo.reduce((s, o) => s + Number(o.valor_orcado), 0)
-    const totalReal = rows.reduce((s, r) => s + r.real, 0)
-    return { rows, totalOrc, totalReal }
+
+    // Wire parent → children (skip tipo root level)
+    Object.values(nodes).forEach(n => {
+      if (n.cd_pai != null && !isTypeRoot(n.cd_pai) && nodes[n.cd_pai])
+        nodes[n.cd_pai].children[n.id] = n
+    })
+
+    // Aggregate totals bottom-up
+    const computeTotals = n => {
+      n.totalOrc  = n.dirOrc
+      n.totalReal = n.dirReal
+      Object.values(n.children).forEach(c => {
+        computeTotals(c)
+        n.totalOrc  += c.totalOrc
+        n.totalReal += c.totalReal
+      })
+    }
+    const roots = Object.values(nodes).filter(n => n.cd_pai != null && isTypeRoot(n.cd_pai))
+    roots.forEach(computeTotals)
+    roots.sort((a, b) => b.totalReal - a.totalReal)
+    return { roots,
+      totalOrc:  roots.reduce((s, n) => s + n.totalOrc,  0),
+      totalReal: roots.reduce((s, n) => s + n.totalReal, 0) }
   }
 
-  const rec  = _catRows('receita')
-  const desp = _catRows('despesa')
-  const saldoOrc  = rec.totalOrc  - desp.totalOrc
-  const saldoReal = rec.totalReal - desp.totalReal
+  // ── Recursive HTML renderer ──────────────────────────────────────────────
+  // netGoodWhenPositive: true for receita (earning more is good), false for despesa
+  const renderTree = (nodes, realClr, netGoodPos, depth, pfx) =>
+    nodes.map(node => {
+      const uid   = `${pfx}-${node.id}`
+      const net   = node.totalReal - node.totalOrc
+      const kids  = Object.values(node.children).sort((a, b) => b.totalReal - a.totalReal)
+      const pad   = `${depth * 14}px`
+      const netClr = net === 0 ? 'var(--text-muted)'
+                   : (net > 0) === netGoodPos ? 'var(--accent)' : 'var(--danger)'
+      const orcTd  = `<td class="fin-val-tbl-num">${node.totalOrc > 0 ? _fmtBRL(node.totalOrc) : '—'}</td>`
+      const realTd = `<td class="fin-val-tbl-num" style="color:${node.totalReal > 0 ? realClr : 'var(--text-muted)'}">${_fmtBRL(node.totalReal)}</td>`
+      const netTd  = `<td class="fin-val-tbl-num" style="color:${netClr}">${net !== 0 ? _fmtBRL(net) : '—'}</td>`
+
+      if (!kids.length) {
+        return `<tr class="fin-val-tbl-child">
+          <td class="fin-val-tbl-name" style="padding-left:${pad}">${node.nome}</td>
+          ${orcTd}${realTd}${netTd}
+        </tr>`
+      }
+      const childHtml = renderTree(kids, realClr, netGoodPos, depth + 1, pfx)
+      return `
+        <tr class="fin-val-tbl-hd" onclick="toggleFinValAcc('${uid}')">
+          <td class="fin-val-tbl-label-cell" style="padding-left:${pad}">
+            <span class="fin-val-acc-arrow" id="fin-val-acc-arrow-${uid}">▶</span>
+            <span style="margin-left:6px">${node.nome}</span>
+          </td>
+          ${orcTd}${realTd}${netTd}
+        </tr>
+        <tr id="fin-val-acc-${uid}" style="display:none">
+          <td colspan="4" class="fin-val-tbl-children-wrap">
+            <table class="fin-val-tbl-children"><tbody>${childHtml}</tbody></table>
+          </td>
+        </tr>`
+    }).join('')
+
+  const rec       = buildTree('receita')
+  const desp      = buildTree('despesa')
+  const saldoOrc  = rec.totalOrc   - desp.totalOrc
+  const saldoReal = rec.totalReal  - desp.totalReal
+  const saldoNet  = saldoReal      - saldoOrc
 
   // Investimentos do mês (snapshots registrados no mês + orçado)
   const indicIds = new Set([78, ..._getDescendantIds(78)])
@@ -462,90 +540,37 @@ function _renderValidador(ano, mes) {
   invIds.forEach(id => {
     const orc  = orcInv.find(o => o.cd_financa === id)
     const snap = invSnaps.filter(s => s.cd_financa === id).sort((a, b) => b.data.localeCompare(a.data))[0]
-    invRows.push({ nome: _finNome(id), orcado: orc ? Number(orc.valor_orcado) : null, real: snap ? Number(snap.saldo) : null })
+    invRows.push({ nome: _finNome(id), orc: orc ? Number(orc.valor_orcado) : null, real: snap ? Number(snap.saldo) : null })
   })
   invRows.sort((a, b) => (b.real || 0) - (a.real || 0))
   const totalInvOrc  = orcInv.reduce((s, o) => s + Number(o.valor_orcado), 0)
   const totalInvReal = invRows.reduce((s, r) => s + (r.real || 0), 0)
+  const invChildHtml = invRows.length
+    ? invRows.map(r => `<tr class="fin-val-tbl-child">
+        <td class="fin-val-tbl-name">${r.nome}</td>
+        <td class="fin-val-tbl-num">${r.orc != null ? _fmtBRL(r.orc) : '—'}</td>
+        <td class="fin-val-tbl-num" style="color:${r.real > 0 ? '#f5d742' : 'var(--text-muted)'}">${r.real != null ? _fmtBRL(r.real) : '—'}</td>
+        <td class="fin-val-tbl-num" style="color:var(--text-muted)">—</td>
+      </tr>`).join('')
+    : `<tr class="fin-val-tbl-child"><td colspan="4" style="color:var(--text-muted)">Nenhum snapshot para o período.</td></tr>`
 
-  // ── HTML helpers ──────────────────────────────────────────────────────────
-  const _nc = (val, color) =>
-    val !== null && val !== undefined
-      ? `<td class="fin-val-tbl-num" style="color:${color}">${_fmtBRL(val)}</td>`
-      : `<td class="fin-val-tbl-num" style="color:var(--text-muted)">—</td>`
-
-  // Renderiza linhas com hierarquia de grupos (cd_pai)
-  const _hierChildHtml = (rows, realColor, idPfx) => {
-    if (!rows.length) return `<tr class="fin-val-tbl-child"><td colspan="3" style="color:var(--text-muted)">Nenhum lançamento.</td></tr>`
-    const groups = {}
-    rows.forEach(r => {
-      const cod      = window.finCodigos.find(c => c.id === r.id)
-      const parentId = cod?.cd_pai != null ? cod.cd_pai : null
-      const parentCod = parentId != null ? window.finCodigos.find(c => c.id === parentId) : null
-      const gKey     = parentId != null ? String(parentId) : 'root_' + r.id
-      const gNome    = parentCod?.nome || r.nome
-      if (!groups[gKey]) groups[gKey] = { nome: gNome, children: [], totalOrc: 0, totalReal: 0 }
-      groups[gKey].children.push(r)
-      groups[gKey].totalOrc  += r.orcado
-      groups[gKey].totalReal += r.real
-    })
-    return Object.entries(groups).map(([gKey, g]) => {
-      // Grupo com filho único de mesmo nome → linha simples
-      if (g.children.length === 1 && g.children[0].nome === g.nome) {
-        const r = g.children[0]
-        return `<tr class="fin-val-tbl-child">
-          <td class="fin-val-tbl-name">${r.nome}</td>
-          ${_nc(r.orcado || null, 'var(--text)')}
-          ${_nc(r.real, r.real > 0 ? realColor : 'var(--text-muted)')}
-        </tr>`
-      }
-      const uid = `${idPfx}-${gKey}`
-      const childRows = g.children.map(r => `
-        <tr class="fin-val-tbl-child">
-          <td class="fin-val-tbl-name" style="padding-left:16px">${r.nome}</td>
-          ${_nc(r.orcado || null, 'var(--text)')}
-          ${_nc(r.real, r.real > 0 ? realColor : 'var(--text-muted)')}
-        </tr>`).join('')
-      return `
-        <tr class="fin-val-tbl-child fin-val-tbl-hd" onclick="toggleFinValAcc('${uid}')">
-          <td class="fin-val-tbl-name">
-            <span class="fin-val-acc-arrow" id="fin-val-acc-arrow-${uid}">▶</span>
-            <span style="margin-left:4px">${g.nome}</span>
-          </td>
-          ${_nc(g.totalOrc || null, 'var(--text)')}
-          ${_nc(g.totalReal, g.totalReal > 0 ? realColor : 'var(--text-muted)')}
-        </tr>
-        <tr id="fin-val-acc-${uid}" style="display:none">
-          <td colspan="3" style="padding:0 0 6px 18px">
-            <table class="fin-val-tbl-children"><tbody>${childRows}</tbody></table>
-          </td>
-        </tr>`
-    }).join('')
-  }
-
-  const _invChildHtml =
-    invRows.length
-      ? invRows.map(r => `<tr class="fin-val-tbl-child">
-          <td class="fin-val-tbl-name">${r.nome}</td>
-          ${_nc(r.orcado, 'var(--text)')}
-          ${_nc(r.real, r.real > 0 ? '#f5d742' : 'var(--text-muted)')}
-        </tr>`).join('')
-      : `<tr class="fin-val-tbl-child"><td colspan="3" style="color:var(--text-muted)">Nenhum snapshot registrado para o período.</td></tr>`
-
-  const _groupRows = (id, labelText, colorCls, totalOrc, totalReal, childHtml, realColor) => {
-    const orcStr    = totalOrc > 0 ? _fmtBRL(totalOrc) : '—'
-    const realColor2 = totalReal > 0 ? realColor : 'var(--text-muted)'
+  // Top-level accordion row (Entradas / Saídas / Investimentos)
+  const topRow = (id, lbl, cls, totalOrc, totalReal, realClr, childHtml, netGoodPos) => {
+    const net    = totalReal - totalOrc
+    const netClr = net === 0 ? 'var(--text-muted)'
+                 : (net > 0) === netGoodPos ? 'var(--accent)' : 'var(--danger)'
     return `
       <tr class="fin-val-tbl-hd" onclick="toggleFinValAcc('${id}')">
         <td class="fin-val-tbl-label-cell">
           <span class="fin-val-acc-arrow" id="fin-val-acc-arrow-${id}">▶</span>
-          <span class="${colorCls}" style="margin-left:6px">${labelText}</span>
+          <span class="${cls}" style="margin-left:6px">${lbl}</span>
         </td>
-        <td class="fin-val-tbl-num" style="color:var(--text)">${orcStr}</td>
-        <td class="fin-val-tbl-num" style="color:${realColor2}">${_fmtBRL(totalReal)}</td>
+        <td class="fin-val-tbl-num">${totalOrc > 0 ? _fmtBRL(totalOrc) : '—'}</td>
+        <td class="fin-val-tbl-num" style="color:${totalReal > 0 ? realClr : 'var(--text-muted)'}">${_fmtBRL(totalReal)}</td>
+        <td class="fin-val-tbl-num" style="color:${netClr}">${net !== 0 ? _fmtBRL(net) : '—'}</td>
       </tr>
       <tr id="fin-val-acc-${id}" style="display:none">
-        <td colspan="3" class="fin-val-tbl-children-wrap">
+        <td colspan="4" class="fin-val-tbl-children-wrap">
           <table class="fin-val-tbl-children"><tbody>${childHtml}</tbody></table>
         </td>
       </tr>`
@@ -558,16 +583,18 @@ function _renderValidador(ano, mes) {
           <th></th>
           <th class="fin-val-tbl-num">Orçado</th>
           <th class="fin-val-tbl-num">Realizado</th>
+          <th class="fin-val-tbl-num">Net</th>
         </tr>
       </thead>
       <tbody>
-        ${_groupRows('rec',  'Entradas',      'fin-receita', rec.totalOrc,  rec.totalReal,  _hierChildHtml(rec.rows,  'var(--accent)', 'rec-g'),  'var(--accent)')}
-        ${_groupRows('desp', 'Saídas',        'fin-despesa', desp.totalOrc, desp.totalReal, _hierChildHtml(desp.rows, 'var(--danger)', 'dep-g'),  'var(--danger)')}
-        ${_groupRows('inv',  'Investimentos', '',            totalInvOrc,   totalInvReal,   _invChildHtml,                          '#f5d742')}
+        ${topRow('rec',  'Entradas',      'fin-receita', rec.totalOrc,  rec.totalReal,  'var(--accent)', renderTree(rec.roots,  'var(--accent)', true,  0, 'r'), true)}
+        ${topRow('desp', 'Saídas',        'fin-despesa', desp.totalOrc, desp.totalReal, 'var(--danger)', renderTree(desp.roots, 'var(--danger)', false, 0, 'd'), false)}
+        ${topRow('inv',  'Investimentos', '',            totalInvOrc,   totalInvReal,   '#f5d742',       invChildHtml, true)}
         <tr class="fin-val-tbl-saldo">
           <td>Saldo</td>
-          <td class="fin-val-tbl-num" style="color:${saldoOrc >=0?'var(--accent)':'var(--danger)'}">${_fmtBRL(saldoOrc)}</td>
-          <td class="fin-val-tbl-num" style="color:${saldoReal>=0?'var(--accent)':'var(--danger)'}">${_fmtBRL(saldoReal)}</td>
+          <td class="fin-val-tbl-num">${_fmtBRL(saldoOrc)}</td>
+          <td class="fin-val-tbl-num" style="color:${saldoReal >= 0 ? 'var(--accent)' : 'var(--danger)'}">${_fmtBRL(saldoReal)}</td>
+          <td class="fin-val-tbl-num" style="color:${saldoNet  >= 0 ? 'var(--accent)' : 'var(--danger)'}">${_fmtBRL(saldoNet)}</td>
         </tr>
       </tbody>
     </table>
