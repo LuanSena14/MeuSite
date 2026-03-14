@@ -12,7 +12,6 @@
   <div class="fin-tabs">
     <button class="fin-tab active" data-tab="overview"      onclick="switchFinTab('overview')">Overview</button>
     <button class="fin-tab"        data-tab="lancamentos"   onclick="switchFinTab('lancamentos')">Lançamentos</button>
-    <button class="fin-tab"        data-tab="orcamento"     onclick="switchFinTab('orcamento')">Orçamento</button>
     <button class="fin-tab"        data-tab="investimentos" onclick="switchFinTab('investimentos')">Investimentos</button>
     <button class="fin-tab"        data-tab="indicadores"   onclick="switchFinTab('indicadores')">Indicadores</button>
   </div>
@@ -69,6 +68,8 @@
       <div class="fin-evo-scroll-wrap"><canvas id="fin-chart-evolucao"></canvas></div>
     </div>
 
+    <!-- Cartão de crédito: orçado x realizado -->
+    <div id="fin-credito-panel"></div>
 
   </div>
 
@@ -94,28 +95,6 @@
         <tbody id="fin-tbody-lancamentos"></tbody>
       </table>
     </div>
-  </div>
-
-  <!-- ── ABA: ORÇAMENTO ────────────────────────────────────────────────────── -->
-  <div class="fin-panel" id="fin-panel-orcamento">
-    <div class="fin-toolbar">
-      <div class="fin-filters">
-        <input type="month" id="fin-orc-filter-mes" class="ex-filter-input" oninput="renderOrcamento()">
-      </div>
-      <button class="btn-add" onclick="openFinModal('orcamento')">+ Novo orçamento</button>
-    </div>
-
-    <!-- Painel recorrente: resumo + colunas por dono -->
-    <div id="fin-rec-panel"></div>
-
-    <!-- Cartão de crédito: orçado x realizado -->
-    <div id="fin-credito-panel"></div>
-
-    <!-- Detalhes: acordeão completo -->
-    <details class="fin-orc-details">
-      <summary>Detalhes do orçamento</summary>
-      <div id="fin-orc-list"></div>
-    </details>
   </div>
 
   <!-- ── ABA: INVESTIMENTOS ────────────────────────────────────────────────── -->

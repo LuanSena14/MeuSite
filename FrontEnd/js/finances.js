@@ -64,7 +64,6 @@ function switchFinTab(tab) {
 
   if (tab === 'overview')      renderFinOverview()
   if (tab === 'lancamentos')   renderLancamentos()
-  if (tab === 'orcamento')     renderOrcamento()
   if (tab === 'investimentos') renderInvestimentos()
   if (tab === 'indicadores')   renderIndicadores()
 }
@@ -386,6 +385,8 @@ function renderFinOverview() {
   _renderChartEvolucao()
   _renderDespDrill(despGrupos)
   _renderValidador(ano, mes)
+  const mesLabel = new Date(ano, mes - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  _renderCreditoPanel(ano, mes, mesLabel)
 }
 
 function _renderOrcOverview(ano, mes) {
@@ -1130,7 +1131,7 @@ function _renderRecorrentePanel(ano, mes, mesLabel, realizadoMap) {
 async function deleteOrcamentoFin(id) {
   await deleteOrcamento(id)
   window.finOrcamento = window.finOrcamento.filter(o => o.id !== id)
-  renderOrcamento()
+  renderFinOverview()
   _showFinToast('Orçamento removido')
 }
 
@@ -1152,7 +1153,17 @@ function _renderCreditoPanel(ano, mes, mesLabel) {
 
   const allIds = [...new Set([...Object.keys(orcMap).map(Number), ...Object.keys(lancMap).map(Number)])]
 
-  if (allIds.length === 0) { container.innerHTML = ''; return }
+  if (allIds.length === 0) {
+    container.innerHTML = `
+      <div class="dash-card" style="margin-top:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div class="dash-card-title" style="color:#7c9eff">Cart\u00e3o de Cr\u00e9dito \u2014 ${mesLabel}</div>
+          <button class="btn-add" onclick="openFinModal('orcamento')">+ Or\u00e7amento</button>
+        </div>
+        <p style="color:var(--text-muted);font-size:.85rem;padding:12px 0 4px">Nenhum lan\u00e7amento de cr\u00e9dito no per\u00edodo.</p>
+      </div>`
+    return
+  }
 
   const totalOrc  = Object.values(orcMap).reduce((s, v) => s + v, 0)
   const totalReal = Object.values(lancMap).reduce((s, v) => s + v, 0)
@@ -1176,10 +1187,13 @@ function _renderCreditoPanel(ano, mes, mesLabel) {
 
   container.innerHTML = `
     <div class="dash-card" style="margin-top:16px">
-      <div class="dash-card-title" style="color:#7c9eff">Cartão de Crédito \u2014 ${mesLabel}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="dash-card-title" style="color:#7c9eff">Cart\u00e3o de Cr\u00e9dito \u2014 ${mesLabel}</div>
+        <button class="btn-add" onclick="openFinModal('orcamento')">+ Or\u00e7amento</button>
+      </div>
       <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">
         <span style="font-size:1.4rem;font-weight:700;color:#7c9eff">${_fmtBRL(totalReal)}</span>
-        ${totalOrc > 0 ? `<span style="color:var(--text-muted);font-size:.85rem">de ${_fmtBRL(totalOrc)} orçado \u2014 ${((totalReal / totalOrc) * 100).toFixed(0)}%</span>` : ''}
+        ${totalOrc > 0 ? `<span style="color:var(--text-muted);font-size:.85rem">de ${_fmtBRL(totalOrc)} or\u00e7ado \u2014 ${((totalReal / totalOrc) * 100).toFixed(0)}%</span>` : ''}
       </div>
       ${totalOrc > 0 ? `<div class="fin-orc-bar-bg" style="margin-bottom:14px"><div class="fin-orc-bar-fill ${over ? 'over' : ''}" style="width:${barPct}%"></div></div>` : ''}
       <table class="fin-rec-cat-table">
