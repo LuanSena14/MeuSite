@@ -500,7 +500,7 @@ function _renderValidador(ano, mes) {
       const netClr = net === 0 ? 'var(--text-muted)'
                    : (net > 0) === netGoodPos ? 'var(--accent)' : 'var(--danger)'
       const orcTd  = `<td class="fin-val-tbl-num">${node.totalOrc > 0 ? _fmtBRL(node.totalOrc) : '—'}</td>`
-      const realTd = `<td class="fin-val-tbl-num" style="color:${node.totalReal > 0 ? realClr : 'var(--text-muted)'}">${_fmtBRL(node.totalReal)}</td>`
+      const realTd = `<td class="fin-val-tbl-num">${_fmtBRL(node.totalReal)}</td>`
       const netTd  = `<td class="fin-val-tbl-num" style="color:${netClr}">${net !== 0 ? _fmtBRL(net) : '—'}</td>`
 
       if (!kids.length) {
@@ -510,6 +510,7 @@ function _renderValidador(ano, mes) {
         </tr>`
       }
       const childHtml = renderTree(kids, realClr, netGoodPos, depth + 1, pfx)
+      const innerCols = `<colgroup><col style="width:100%"><col style="width:110px"><col style="width:110px"><col style="width:110px"></colgroup>`
       return `
         <tr class="fin-val-tbl-hd" onclick="toggleFinValAcc('${uid}')">
           <td class="fin-val-tbl-label-cell" style="padding-left:${pad}">
@@ -520,7 +521,7 @@ function _renderValidador(ano, mes) {
         </tr>
         <tr id="fin-val-acc-${uid}" style="display:none">
           <td colspan="4" class="fin-val-tbl-children-wrap">
-            <table class="fin-val-tbl-children"><tbody>${childHtml}</tbody></table>
+            <table class="fin-val-tbl-children">${innerCols}<tbody>${childHtml}</tbody></table>
           </td>
         </tr>`
     }).join('')
@@ -531,28 +532,34 @@ function _renderValidador(ano, mes) {
   const saldoReal = rec.totalReal  - desp.totalReal
   const saldoNet  = saldoReal      - saldoOrc
 
-  // Investimentos do mês (snapshots registrados no mês + orçado)
+  // Investimentos do mês — usa lançamentos do mês (não o snapshot/saldo acumulado)
   const indicIds = new Set([78, ..._getDescendantIds(78)])
   const orcInv   = orcMes.filter(o => window.finCodigos.find(c => c.id === o.cd_financa)?.tipo === 'investimento')
-  const invSnaps = window.finInvestimentos.filter(s => s.data.startsWith(mesStr) && !indicIds.has(s.cd_financa))
-  const invIds   = new Set([...orcInv.map(o => o.cd_financa), ...invSnaps.map(s => s.cd_financa)])
+  const invLancs = lancMes.filter(l => {
+    const cod = window.finCodigos.find(c => c.id === l.cd_financa)
+    return cod?.tipo === 'investimento' && !indicIds.has(l.cd_financa)
+  })
+  const invIds   = new Set([...orcInv.map(o => o.cd_financa), ...invLancs.map(l => l.cd_financa)])
   const invRows  = []
   invIds.forEach(id => {
     const orc  = orcInv.find(o => o.cd_financa === id)
-    const snap = invSnaps.filter(s => s.cd_financa === id).sort((a, b) => b.data.localeCompare(a.data))[0]
-    invRows.push({ nome: _finNome(id), orc: orc ? Number(orc.valor_orcado) : null, real: snap ? Number(snap.saldo) : null })
+    const real = invLancs.filter(l => l.cd_financa === id).reduce((s, l) => s + Number(l.valor), 0)
+    invRows.push({ nome: _finNome(id), orc: orc ? Number(orc.valor_orcado) : null, real: real || null })
   })
   invRows.sort((a, b) => (b.real || 0) - (a.real || 0))
   const totalInvOrc  = orcInv.reduce((s, o) => s + Number(o.valor_orcado), 0)
   const totalInvReal = invRows.reduce((s, r) => s + (r.real || 0), 0)
   const invChildHtml = invRows.length
-    ? invRows.map(r => `<tr class="fin-val-tbl-child">
-        <td class="fin-val-tbl-name">${r.nome}</td>
-        <td class="fin-val-tbl-num">${r.orc != null ? _fmtBRL(r.orc) : '—'}</td>
-        <td class="fin-val-tbl-num" style="color:${r.real > 0 ? '#f5d742' : 'var(--text-muted)'}">${r.real != null ? _fmtBRL(r.real) : '—'}</td>
-        <td class="fin-val-tbl-num" style="color:var(--text-muted)">—</td>
-      </tr>`).join('')
-    : `<tr class="fin-val-tbl-child"><td colspan="4" style="color:var(--text-muted)">Nenhum snapshot para o período.</td></tr>`
+    ? invRows.map(r => {
+        const net = (r.real || 0) - (r.orc || 0)
+        const nc  = net === 0 ? 'var(--text-muted)' : net > 0 ? 'var(--accent)' : 'var(--danger)'
+        return `<tr class="fin-val-tbl-child">
+          <td class="fin-val-tbl-name">${r.nome}</td>
+          <td class="fin-val-tbl-num">${r.orc != null ? _fmtBRL(r.orc) : '—'}</td>
+          <td class="fin-val-tbl-num">${r.real != null ? _fmtBRL(r.real) : '—'}</td>
+          <td class="fin-val-tbl-num" style="color:${nc}">${net !== 0 ? _fmtBRL(net) : '—'}</td>
+        </tr>`}).join('')
+    : `<tr class="fin-val-tbl-child"><td colspan="4" style="color:var(--text-muted)">Nenhum lançamento de investimento no período.</td></tr>`
 
   // Top-level accordion row (Entradas / Saídas / Investimentos)
   const topRow = (id, lbl, cls, totalOrc, totalReal, realClr, childHtml, netGoodPos) => {
@@ -566,18 +573,24 @@ function _renderValidador(ano, mes) {
           <span class="${cls}" style="margin-left:6px">${lbl}</span>
         </td>
         <td class="fin-val-tbl-num">${totalOrc > 0 ? _fmtBRL(totalOrc) : '—'}</td>
-        <td class="fin-val-tbl-num" style="color:${totalReal > 0 ? realClr : 'var(--text-muted)'}">${_fmtBRL(totalReal)}</td>
+        <td class="fin-val-tbl-num">${_fmtBRL(totalReal)}</td>
         <td class="fin-val-tbl-num" style="color:${netClr}">${net !== 0 ? _fmtBRL(net) : '—'}</td>
       </tr>
       <tr id="fin-val-acc-${id}" style="display:none">
         <td colspan="4" class="fin-val-tbl-children-wrap">
-          <table class="fin-val-tbl-children"><tbody>${childHtml}</tbody></table>
+          <table class="fin-val-tbl-children"><colgroup><col style="width:100%"><col style="width:110px"><col style="width:110px"><col style="width:110px"></colgroup><tbody>${childHtml}</tbody></table>
         </td>
       </tr>`
   }
 
   container.innerHTML = `
     <table class="fin-val-table">
+      <colgroup>
+        <col style="width:100%">
+        <col style="width:110px">
+        <col style="width:110px">
+        <col style="width:110px">
+      </colgroup>
       <thead>
         <tr class="fin-val-tbl-head">
           <th></th>
@@ -587,14 +600,14 @@ function _renderValidador(ano, mes) {
         </tr>
       </thead>
       <tbody>
-        ${topRow('rec',  'Entradas',      'fin-receita', rec.totalOrc,  rec.totalReal,  'var(--accent)', renderTree(rec.roots,  'var(--accent)', true,  0, 'r'), true)}
-        ${topRow('desp', 'Saídas',        'fin-despesa', desp.totalOrc, desp.totalReal, 'var(--danger)', renderTree(desp.roots, 'var(--danger)', false, 0, 'd'), false)}
-        ${topRow('inv',  'Investimentos', '',            totalInvOrc,   totalInvReal,   '#f5d742',       invChildHtml, true)}
+        ${topRow('rec',  'Entradas',      'fin-receita', rec.totalOrc,  rec.totalReal,  '', renderTree(rec.roots,  'var(--accent)', true,  0, 'r'), true)}
+        ${topRow('desp', 'Saídas',        'fin-despesa', desp.totalOrc, desp.totalReal, '', renderTree(desp.roots, 'var(--danger)', false, 0, 'd'), false)}
+        ${topRow('inv',  'Investimentos', '',            totalInvOrc,   totalInvReal,   '', invChildHtml, true)}
         <tr class="fin-val-tbl-saldo">
           <td>Saldo</td>
           <td class="fin-val-tbl-num">${_fmtBRL(saldoOrc)}</td>
-          <td class="fin-val-tbl-num" style="color:${saldoReal >= 0 ? 'var(--accent)' : 'var(--danger)'}">${_fmtBRL(saldoReal)}</td>
-          <td class="fin-val-tbl-num" style="color:${saldoNet  >= 0 ? 'var(--accent)' : 'var(--danger)'}">${_fmtBRL(saldoNet)}</td>
+          <td class="fin-val-tbl-num">${_fmtBRL(saldoReal)}</td>
+          <td class="fin-val-tbl-num" style="color:${saldoNet >= 0 ? 'var(--accent)' : 'var(--danger)'}">${_fmtBRL(saldoNet)}</td>
         </tr>
       </tbody>
     </table>

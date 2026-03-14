@@ -1875,8 +1875,15 @@ tbody td:first-child { color: var(--text); }
 .fin-val-tbl-num {
   text-align: right;
   white-space: nowrap;
-  min-width: 88px;
-  padding: 0 0 0 18px;
+  width: 110px;
+  min-width: 110px;
+  padding: 0 4px 0 8px;
+}
+.fin-val-tbl-children { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.fin-val-tbl-children colgroup { display: none; }
+.fin-val-tbl-children .fin-val-tbl-num {
+  width: 110px;
+  min-width: 110px;
 }
 .fin-val-tbl-label-cell { width: 100%; }
 .fin-val-tbl-hd { cursor: pointer; user-select: none; }
@@ -1884,7 +1891,6 @@ tbody td:first-child { color: var(--text); }
 .fin-val-tbl-hd:hover td { opacity: .82; }
 .fin-val-acc-arrow { color: var(--text-muted); font-size: .68rem; }
 .fin-val-tbl-children-wrap { padding: 4px 0 10px 0; }
-.fin-val-tbl-children { width: 100%; border-collapse: collapse; }
 .fin-val-tbl-child td { padding: 5px 0; font-size: .8rem; }
 .fin-val-tbl-name { width: 100%; color: var(--text-muted); }
 .fin-val-tbl-saldo td {
