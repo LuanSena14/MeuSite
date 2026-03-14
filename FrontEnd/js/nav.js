@@ -6,7 +6,7 @@ const DEFAULT_SECTION = 'body' // 'body' ou 'exercises'
 
 const SECTION_META = {
   body:      { title: 'Body metrics',      action: { label: 'Novo check-in', fn: 'openModal()' },   filters: false },
-  finances:  { title: 'Finances overview', action: { label: 'Novo lançamento', fn: 'openFinModal("lancamento")' }, filters: false },
+  finances:  { title: 'Finances overview', action: { label: 'Novo lançamento', fn: "openFinModal('lancamento')" }, filters: false },
   exercises: { title: 'Exercises tracker', action: { label: 'Novo treino',   fn: 'openExModal()' }, filters: true  },
   goals:    { title: 'Goals overview',   action: { label: 'Registrar dia', fn: 'openGoalsModal()' }, filters: false },
 }

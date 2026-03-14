@@ -1483,7 +1483,6 @@ tbody td:first-child { color: var(--text); }
   gap: 4px;
   border-bottom: 2px solid var(--border);
   margin-bottom: 20px;
-  overflow-x: auto;
 }
 
 .fin-tab {
@@ -1548,6 +1547,36 @@ tbody td:first-child { color: var(--text); }
 .fin-table .fin-col-valor { font-variant-numeric: tabular-nums; font-weight: 600; }
 .fin-table .fin-receita { color: var(--accent); }
 .fin-table .fin-despesa { color: var(--danger); }
+
+/* Linha de filtros inline no thead */
+.fin-filter-row th {
+  padding: 4px 6px 8px;
+  text-transform: none;
+  font-size: 0.75rem;
+}
+.fin-col-filter {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.75rem;
+  padding: 5px 8px;
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.fin-col-filter:focus { border-color: var(--accent); }
+.fin-col-filter::placeholder { color: var(--text-muted); }
+select.fin-col-filter {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7472' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 24px;
+}
 
 .fin-del-btn {
   background: none;
@@ -1761,12 +1790,14 @@ tbody td:first-child { color: var(--text); }
 
 /* INVESTIMENTOS */
 .fin-inv-cards {
-  display: grid;
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
   gap: 12px;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   margin-bottom: 8px;
 }
 .fin-inv-card {
+  flex : 0 0 180px; 
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -1791,6 +1822,7 @@ tbody td:first-child { color: var(--text); }
 }
 .fin-inv-card-rend.pos { color: var(--accent); }
 .fin-inv-card-rend.neg { color: var(--danger); }
+.fin-inv-card-selected { border-color: var(--accent) !important; }
 
 .fin-inv-section-label {
   font-size: .7rem;
@@ -1816,9 +1848,9 @@ tbody td:first-child { color: var(--text); }
 /* OVERVIEW */
 .fin-overview-top-row {
   display: grid;
-  gap: 20px;
-  grid-template-columns: 1.8fr 1fr;
-  margin-top: 22px;
+  gap: 40px;
+  grid-template-columns: 100% 1fr;
+  margin-top: 60px;
 }
 .fin-overview-grid {
   display: grid;
@@ -1828,6 +1860,8 @@ tbody td:first-child { color: var(--text); }
 }
 .fin-chart-wrap {
   max-height: 280px;
+  grid-row: span 2;
+  grid-column: 10% / -1;
   padding: 8px 0;
   position: relative;
 }
@@ -1836,6 +1870,7 @@ tbody td:first-child { color: var(--text); }
   overflow-y: hidden;
   scrollbar-width: thin;
   scrollbar-color: #3a3e3c #1a1e1c;
+  
   padding-bottom: 6px;
   cursor: grab;
 }
@@ -1875,7 +1910,7 @@ tbody td:first-child { color: var(--text); }
 @media (max-width: 680px) {
   .fin-overview-top-row { grid-template-columns: 1fr; }
   .fin-overview-grid { grid-template-columns: 1fr; }
-  .fin-inv-cards     { grid-template-columns: 1fr 1fr; }
+  .fin-inv-cards     { flex-wrap: wrap; }
 }
 
 /* Validador table */
@@ -2090,7 +2125,7 @@ tbody td:first-child { color: var(--text); }
   text-align: right;
   padding: 5px 10px;
   font-size: .75rem;
-  color: var(--text-muted);
+  color: #fff
 }
 
 /* status colors shared with existing styles */
@@ -2113,15 +2148,10 @@ tbody td:first-child { color: var(--text); }
 /* -- Investimentos: card total + tabela evolu��o --------------------------- */
 .fin-inv-card-total {
   border: 1px solid var(--accent);
-  grid-column: 1 / -1;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 16px;
+  flex: 0 0 220px;
 }
 .fin-inv-card-total .fin-inv-card-saldo {
-  font-size: 1.3rem;
-  color: var(--accent);
+  font-size: 1.5rem;
 }
 .fin-inv-evo-table td,
 .fin-inv-evo-table th { font-size: .78rem; }
@@ -2132,3 +2162,77 @@ tbody td:first-child { color: var(--text); }
 .fin-ind-table    { font-size: .8rem; }
 .fin-ind-delta-h  { color: var(--text-muted); font-size: .7rem; }
 .fin-ind-table td { white-space: nowrap; }
+
+/* ── MODAIS DE FINANÇAS ─────────────────────────────────────────────────── */
+.fin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 24px 28px 28px;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 16px 0 6px;
+}
+.form-label:first-of-type { margin-top: 4px; }
+
+.form-input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.88rem;
+  padding: 10px 14px;
+  outline: none;
+  transition: border-color 0.18s, box-shadow 0.18s;
+  box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.form-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(180,255,80,0.10);
+}
+.form-input::placeholder { color: var(--text-muted); }
+
+/* select arrow */
+select.form-input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7472' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+
+.btn-save {
+  margin-top: 24px;
+  width: 100%;
+  background: var(--accent);
+  color: #0d0f0e;
+  border: none;
+  border-radius: 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 700;
+  font-size: 0.92rem;
+  padding: 13px 0;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.12s;
+  letter-spacing: 0.02em;
+}
+.btn-save:hover  { background: #c8ff55; transform: translateY(-1px); }
+.btn-save:active { transform: translateY(0); }
+
+/* two-col row helper inside fin-form */
+.fin-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.fin-form-row .form-label { margin-top: 16px; }

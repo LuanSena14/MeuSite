@@ -148,4 +148,11 @@ class SnapshotInvestimento(Base):
 
     categoria = relationship("CodigoFinanca")
 
+class RelacionamentoLancamentoViagem(Base):
+    """Vincula um lançamento a uma viagem (1-para-1: cada lançamento pertence a no máximo uma viagem)."""
+    __tablename__ = "relacionamento_lancamento_viagem"
 
+    cd_lancamento = Column(Integer, ForeignKey("lancamento_financeiro.id"), primary_key=True)
+    nome_viagem   = Column(String, nullable=False)
+
+    lancamento = relationship("LancamentoFinanceiro", backref="viagem")

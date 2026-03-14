@@ -94,6 +94,16 @@ function _finNome(id) {
   return cod ? cod.nome : '—'
 }
 
+// Retorna "Pai > Nome" para mostrar contexto na tabela (só 2 níveis)
+function _finCatBreadcrumb(id) {
+  const cod = window.finCodigos.find(c => c.id === id)
+  if (!cod) return '—'
+  if (cod.cd_pai === null) return cod.nome
+  const pai = window.finCodigos.find(c => c.id === cod.cd_pai)
+  if (!pai || pai.cd_pai === null) return cod.nome  // pai é raiz = tipo, não mostrar
+  return `<span style="color:var(--text-muted);font-size:.75em">${pai.nome} ›</span> ${cod.nome}`
+}
+
 // Retorna badge HTML para forma de pagamento
 function _finPagBadge(p) {
   if (p === 'credito') return '<span style="color:#7c9eff;font-size:.74rem;font-weight:600">Crédito</span>'
@@ -485,7 +495,7 @@ function _renderValidador(ano, mes) {
     }
     const roots = Object.values(nodes).filter(n => n.cd_pai != null && isTypeRoot(n.cd_pai))
     roots.forEach(computeTotals)
-    roots.sort((a, b) => b.totalReal - a.totalReal)
+    roots.sort((a, b) => b.totalOrc - a.totalOrc)
     return { roots,
       totalOrc:  roots.reduce((s, n) => s + n.totalOrc,  0),
       totalReal: roots.reduce((s, n) => s + n.totalReal, 0) }
@@ -497,8 +507,8 @@ function _renderValidador(ano, mes) {
     nodes.map(node => {
       const uid   = `${pfx}-${node.id}`
       const net   = node.totalReal - node.totalOrc
-      const kids  = Object.values(node.children).sort((a, b) => b.totalReal - a.totalReal)
-      const pad   = `${depth * 14}px`
+      const kids  = Object.values(node.children).sort((a, b) => b.totalOrc - a.totalOrc)
+      const pad   = `${(depth + 1) * 14}px`
       const netClr = net === 0 ? 'var(--text-muted)'
                    : (net > 0) === netGoodPos ? 'var(--accent)' : 'var(--danger)'
       const orcTd  = `<td class="fin-val-tbl-num">${node.totalOrc > 0 ? _fmtBRL(node.totalOrc) : '—'}</td>`
@@ -887,9 +897,52 @@ function _renderDespDrill(despGrupos) {
 
 
 
+function _updateLancCatFilter() {
+  const tipo = document.getElementById('fin-filter-tipo')?.value || ''
+  const sel  = document.getElementById('fin-filter-cat')
+  if (!sel) return
+
+  const todos   = window.finCodigos
+  const raizes  = todos.filter(c => c.cd_pai === null)
+  const raizIds = new Set(raizes.map(c => c.id))
+
+  // leaf = não tem nenhum filho
+  const temFilho = new Set(todos.filter(c => c.cd_pai !== null).map(c => c.cd_pai))
+  const folhas   = todos.filter(c => !temFilho.has(c.id) && !raizIds.has(c.id))
+
+  // agrupa folhas pelo tipo (nome da raiz)
+  const porTipo = {}
+  for (const f of folhas) {
+    const t = f.tipo || ''
+    if (!porTipo[t]) porTipo[t] = []
+    porTipo[t].push(f)
+  }
+
+  let html = '<option value="">Todas as categorias</option>'
+
+  const tipos = tipo ? [tipo] : Object.keys(porTipo).sort((a,b) => a.localeCompare(b,'pt-BR'))
+  for (const t of tipos) {
+    const lista = (porTipo[t] || []).sort((a,b) => a.nome.localeCompare(b.nome,'pt-BR'))
+    if (!lista.length) continue
+    const label = t.charAt(0).toUpperCase() + t.slice(1)
+    html += `<optgroup label="${label}">`
+    html += lista.map(c => `<option value="${c.id}">${c.nome}</option>`).join('')
+    html += '</optgroup>'
+  }
+
+  sel.innerHTML = html
+}
+
 function renderLancamentos() {
   const tipoFilter = document.getElementById('fin-filter-tipo')?.value || ''
   const mesFilter  = document.getElementById('fin-filter-mes')?.value  || ''
+  const catFilter  = document.getElementById('fin-filter-cat')?.value  || ''
+  const pagFilter  = document.getElementById('fin-filter-pag')?.value  || ''
+  const descFilter = document.getElementById('fin-filter-desc')?.value.toLowerCase().trim() || ''
+
+  // popula select de categorias se ainda estiver vazio
+  const catSel = document.getElementById('fin-filter-cat')
+  if (catSel && catSel.options.length <= 1) _updateLancCatFilter()
 
   let dados = window.finLancamentos.slice()
 
@@ -897,8 +950,18 @@ function renderLancamentos() {
     const ids = window.finCodigos.filter(c => c.tipo === tipoFilter).map(c => c.id)
     dados = dados.filter(l => ids.includes(l.cd_financa))
   }
+  if (catFilter) {
+    dados = dados.filter(l => l.cd_financa === Number(catFilter))
+  }
+  if (pagFilter) {
+    if (pagFilter === 'null') dados = dados.filter(l => !l.forma_pagamento)
+    else dados = dados.filter(l => l.forma_pagamento === pagFilter)
+  }
   if (mesFilter) {
     dados = dados.filter(l => l.data.startsWith(mesFilter))
+  }
+  if (descFilter) {
+    dados = dados.filter(l => (l.descricao || '').toLowerCase().includes(descFilter))
   }
   dados.sort((a, b) => b.data.localeCompare(a.data))
 
@@ -911,7 +974,9 @@ function renderLancamentos() {
     const cls  = tipo === 'receita' ? 'fin-receita' : 'fin-despesa'
     return `<tr>
       <td>${_fmtDate(l.data)}</td>
-      <td>${l.categoria_nome || _finNome(l.cd_financa)}</td>
+      <td>${l.grupo_nome && l.grupo_nome.toLowerCase() !== l.tipo
+        ? `<span style="color:var(--text-muted);font-size:.76em;margin-right:2px">${l.grupo_nome} ›</span>${l.categoria_nome}`
+        : l.categoria_nome}</td>
       <td class="${cls}">${tipo}</td>
       <td>${_finPagBadge(l.forma_pagamento)}</td>
       <td>${l.descricao || '—'}</td>
@@ -1175,12 +1240,14 @@ function _renderCreditoPanel(ano, mes, mesLabel) {
     .map(id => {
       const orc  = orcMap[id]  || 0
       const real = lancMap[id] || 0
-      const rowOver = orc > 0 && real > orc
       const pctVal  = orc > 0 ? ((real / orc) * 100).toFixed(0) + '%' : '\u2014'
+      const net = real - orc
+      const netFmt = orc > 0 ? (net >= 0 ? '+' : '') + _fmtBRL(net) : '\u2014'
       return `<tr>
         <td class="fin-rec-cat-name">${_finNome(id)}</td>
         <td class="fin-rec-val">${orc > 0 ? _fmtBRL(orc) : '\u2014'}</td>
-        <td class="fin-rec-val ${rowOver ? 'fin-over' : (real > 0 ? 'fin-under' : '')}">${_fmtBRL(real)}</td>
+        <td class="fin-rec-val">${_fmtBRL(real)}</td>
+        <td class="fin-rec-val">${netFmt}</td>
         <td class="fin-rec-pct">${pctVal}</td>
       </tr>`
     }).join('')
@@ -1197,7 +1264,7 @@ function _renderCreditoPanel(ano, mes, mesLabel) {
       </div>
       ${totalOrc > 0 ? `<div class="fin-orc-bar-bg" style="margin-bottom:14px"><div class="fin-orc-bar-fill ${over ? 'over' : ''}" style="width:${barPct}%"></div></div>` : ''}
       <table class="fin-rec-cat-table">
-        <thead><tr><th>Categoria</th><th>Or\u00e7ado</th><th>Realizado</th><th>%</th></tr></thead>
+        <thead><tr><th>Categoria</th><th>Orçado</th><th>Realizado</th><th>Δ</th><th>%</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`
@@ -1255,16 +1322,17 @@ function renderInvestimentos() {
         const saldo = Number(curSnap.saldo)
         totalAtual += saldo
         if (prevSnap) { totalAnterior += Number(prevSnap.saldo); prevCount++ }
-        return { nome: cat.nome, saldo, prevSaldo: prevSnap ? Number(prevSnap.saldo) : null }
+        return { id: cat.id, nome: cat.nome, saldo, prevSaldo: prevSnap ? Number(prevSnap.saldo) : null }
       }).filter(Boolean).sort((a, b) => b.saldo - a.saldo)
 
-      const cardsHtml = cardsData.map(({ nome, saldo, prevSaldo }) => {
+      const cardsHtml = cardsData.map(({ id, nome, saldo, prevSaldo }) => {
         let deltaHtml = ''
         if (prevSaldo !== null) {
           const delta = saldo - prevSaldo
           deltaHtml = `<div class="fin-inv-card-rend ${delta >= 0 ? 'pos' : 'neg'}">${delta >= 0 ? '+' : ''}${_fmtBRL(delta)} no m\u00eas</div>`
         }
-        return `<div class="fin-inv-card">
+        const isSelected = window._finInvSelected === id
+        return `<div class="fin-inv-card${isSelected ? ' fin-inv-card-selected' : ''}" style="cursor:pointer" onclick="_filterInvChart(${id})">
           <div class="fin-inv-card-name">${nome}</div>
           <div class="fin-inv-card-saldo">${_fmtBRL(saldo)}</div>
           ${deltaHtml}
@@ -1282,6 +1350,10 @@ function renderInvestimentos() {
       </div>`
 
       invContainer.innerHTML = totalCard + cardsHtml
+
+      // guarda referência para re-filtrar sem re-render completo
+      window._finInvSnapsPorCat = snapsPorCat
+      window._finInvCats = cats
       _renderChartInvestimentos(snapsPorCat, cats)
     }
   }
@@ -1321,7 +1393,8 @@ function renderInvestimentos() {
       const delta = val - Number(prevSnap.saldo)
       deltaHtml = `<div class="fin-inv-card-rend ${delta >= 0 ? 'pos' : 'neg'}">${delta >= 0 ? '+' : ''}${Number(delta).toLocaleString('pt-BR')} no m\u00eas</div>`
     }
-    return `<div class="fin-inv-card">
+    const isSelected = window._finIndSelected === cat.id
+    return `<div class="fin-inv-card${isSelected ? ' fin-inv-card-selected' : ''}" style="cursor:pointer" onclick="_filterIndChart(${cat.id})">
       <div class="fin-inv-card-name">${cat.nome}</div>
       <div class="fin-inv-card-saldo">${Number(val).toLocaleString('pt-BR')}</div>
       ${deltaHtml}
@@ -1332,7 +1405,54 @@ function renderInvestimentos() {
     <div class="fin-inv-section-label">Indicadores — ${mesLabel}</div>
     <div class="fin-inv-cards">${indCardsHtml}</div>`
 
+  // guarda referência para re-filtrar sem chamar renderInvestimentos inteiro
+  window._finIndSnapsPorCat = indSnapsPorCat
+  window._finIndCats = indCats
   _renderChartIndicadores(indSnapsPorCat, indCats)
+}
+
+function _filterInvChart(catId) {
+  if (window._finInvSelected === catId) {
+    window._finInvSelected = null
+  } else {
+    window._finInvSelected = catId
+  }
+  // atualiza borda dos cards (pula o primeiro = total geral)
+  const cards = document.querySelectorAll('#fin-inv-cards .fin-inv-card:not(.fin-inv-card-total)')
+  cards.forEach(el => el.classList.remove('fin-inv-card-selected'))
+  if (window._finInvSelected !== null) {
+    const idx = (window._finInvCats || []).findIndex(c => c.id === window._finInvSelected)
+    if (cards[idx]) cards[idx].classList.add('fin-inv-card-selected')
+  }
+  const cats = window._finInvSelected !== null
+    ? (window._finInvCats || []).filter(c => c.id === window._finInvSelected)
+    : (window._finInvCats || [])
+  const snaps = window._finInvSelected !== null
+    ? { [window._finInvSelected]: (window._finInvSnapsPorCat || {})[window._finInvSelected] || [] }
+    : (window._finInvSnapsPorCat || {})
+  _renderChartInvestimentos(snaps, cats)
+}
+
+function _filterIndChart(catId) {
+  if (window._finIndSelected === catId) {
+    window._finIndSelected = null  // segundo clique = limpa filtro
+  } else {
+    window._finIndSelected = catId
+  }
+  // atualiza borda dos cards
+  document.querySelectorAll('#fin-ind-content .fin-inv-card').forEach(el => {
+    el.classList.remove('fin-inv-card-selected')
+  })
+  if (window._finIndSelected !== null) {
+    const idx = (window._finIndCats || []).findIndex(c => c.id === window._finIndSelected)
+    const cards = document.querySelectorAll('#fin-ind-content .fin-inv-card')
+    if (cards[idx]) cards[idx].classList.add('fin-inv-card-selected')
+  }
+  // re-renderiza gráfico com filtro
+  const cats = window._finIndSelected !== null
+    ? (window._finIndCats || []).filter(c => c.id === window._finIndSelected)
+    : (window._finIndCats || [])
+  _renderChartIndicadores(window._finIndSnapsPorCat || {}, cats)
 }
 
 function _renderChartInvestimentos(snapsPorCat, cats) {
@@ -1517,6 +1637,12 @@ function renderIndicadores() {
 // ── MODAL ─────────────────────────────────────────────────────────────────────
 
 function openFinModal(type) {
+  // Se dados ainda não carregaram (ex.: clique do botão de ação rápida antes de entrar na seção)
+  if (!window.finCodigos || window.finCodigos.length === 0) {
+    initFinancesSection().then(() => openFinModal(type))
+    return
+  }
+
   // Esconder todos os formulários
   ;['lancamento','orcamento','investimento','indicador','categoria'].forEach(t => {
     const el = document.getElementById('fin-form-' + t)
@@ -1577,6 +1703,7 @@ function populateFinCatSelect(selectId, tipo, paiOnly = false) {
 
   let cats = window.finCodigos.filter(c => c.tipo === tipo)
   if (paiOnly) cats = cats.filter(c => c.cd_pai === null || c.cd_pai === undefined)
+  cats.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
 
   sel.innerHTML = cats.length
     ? cats.map(c => `<option value="${c.id}">${c.nome}</option>`).join('')
@@ -1588,7 +1715,9 @@ function _populatePaiSelect() {
   if (!sel) return
   const tipoEl   = document.getElementById('fin-cat-tipo')
   const tipo     = tipoEl?.value || 'despesa'
-  const pais     = window.finCodigos.filter(c => c.tipo === tipo && (c.cd_pai === null || c.cd_pai === undefined))
+  const pais     = window.finCodigos
+    .filter(c => c.tipo === tipo && (c.cd_pai === null || c.cd_pai === undefined))
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
   sel.innerHTML  = '<option value="">— Nenhum (criar grupo) —</option>'
     + pais.map(c => `<option value="${c.id}">${c.nome}</option>`).join('')
 }
