@@ -6,7 +6,7 @@ from pydantic import BaseModel, field_validator
 from typing import Optional
 
 from database import Session, engine
-from models import Base, Checkin, CodigoMedida, UnidadeMedida, CodigoExercicio, EntradaExercicio, CodigoGoal, EntradaGoal, Meta, CodigoFinanca, LancamentoFinanceiro, OrcamentoFinanceiro, SnapshotInvestimento
+from models import Base, Checkin, CodigoMedida, UnidadeMedida, CodigoExercicio, EntradaExercicio, CodigoGoal, EntradaGoal, Meta, CodigoFinanca, LancamentoFinanceiro, OrcamentoFinanceiro, SnapshotInvestimento, RelacionamentoLancamentoViagem
 import datetime
 
 app = FastAPI()
@@ -537,6 +537,76 @@ def post_investimento(body: SnapshotInvestimentoInput):
 def delete_investimento(id: int):
     with get_db() as db:
         db.query(SnapshotInvestimento).filter(SnapshotInvestimento.id == id).delete()
+        db.commit()
+    return {"ok": True}
+
+
+# Viagens
+class ViagemRenameInput(BaseModel):
+    nome_viagem: str
+
+@app.get("/api/financas/viagens")
+def get_viagens():
+    with get_db() as db:
+        todos_cod = {c.id: c for c in db.query(CodigoFinanca).all()}
+        rels = db.query(RelacionamentoLancamentoViagem).all()
+        ids_rel = [r.cd_lancamento for r in rels]
+        if not ids_rel:
+            return []
+        lancs = {
+            l.id: l for l in db.query(LancamentoFinanceiro)
+            .filter(LancamentoFinanceiro.id.in_(ids_rel)).all()
+        }
+        # agrupa por nome_viagem
+        from collections import defaultdict
+        grupos = defaultdict(list)
+        for r in rels:
+            l = lancs.get(r.cd_lancamento)
+            if not l:
+                continue
+            cat = todos_cod.get(l.cd_financa)
+            grupos[r.nome_viagem].append({
+                "id": l.id,
+                "data": str(l.data),
+                "cd_financa": l.cd_financa,
+                "categoria_nome": cat.nome if cat else "",
+                "tipo": _derive_tipo(l.cd_financa, todos_cod),
+                "valor": l.valor,
+                "descricao": l.descricao,
+                "forma_pagamento": l.forma_pagamento,
+            })
+        return [
+            {
+                "nome_viagem": nome,
+                "total": sum(l["valor"] for l in items),
+                "num_lancamentos": len(items),
+                "lancamentos": sorted(items, key=lambda x: x["data"]),
+            }
+            for nome, items in sorted(grupos.items())
+        ]
+
+@app.patch("/api/financas/viagens/{cd_lancamento}")
+def rename_viagem(cd_lancamento: int, body: ViagemRenameInput):
+    """Renomeia todos os lançamentos que compartilham o mesmo nome_viagem do lançamento informado."""
+    with get_db() as db:
+        rel = db.query(RelacionamentoLancamentoViagem)\
+            .filter(RelacionamentoLancamentoViagem.cd_lancamento == cd_lancamento).first()
+        if not rel:
+            from fastapi import HTTPException
+            raise HTTPException(404, "Lançamento não vinculado a viagem")
+        old_nome = rel.nome_viagem
+        db.query(RelacionamentoLancamentoViagem)\
+            .filter(RelacionamentoLancamentoViagem.nome_viagem == old_nome)\
+            .update({"nome_viagem": body.nome_viagem})
+        db.commit()
+    return {"ok": True}
+
+@app.delete("/api/financas/viagens/{cd_lancamento}")
+def unlink_viagem(cd_lancamento: int):
+    """Remove o lançamento da viagem (desvincula)."""
+    with get_db() as db:
+        db.query(RelacionamentoLancamentoViagem)\
+            .filter(RelacionamentoLancamentoViagem.cd_lancamento == cd_lancamento).delete()
         db.commit()
     return {"ok": True}
 

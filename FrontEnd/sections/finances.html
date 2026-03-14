@@ -13,6 +13,7 @@
     <button class="fin-tab active" data-tab="overview"      onclick="switchFinTab('overview')">Overview</button>
     <button class="fin-tab"        data-tab="lancamentos"   onclick="switchFinTab('lancamentos')">Lançamentos</button>
     <button class="fin-tab"        data-tab="investimentos" onclick="switchFinTab('investimentos')">Investimentos</button>
+    <button class="fin-tab"        data-tab="viagens"       onclick="switchFinTab('viagens')">Viagens</button>
   </div>
 
   <!-- ── ABA: OVERVIEW ─────────────────────────────────────────────────────── -->
@@ -138,7 +139,20 @@
       </div>
     </div>
   </div>
-
+  <!-- ── ABA: VIAGENS ──────────────────────────────────────────────────────── -->
+  <div class="fin-panel" id="fin-panel-viagens">
+    <!-- Gráficos lado a lado -->
+    <div class="fin-inv-layout" id="fin-viag-charts" style="display:none">
+      <div class="dash-card" style="min-width:0">
+        <div style="height:320px;position:relative"><canvas id="fin-chart-viag-cat"></canvas></div>
+      </div>
+      <div class="dash-card" style="min-width:0">
+        <div style="height:320px;position:relative"><canvas id="fin-chart-viag-bar"></canvas></div>
+      </div>
+    </div>
+    <!-- Cards accordion -->
+    <div id="fin-viagens-list" style="margin-top:16px"></div>
+  </div>
 </div>
 
 <!-- ── MODAL ──────────────────────────────────────────────────────────────── -->
