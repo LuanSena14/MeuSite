@@ -13,7 +13,6 @@
     <button class="fin-tab active" data-tab="overview"      onclick="switchFinTab('overview')">Overview</button>
     <button class="fin-tab"        data-tab="lancamentos"   onclick="switchFinTab('lancamentos')">Lançamentos</button>
     <button class="fin-tab"        data-tab="investimentos" onclick="switchFinTab('investimentos')">Investimentos</button>
-    <button class="fin-tab"        data-tab="indicadores"   onclick="switchFinTab('indicadores')">Indicadores</button>
   </div>
 
   <!-- ── ABA: OVERVIEW ─────────────────────────────────────────────────────── -->
@@ -100,21 +99,16 @@
   <!-- ── ABA: INVESTIMENTOS ────────────────────────────────────────────────── -->
   <div class="fin-panel" id="fin-panel-investimentos">
     <div class="fin-toolbar">
-      <span></span>
-      <button class="btn-add" onclick="openFinModal('investimento')">+ Registrar saldo</button>
+      <input type="month" id="fin-inv-filter-mes" class="ex-filter-input" oninput="renderInvestimentos()">
+      <div style="display:flex;gap:8px">
+        <button class="btn-add" onclick="openFinModal('investimento')">+ Investimento</button>
+        <button class="btn-add" onclick="openFinModal('indicador')">+ Indicador</button>
+      </div>
     </div>
     <div id="fin-inv-cards"></div>
     <div class="dash-card" style="margin-top:16px">
       <div class="dash-card-title">Evolução dos investimentos</div>
       <div class="fin-chart-wrap"><canvas id="fin-chart-inv"></canvas></div>
-    </div>
-  </div>
-
-  <!-- ── ABA: INDICADORES ──────────────────────────────────────────────────── -->
-  <div class="fin-panel" id="fin-panel-indicadores">
-    <div class="fin-toolbar">
-      <input type="month" id="fin-ind-filter-mes" class="ex-filter-input" oninput="renderIndicadores()">
-      <button class="btn-add" onclick="openFinModal('investimento')">+ Registrar</button>
     </div>
     <div id="fin-ind-content"></div>
   </div>

@@ -1792,6 +1792,17 @@ tbody td:first-child { color: var(--text); }
 .fin-inv-card-rend.pos { color: var(--accent); }
 .fin-inv-card-rend.neg { color: var(--danger); }
 
+.fin-inv-section-label {
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 24px 0 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
 /* OVERVIEW */
 .fin-overview-top-row {
   display: grid;
