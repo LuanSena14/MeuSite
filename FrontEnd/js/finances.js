@@ -1932,7 +1932,7 @@ async function renderViagens() {
           <span class="fin-resumo-sep">·</span>
           <span style="color:var(--danger);font-weight:600">${_fmtBRL(v.total)}</span>
           <span class="fin-resumo-sep">·</span>
-          <span style="color:var(--text-muted)">${(() => { const d = new Date(v.lancamentos.slice().sort((a,b) => b.data.localeCompare(a.data))[0].data + 'T12:00:00'); return d.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}) })()</span>
+          <span style="color:var(--text-muted)">${(() => { const d = new Date(v.lancamentos.slice().sort((a,b) => b.data.localeCompare(a.data))[0].data + 'T12:00:00'); return d.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}) })()}</span>
         </div>
       </div>
       <div class="viag-accordion-body" id="${safeId}">
