@@ -98,6 +98,7 @@ function _finNome(id) {
 // Retorna badge HTML para forma de pagamento
 function _finPagBadge(p) {
   if (p === 'credito') return '<span style="color:#7c9eff;font-size:.74rem;font-weight:600">Crédito</span>'
+  if (!p || p === 'null') return '<span style="color:var(--text-muted);font-size:.74rem">—</span>'
   return '<span style="color:var(--text-muted);font-size:.74rem">Débito</span>'
 }
 
@@ -1483,7 +1484,7 @@ async function submitLancamento() {
   const cd        = Number(document.getElementById('fin-lanc-cat').value)
   const valor     = parseFloat(document.getElementById('fin-lanc-valor').value)
   const descricao = document.getElementById('fin-lanc-desc').value.trim()
-  const pagamento = document.getElementById('fin-lanc-pagamento').value
+  const pagamento = document.getElementById('fin-lanc-pagamento').value || null
 
   if (!data || !cd || isNaN(valor) || valor <= 0) {
     _showFinToastErro('Preencha data, categoria e valor.'); return
@@ -1503,7 +1504,7 @@ async function submitOrcamento() {
   const mes     = mesVal ? parseInt(mesVal) : null
   const cd      = Number(document.getElementById('fin-orc-cat').value)
   const valor   = parseFloat(document.getElementById('fin-orc-valor').value)
-  const pagamento = document.getElementById('fin-orc-pagamento').value
+  const pagamento = document.getElementById('fin-orc-pagamento').value || null
 
   if (!ano || !cd || isNaN(valor) || valor <= 0) {
     _showFinToastErro('Preencha ano, categoria e valor.'); return

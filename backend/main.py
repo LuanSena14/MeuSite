@@ -2,7 +2,7 @@ from contextlib import contextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional
 
 from database import Session, engine
@@ -26,6 +26,33 @@ with engine.connect() as _conn:
     _conn.execute(_text("ALTER TABLE lancamento_financeiro ADD COLUMN IF NOT EXISTS forma_pagamento VARCHAR DEFAULT 'debito'"))
     _conn.execute(_text("ALTER TABLE orcamento_financeiro  ADD COLUMN IF NOT EXISTS forma_pagamento VARCHAR"))
     _conn.execute(_text("ALTER TABLE codigo_financa        DROP COLUMN IF EXISTS dono"))
+    # Enforce allowed values for forma_pagamento
+    _conn.execute(_text("""
+        DO $$ BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.table_constraints
+                WHERE constraint_name = 'chk_lanc_forma_pagamento'
+                  AND table_name = 'lancamento_financeiro'
+            ) THEN
+                ALTER TABLE lancamento_financeiro
+                    ADD CONSTRAINT chk_lanc_forma_pagamento
+                    CHECK (forma_pagamento IN ('debito', 'credito') OR forma_pagamento IS NULL);
+            END IF;
+        END $$;
+    """))
+    _conn.execute(_text("""
+        DO $$ BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.table_constraints
+                WHERE constraint_name = 'chk_orc_forma_pagamento'
+                  AND table_name = 'orcamento_financeiro'
+            ) THEN
+                ALTER TABLE orcamento_financeiro
+                    ADD CONSTRAINT chk_orc_forma_pagamento
+                    CHECK (forma_pagamento IN ('debito', 'credito') OR forma_pagamento IS NULL);
+            END IF;
+        END $$;
+    """))
     _conn.commit()
 
 # ── UTILITÁRIO DE BANCO ───────────────────────────────────────────────────────
@@ -345,6 +372,8 @@ class CodigoFinancaInput(BaseModel):
     tipo:   Optional[str] = None   # ignorado — tipo é derivado da hierarquia
     cd_pai: Optional[int] = None
 
+_FORMAS_VALIDAS = {'debito', 'credito', None}
+
 class LancamentoInput(BaseModel):
     data:            str
     cd_financa:      int
@@ -352,12 +381,30 @@ class LancamentoInput(BaseModel):
     descricao:       Optional[str] = None
     forma_pagamento: Optional[str] = 'debito'
 
+    @field_validator('forma_pagamento')
+    @classmethod
+    def validar_forma_pagamento(cls, v):
+        if v == '':
+            return None
+        if v not in _FORMAS_VALIDAS:
+            raise ValueError(f"forma_pagamento deve ser 'debito', 'credito' ou null, recebido: {v!r}")
+        return v
+
 class OrcamentoInput(BaseModel):
     ano:             int
     mes:             Optional[int] = None
     cd_financa:      int
     valor_orcado:    float
     forma_pagamento: Optional[str] = None
+
+    @field_validator('forma_pagamento')
+    @classmethod
+    def validar_forma_pagamento(cls, v):
+        if v == '':
+            return None
+        if v not in _FORMAS_VALIDAS:
+            raise ValueError(f"forma_pagamento deve ser 'debito', 'credito' ou null, recebido: {v!r}")
+        return v
 
 class SnapshotInvestimentoInput(BaseModel):
     data:       str
@@ -420,7 +467,7 @@ def get_lancamentos():
                 "tipo": _derive_tipo(cat.id, todos),
                 "valor": l.valor,
                 "descricao": l.descricao,
-                "forma_pagamento": l.forma_pagamento or 'debito',
+                "forma_pagamento": l.forma_pagamento,
             })
     return resultado
 
