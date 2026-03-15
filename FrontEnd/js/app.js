@@ -13,6 +13,7 @@ async function loadHTML(file, targetId) {
 // ── NAVEGAÇÃO ENTRE SEÇÕES ────────────────────────────────────────────────────
 
 const SECTIONS = {
+  home:      'sections/home.html',
   body:      'sections/body.html',
   finances:  'sections/finances.html',
   exercises: 'sections/exercises.html',
@@ -33,7 +34,12 @@ window.addEventListener('sectionchange', async e => {
     document.getElementById('section-' + section).classList.add('active')
   }
 
-  if (section === 'body')      renderDash()
+  if (section === 'home')      initHomeSection()
+  if (section === 'body') {
+    try { entries = await fetchCheckins() } catch { entries = [] }
+    try { medidas = await fetchMedidas()  } catch { medidas = [] }
+    renderDash()
+  }
   if (section === 'exercises') initExSection()
   if (section === 'goals')     initGoalsSection()
   if (section === 'finances')  initFinancesSection()
@@ -95,23 +101,18 @@ async function initExSection() {
 
 async function init() {
   await Promise.all([
-    loadHTML(SECTIONS[DEFAULT_SECTION], 'section-' + DEFAULT_SECTION),
+    loadHTML(SECTIONS.home, 'section-home'),
     loadHTML('modals/checkin-modal.html', 'modal-container'),
   ])
 
-  loadedSections.add(DEFAULT_SECTION)
-  document.getElementById('section-' + DEFAULT_SECTION).classList.add('active')
-  document.getElementById('f-data').value = new Date().toISOString().split('T')[0]
+  loadedSections.add('home')
+  document.getElementById('section-home').classList.add('active')
 
-  try { entries = await fetchCheckins() }
-  catch (err) { entries = [] }
+  // Pré-preenche data do modal de check-in (já carregado acima)
+  const fData = document.getElementById('f-data')
+  if (fData) fData.value = new Date().toISOString().split('T')[0]
 
-  try { medidas = await fetchMedidas() }
-  catch (err) { medidas = [] }
-
-  renderDash()
-  // Pré-carrega exercises em background (não bloqueia)
-  initExSection()
+  initHomeSection()
 }
 
 init()

@@ -2,13 +2,14 @@
 // nav.js — lógica de navegação da sidebar (seções, mobile drawer, filtros)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const DEFAULT_SECTION = 'body' // 'body' ou 'exercises'
+const DEFAULT_SECTION = 'home'
 
 const SECTION_META = {
-  body:      { title: 'Body metrics',      action: { label: 'Novo check-in', fn: 'openModal()' },   filters: false },
-  finances:  { title: 'Finances overview', action: { label: 'Novo lançamento', fn: "openFinModal('lancamento')" }, filters: false },
-  exercises: { title: 'Exercises tracker', action: { label: 'Novo treino',   fn: 'openExModal()' }, filters: true  },
-  goals:    { title: 'Goals overview',   action: { label: 'Registrar dia', fn: 'openGoalsModal()' }, filters: false },
+  home:      { title: 'BodyLog',           action: null,                                                                 filters: false },
+  body:      { title: 'Body metrics',      action: { label: 'Novo check-in',   fn: 'openModal()' },                      filters: false },
+  finances:  { title: 'Finances overview', action: { label: 'Novo lançamento', fn: "openFinModal('lancamento')" },       filters: false },
+  exercises: { title: 'Exercises tracker', action: { label: 'Novo treino',     fn: 'openExModal()' },                    filters: true  },
+  goals:     { title: 'Goals overview',    action: { label: 'Registrar dia',   fn: 'openGoalsModal()' },                 filters: false },
 }
 
 let _currentSection = DEFAULT_SECTION

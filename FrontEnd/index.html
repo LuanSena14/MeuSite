@@ -30,7 +30,11 @@
   <div class="sidebar-divider"></div>
 
   <nav class="sidebar-nav">
-    <button class="sidebar-item active" data-section="body" data-label="Body" onclick="switchSection('body')">
+    <button class="sidebar-item active" data-section="home" data-label="Overview" onclick="switchSection('home')">
+      <span class="sidebar-item-icon">⊞</span>
+      <span class="sidebar-item-label">Overview</span>
+    </button>
+    <button class="sidebar-item" data-section="body" data-label="Body" onclick="switchSection('body')">
       <span class="sidebar-item-icon">◎</span>
       <span class="sidebar-item-label">Body</span>
     </button>
@@ -104,7 +108,8 @@
   </div>
 
   <div id="main-content">
-    <section class="section active" id="section-body"></section>
+    <section class="section" id="section-home"></section>
+    <section class="section" id="section-body"></section>
     <section class="section"        id="section-finances"></section>
     <section class="section"        id="section-exercises"></section>
     <section class="section"        id="section-goals"></section>
@@ -140,6 +145,7 @@
 <script src="js/dashboard.js?v=16"></script>
 <script src="js/exercicios.js?v=16"></script>
 <script src="js/goals.js?v=16"></script>
+<script src="js/home.js?v=1"></script>
 <script src="js/fin-core.js?v=1"></script>
 <script src="js/fin-overview.js?v=1"></script>
 <script src="js/fin-lancamentos.js?v=1"></script>
