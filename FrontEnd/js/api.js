@@ -105,3 +105,11 @@ async function deleteInvestimento(id) {
   return _apiFetch(`/api/financas/investimentos/${id}`, { method: 'DELETE' })
 }
 
+async function postIndicador(body) {
+  return _apiFetch('/api/financas/indicadores', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+}
+

@@ -1,6 +1,8 @@
 from contextlib import contextmanager
 
-from fastapi import FastAPI
+from collections import defaultdict
+
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
 from typing import Optional
@@ -558,7 +560,6 @@ def get_viagens():
             .filter(LancamentoFinanceiro.id.in_(ids_rel)).all()
         }
         # agrupa por nome_viagem
-        from collections import defaultdict
         grupos = defaultdict(list)
         for r in rels:
             l = lancs.get(r.cd_lancamento)
@@ -592,12 +593,44 @@ def rename_viagem(cd_lancamento: int, body: ViagemRenameInput):
         rel = db.query(RelacionamentoLancamentoViagem)\
             .filter(RelacionamentoLancamentoViagem.cd_lancamento == cd_lancamento).first()
         if not rel:
-            from fastapi import HTTPException
             raise HTTPException(404, "Lançamento não vinculado a viagem")
         old_nome = rel.nome_viagem
         db.query(RelacionamentoLancamentoViagem)\
             .filter(RelacionamentoLancamentoViagem.nome_viagem == old_nome)\
             .update({"nome_viagem": body.nome_viagem})
+        db.commit()
+    return {"ok": True}
+
+# ── INDICADORES ──────────────────────────────────────────────────────────────
+
+class IndicadorInput(BaseModel):
+    ano:   int
+    mes:   int
+    nome:  str
+    valor: float
+
+@app.post("/api/financas/indicadores")
+def post_indicador(body: IndicadorInput):
+    """Cria ou atualiza o snapshot mensal de um indicador (filho do nó 78).
+    Cria a categoria automaticamente caso ela não exista ainda."""
+    with get_db() as db:
+        cat = db.query(CodigoFinanca).filter(
+            CodigoFinanca.cd_pai == 78,
+            CodigoFinanca.nome   == body.nome,
+        ).first()
+        if not cat:
+            cat = CodigoFinanca(nome=body.nome, cd_pai=78, tipo='investimento')
+            db.add(cat)
+            db.flush()
+        data = datetime.date(body.ano, body.mes, 1)
+        existing = db.query(SnapshotInvestimento).filter(
+            SnapshotInvestimento.cd_financa == cat.id,
+            SnapshotInvestimento.data       == data,
+        ).first()
+        if existing:
+            existing.saldo = body.valor
+        else:
+            db.add(SnapshotInvestimento(data=data, cd_financa=cat.id, saldo=body.valor))
         db.commit()
     return {"ok": True}
 
