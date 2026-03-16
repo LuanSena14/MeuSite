@@ -7,21 +7,20 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
-  <link rel="stylesheet" href="style.css?v=7">
+  <link rel="stylesheet" href="shared/css/app.css?v=3">
+  <link rel="stylesheet" href="shared/css/polish.css?v=2">
 </head>
 <body>
 
-<!-- OVERLAY MOBILE -->
 <div id="sidebar-overlay" onclick="closeMobileSidebar()"></div>
 
-<!-- SIDEBAR -->
 <aside id="sidebar">
   <div class="sidebar-logo">
     <div class="sidebar-logo-icon">B</div>
     <span class="sidebar-logo-text">Body<span>Log</span></span>
   </div>
 
-  <button class="sidebar-toggle" onclick="toggleSidebar()" title="Colapsar menu">
+  <button class="sidebar-toggle" onclick="toggleSidebar()" title="Colapsar menu" aria-label="Colapsar menu lateral">
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
       <path d="M9 2L4 7l5 5"/>
     </svg>
@@ -30,23 +29,23 @@
   <div class="sidebar-divider"></div>
 
   <nav class="sidebar-nav">
-    <button class="sidebar-item active" data-section="home" data-label="Overview" onclick="switchSection('home')">
+    <button class="sidebar-item active" data-section="home" data-label="Overview" onclick="switchSection('home')" aria-label="Abrir seção Overview">
       <span class="sidebar-item-icon">⊞</span>
       <span class="sidebar-item-label">Overview</span>
     </button>
-    <button class="sidebar-item" data-section="body" data-label="Body" onclick="switchSection('body')">
+    <button class="sidebar-item" data-section="body" data-label="Body" onclick="switchSection('body')" aria-label="Abrir seção Body">
       <span class="sidebar-item-icon">◎</span>
       <span class="sidebar-item-label">Body</span>
     </button>
-    <button class="sidebar-item" data-section="finances" data-label="Finances" onclick="switchSection('finances')">
+    <button class="sidebar-item" data-section="finances" data-label="Finances" onclick="switchSection('finances')" aria-label="Abrir seção Finances">
       <span class="sidebar-item-icon">◈</span>
       <span class="sidebar-item-label">Finances</span>
     </button>
-    <button class="sidebar-item" data-section="exercises" data-label="Exercises" onclick="switchSection('exercises')">
+    <button class="sidebar-item" data-section="exercises" data-label="Exercises" onclick="switchSection('exercises')" aria-label="Abrir seção Exercises">
       <span class="sidebar-item-icon">◇</span>
       <span class="sidebar-item-label">Exercises</span>
     </button>
-    <button class="sidebar-item" data-section="goals" data-label="Goals" onclick="switchSection('goals')">
+    <button class="sidebar-item" data-section="goals" data-label="Goals" onclick="switchSection('goals')" aria-label="Abrir seção Goals">
       <span class="sidebar-item-icon">◆</span>
       <span class="sidebar-item-label">Goals</span>
     </button>
@@ -60,18 +59,17 @@
   </div>
 </aside>
 
-<!-- APP WRAPPER -->
 <div id="app-wrapper">
 
   <!-- Topbar: mobile sempre visível; desktop só em Exercises -->
   <div id="topbar">
-    <button id="topbar-hamburger" onclick="openMobileSidebar()">
+    <button id="topbar-hamburger" onclick="openMobileSidebar()" aria-label="Abrir menu lateral">
       <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
         <path d="M2 4h14M2 9h14M2 14h14"/>
       </svg>
     </button>
     <span id="topbar-section-title">Body metrics</span>
-    <button id="topbar-filter-toggle" onclick="toggleExFilters()" title="Filtros" style="display:none">
+    <button id="topbar-filter-toggle" onclick="toggleExFilters()" title="Filtros" style="display:none" aria-label="Abrir filtros de exercícios">
       <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
         <path d="M1 3h13M4 7.5h7M6.5 12h2"/>
       </svg>
@@ -83,27 +81,27 @@
   <div id="ex-filters-bar" style="display:none">
     <div class="ex-filters-inner">
       <div class="ex-filter-group">
-        <label class="ex-filter-label">De</label>
+        <label class="ex-filter-label" for="ex-filter-de">De</label>
         <input type="date" id="ex-filter-de" class="ex-filter-input" oninput="applyExFilters()">
       </div>
       <div class="ex-filter-group">
-        <label class="ex-filter-label">Até</label>
+        <label class="ex-filter-label" for="ex-filter-ate">Até</label>
         <input type="date" id="ex-filter-ate" class="ex-filter-input" oninput="applyExFilters()">
       </div>
       <div class="ex-filter-group">
-        <label class="ex-filter-label">Grupo</label>
+        <label class="ex-filter-label" for="ex-filter-grupo">Grupo</label>
         <select id="ex-filter-grupo" class="ex-filter-input" onchange="applyExFilters()">
           <option value="">Todos</option>
         </select>
       </div>
       <div class="ex-filter-group">
-        <label class="ex-filter-label">Exercício</label>
+        <label class="ex-filter-label" for="ex-filter-exercicio">Exercício</label>
         <select id="ex-filter-exercicio" class="ex-filter-input" onchange="applyExFilters()">
           <option value="">Todos</option>
         </select>
       </div>
       <input type="month" id="ex-filter-mes" style="display:none" oninput="applyExFilters()">
-      <button class="ex-filter-clear" onclick="clearExFilters()" title="Limpar">✕</button>
+      <button class="ex-filter-clear" onclick="clearExFilters()" title="Limpar" aria-label="Limpar filtros de exercícios">✕</button>
     </div>
   </div>
 
@@ -121,13 +119,12 @@
 <div id="modal-container-ex"></div>
 <div id="modal-container-goals"></div>
 
-<!-- FINANCES PIN OVERLAY -->
 <div id="finances-pin-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);align-items:center;justify-content:center;z-index:8000">
   <div class="pin-card">
     <div class="pin-icon">◈</div>
     <h2 class="pin-title">Acesso restrito</h2>
     <p class="pin-subtitle">Digite o PIN para acessar Finances</p>
-    <input id="finances-pin-input" type="password" class="pin-input" placeholder="PIN" maxlength="20" inputmode="numeric" />
+    <input id="finances-pin-input" type="password" class="pin-input" placeholder="PIN" maxlength="20" inputmode="numeric" aria-label="Digite o PIN de acesso às finanças" />
     <p id="finances-pin-error" class="pin-error" style="display:none">PIN incorreto.</p>
     <div class="pin-actions">
       <button id="finances-pin-cancel" class="pin-btn-cancel">Cancelar</button>
@@ -136,23 +133,23 @@
   </div>
 </div>
 
-<div class="success-toast" id="toast">✓ Check-in salvo com sucesso!</div>
-<div class="success-toast" id="toast-erro" style="background:var(--danger);color:#fff">✗ Erro ao salvar. Veja o console.</div>
+<div class="success-toast" id="toast" role="status" aria-live="polite" aria-atomic="true">✓ Check-in salvo com sucesso!</div>
+<div class="success-toast" id="toast-erro" role="alert" aria-live="assertive" aria-atomic="true" style="background:var(--danger);color:#fff">✗ Erro ao salvar. Veja o console.</div>
 
-<script src="js/nav.js?v=16"></script>
-<script src="js/api.js?v=16"></script>
-<script src="js/checkin.js?v=16"></script>
-<script src="js/dashboard.js?v=16"></script>
-<script src="js/exercicios.js?v=16"></script>
-<script src="js/goals.js?v=16"></script>
-<script src="js/home.js?v=1"></script>
-<script src="js/fin-core.js?v=1"></script>
-<script src="js/fin-overview.js?v=1"></script>
-<script src="js/fin-lancamentos.js?v=1"></script>
-<script src="js/fin-investimentos.js?v=1"></script>
-<script src="js/fin-viagens.js?v=1"></script>
-<script src="js/fin-modals.js?v=1"></script>
-<script src="js/app.js?v=16"></script>
+<script src="shared/js/nav.js?v=18"></script>
+<script src="shared/js/api.js?v=17"></script>
+<script src="pages/body/checkin.js?v=1"></script>
+<script src="pages/body/body.js?v=18"></script>
+<script src="pages/exercises/exercises.js?v=19"></script>
+<script src="pages/goals/goals.js?v=21"></script>
+<script src="pages/home/home.js?v=4"></script>
+<script src="pages/finances/fin-core.js?v=4"></script>
+<script src="pages/finances/fin-overview.js?v=2"></script>
+<script src="pages/finances/fin-lancamentos.js?v=3"></script>
+<script src="pages/finances/fin-investimentos.js?v=3"></script>
+<script src="pages/finances/fin-viagens.js?v=4"></script>
+<script src="pages/finances/fin-modals.js?v=3"></script>
+<script src="shared/js/app.js?v=22"></script>
 
 </body>
 </html>

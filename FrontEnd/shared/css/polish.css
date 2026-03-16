@@ -1,0 +1,50 @@
+:root {
+  --focus-ring: color-mix(in srgb, var(--accent) 65%, white);
+  --focus-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+:focus-visible {
+  outline-color: var(--focus-ring);
+  box-shadow: var(--focus-shadow);
+}
+
+.chart-title,
+.kpi-label,
+.section-label {
+  line-height: 1.25;
+}
+
+.measure-unit {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.measure-delta {
+  margin: 6px 0 0;
+}
+
+.ex-history-muted {
+  color: var(--text-muted);
+}
+
+.hcard-delta-row-tight {
+  margin-bottom: 0;
+}
+
+.topbar-action-btn {
+  padding: 7px 14px;
+  font-size: 0.8rem;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+

@@ -1,0 +1,328 @@
+<div id="fin-empty" class="empty-state fin-empty">
+  <div class="empty-icon">◈</div>
+  <h3>Nenhum dado ainda</h3>
+  <p>Adicione categorias e lançamentos para começar.</p>
+  <button class="btn-add fin-empty-cta" onclick="openFinModal('lancamento')">+ Novo lançamento</button>
+</div>
+
+<div id="fin-content">
+
+<div class="fin-tabs">
+    <button class="fin-tab active" data-tab="overview"      onclick="switchFinTab('overview')">Overview</button>
+    <button class="fin-tab"        data-tab="lancamentos"   onclick="switchFinTab('lancamentos')">Lançamentos</button>
+    <button class="fin-tab"        data-tab="investimentos" onclick="switchFinTab('investimentos')">Investimentos</button>
+    <button class="fin-tab"        data-tab="viagens"       onclick="switchFinTab('viagens')">Viagens</button>
+  </div>
+
+<div class="fin-panel active" id="fin-panel-overview">
+
+    <!-- Barra de filtro de mês ativo -->
+    <div id="fin-overview-month-bar" class="fin-filter-bar fin-filter-bar--accent">
+      <span>Filtro: <b id="fin-overview-month-label">—</b></span>
+      <button onclick="_clearEvoFilter()" class="fin-filter-clear-btn">✕ Limpar</button>
+    </div>
+    <!-- Barra de filtro de categoria ativo -->
+    <div id="fin-cat-filter-bar" class="fin-filter-bar fin-filter-bar--danger">
+      <span>Categoria: <b id="fin-cat-filter-label">—</b></span>
+      <button onclick="_clearDespCatFilter()" class="fin-filter-clear-btn">✕ Limpar</button>
+    </div>
+
+    <div class="kpi-grid" id="fin-kpi-grid">
+      <div class="kpi-card kpi-color-accent2">
+        <div class="kpi-label">Saldo do mês</div>
+        <div class="kpi-value" id="fin-kpi-saldo">—</div>
+      </div>
+      <div class="kpi-card kpi-color-gold">
+        <div class="kpi-label">Total investido</div>
+        <div class="kpi-value" id="fin-kpi-investido">—</div>
+      </div>
+      <div class="kpi-card kpi-color-blue">
+        <div class="kpi-label">Cartão de crédito</div>
+        <div class="kpi-value" id="fin-kpi-credito">—</div>
+      </div>
+      <div class="kpi-card kpi-color-orange">
+        <div class="kpi-label">Saldo acumulado no ano</div>
+        <div class="kpi-value" id="fin-kpi-saldo-ano">—</div>
+      </div>
+    </div>
+
+    <!-- Validador + Donut lado a lado (validador esquerda, rosca direita) -->
+    <div class="fin-overview-top-row">
+      <div class="dash-card fin-validador-card">
+        <div class="dash-card-title fin-validador-title">Validador — <span id="fin-val-ano-label"></span></div>
+        <div id="fin-validador"></div>
+      </div>
+    </div>
+
+  <div class="fin-overview-grid">
+    <div class="dash-card fin-card-min0">
+      <div class="dash-card-title">Evolução mensal — <span id="fin-evo-period-label" class="fin-evo-period-hint" onclick="_clearEvoFilter()">clique em um mês para filtrar a tela</span></div>
+      <div class="fin-evo-scroll-wrap"><canvas id="fin-chart-evolucao"></canvas></div>
+    </div>
+    <div class="dash-card">
+      <div class="dash-card-title">Despesas por categoria</div>
+      <div class="fin-chart-wrap"><canvas id="fin-chart-despesas"></canvas></div>
+      <div id="fin-desp-drill" class="fin-hidden"></div>
+    </div>
+  </div>
+
+    <!-- Cartão de crédito: orçado x realizado -->
+    <div id="fin-credito-panel"></div>
+
+  </div>
+
+<div class="fin-panel" id="fin-panel-lancamentos">
+    <div class="fin-toolbar">
+      <div class="fin-resumo-row" id="fin-lanc-resumo"></div>
+      <button class="btn-add" onclick="openFinModal('lancamento')">+ Novo</button>
+    </div>
+    <div class="fin-table-wrap">
+      <table class="fin-table">
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Categoria</th>
+            <th>Tipo</th>
+            <th>Pagamento</th>
+            <th>Descrição</th>
+            <th>Valor</th>
+            <th></th>
+          </tr>
+          <tr class="fin-filter-row">
+            <th><input type="month" id="fin-filter-mes" class="fin-col-filter" oninput="renderLancamentos()"></th>
+            <th><select id="fin-filter-cat" class="fin-col-filter" onchange="renderLancamentos()"><option value="">Todas</option></select></th>
+            <th><select id="fin-filter-tipo" class="fin-col-filter" onchange="_updateLancCatFilter();renderLancamentos()">
+              <option value="">Todos</option>
+              <option value="receita">Receita</option>
+              <option value="despesa">Despesa</option>
+              <option value="investimento">Investimento</option>
+            </select></th>
+            <th><select id="fin-filter-pag" class="fin-col-filter" onchange="renderLancamentos()">
+              <option value="">Todos</option>
+              <option value="debito">Débito</option>
+              <option value="credito">Crédito</option>
+              <option value="null">N/A</option>
+            </select></th>
+            <th><input type="text" id="fin-filter-desc" class="fin-col-filter" placeholder="Buscar..." oninput="renderLancamentos()"></th>
+            <th></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="fin-tbody-lancamentos"></tbody>
+      </table>
+    </div>
+  </div>
+
+<div class="fin-panel" id="fin-panel-investimentos">
+    <div class="fin-toolbar">
+      <input type="month" id="fin-inv-filter-mes" class="ex-filter-input" oninput="renderInvestimentos()">
+      <div class="fin-toolbar-actions">
+        <button class="btn-add" onclick="openFinModal('investimento')">+ Investimento</button>
+        <button class="btn-add" onclick="openFinModal('indicador')">+ Indicador</button>
+      </div>
+    </div>
+    <div id="fin-inv-cards" class="fin-inv-cards"></div>
+    <div id="fin-ind-content"></div>
+    <div class="fin-inv-layout">
+      <div class="dash-card fin-card-min0">
+        <div class="dash-card-title">Evolução dos investimentos</div>
+        <div class="fin-chart-wrap"><canvas id="fin-chart-inv"></canvas></div>
+      </div>
+      <div class="dash-card fin-card-min0 fin-hidden" id="fin-ind-chart-card">
+        <div class="dash-card-title">Evolução dos indicadores</div>
+        <div class="fin-chart-wrap"><canvas id="fin-chart-ind"></canvas></div>
+      </div>
+    </div>
+  </div>
+<div class="fin-panel" id="fin-panel-viagens">
+    <!-- Gráficos lado a lado -->
+    <div class="fin-inv-layout fin-hidden" id="fin-viag-charts">
+      <div class="dash-card fin-card-min0">
+        <div class="fin-chart-box-320"><canvas id="fin-chart-viag-cat"></canvas></div>
+      </div>
+      <div class="dash-card fin-card-min0">
+        <div class="fin-chart-box-320"><canvas id="fin-chart-viag-bar"></canvas></div>
+      </div>
+    </div>
+    <!-- Cards accordion -->
+    <div id="fin-viagens-list" class="fin-list-mt16"></div>
+  </div>
+</div>
+
+<div id="fin-modal-overlay" class="modal-overlay" onclick="closeFinModalOutside(event)">
+  <div class="modal modal-narrow" id="fin-modal-box">
+
+    <div id="fin-form-lancamento">
+      <div class="modal-header">
+        <h2 class="modal-title">Novo lançamento</h2>
+        <button class="modal-close" onclick="closeFinModal()">✕</button>
+      </div>
+      <div class="fin-form">
+        <div class="fin-form-row">
+          <div>
+            <label class="form-label">Data</label>
+            <input type="date" id="fin-lanc-data" class="form-input">
+          </div>
+          <div>
+            <label class="form-label">Tipo</label>
+            <select id="fin-lanc-tipo" class="form-input" onchange="populateFinCatSelect('fin-lanc-cat', this.value)">
+              <option value="receita">Receita</option>
+              <option value="despesa">Despesa</option>
+            </select>
+          </div>
+        </div>
+        <div class="fin-form-row">
+          <div>
+            <label class="form-label">Pagamento</label>
+            <select id="fin-lanc-pagamento" class="form-input">
+              <option value="debito" selected>Débito</option>
+              <option value="credito">Crédito</option>
+              <option value="">N/A</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Categoria</label>
+            <select id="fin-lanc-cat" class="form-input"></select>
+          </div>
+        </div>
+        <label class="form-label">Valor (R$)</label>
+        <input type="number" step="0.01" id="fin-lanc-valor" class="form-input" placeholder="0,00">
+        <label class="form-label">Descrição</label>
+        <input type="text" id="fin-lanc-desc" class="form-input" placeholder="Opcional">
+        <button class="btn-save" onclick="submitLancamento()">Salvar</button>
+      </div>
+    </div>
+
+    <div id="fin-form-orcamento" class="fin-hidden">
+      <div class="modal-header">
+        <h2 class="modal-title">Novo orçamento</h2>
+        <button class="modal-close" onclick="closeFinModal()">✕</button>
+      </div>
+      <div class="fin-form">
+        <div class="fin-form-row">
+          <div>
+            <label class="form-label">Ano</label>
+            <input type="number" id="fin-orc-ano" class="form-input" placeholder="2026" min="2020" max="2099">
+          </div>
+          <div>
+            <label class="form-label">Mês <span class="form-label-hint">(vazio = anual)</span></label>
+            <select id="fin-orc-mes-sel" class="form-input">
+              <option value="">— Anual —</option>
+              <option value="1">Janeiro</option>
+              <option value="2">Fevereiro</option>
+              <option value="3">Março</option>
+              <option value="4">Abril</option>
+              <option value="5">Maio</option>
+              <option value="6">Junho</option>
+              <option value="7">Julho</option>
+              <option value="8">Agosto</option>
+              <option value="9">Setembro</option>
+              <option value="10">Outubro</option>
+              <option value="11">Novembro</option>
+              <option value="12">Dezembro</option>
+            </select>
+          </div>
+        </div>
+        <div class="fin-form-row">
+          <div>
+            <label class="form-label">Tipo</label>
+            <select id="fin-orc-tipo" class="form-input" onchange="populateFinCatSelect('fin-orc-cat', this.value)">
+              <option value="despesa">Despesa</option>
+              <option value="receita">Receita</option>
+              <option value="investimento">Investimento</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Pagamento</label>
+            <select id="fin-orc-pagamento" class="form-input">
+              <option value="debito" selected>Débito</option>
+              <option value="credito">Crédito</option>
+              <option value="">N/A</option>
+            </select>
+          </div>
+        </div>
+        <label class="form-label">Categoria</label>
+        <select id="fin-orc-cat" class="form-input"></select>
+        <label class="form-label">Valor orçado (R$)</label>
+        <input type="number" step="0.01" id="fin-orc-valor" class="form-input" placeholder="0,00">
+        <button class="btn-save" onclick="submitOrcamento()">Salvar</button>
+      </div>
+    </div>
+
+    <div id="fin-form-investimento" class="fin-hidden">
+      <div class="modal-header">
+        <h2 class="modal-title">Registrar saldo</h2>
+        <button class="modal-close" onclick="closeFinModal()">✕</button>
+      </div>
+      <div class="fin-form">
+        <label class="form-label">Data</label>
+        <input type="date" id="fin-inv-data" class="form-input">
+        <label class="form-label">Investimento</label>
+        <select id="fin-inv-cat" class="form-input"></select>
+        <label class="form-label">Saldo atual (R$)</label>
+        <input type="number" step="0.01" id="fin-inv-saldo" class="form-input" placeholder="0,00">
+        <button class="btn-save" onclick="submitInvestimento()">Salvar</button>
+      </div>
+    </div>
+
+    <div id="fin-form-indicador" class="fin-hidden">
+      <div class="modal-header">
+        <h2 class="modal-title">Registrar indicador</h2>
+        <button class="modal-close" onclick="closeFinModal()">✕</button>
+      </div>
+      <div class="fin-form">
+        <div class="fin-form-row">
+          <div>
+            <label class="form-label">Período</label>
+            <input type="month" id="fin-ind-mes" class="form-input">
+          </div>
+          <div>
+            <label class="form-label">Tipo</label>
+            <select id="fin-ind-tipo" class="form-input" onchange="toggleFinIndNome(this.value)">
+              <option value="livelo">Livelo (pontos)</option>
+              <option value="serasa">Serasa (score)</option>
+              <option value="credito_celular">Crédito celular (R$)</option>
+              <option value="custom">Personalizado</option>
+            </select>
+          </div>
+        </div>
+        <div id="fin-ind-nome-wrap" class="fin-hidden">
+          <label class="form-label">Nome</label>
+          <input type="text" id="fin-ind-nome" class="form-input" placeholder="Ex.: Milhas">
+        </div>
+        <label class="form-label">Valor</label>
+        <input type="number" step="0.01" id="fin-ind-valor" class="form-input" placeholder="0">
+        <button class="btn-save" onclick="submitIndicador()">Salvar</button>
+      </div>
+    </div>
+
+    <div id="fin-form-categoria" class="fin-hidden">
+      <div class="modal-header">
+        <h2 class="modal-title">Nova categoria</h2>
+        <button class="modal-close" onclick="closeFinModal()">✕</button>
+      </div>
+      <div class="fin-form">
+        <label class="form-label">Nome</label>
+        <input type="text" id="fin-cat-nome" class="form-input" placeholder="Ex.: Alimentação">
+        <div class="fin-form-row">
+          <div>
+            <label class="form-label">Tipo</label>
+            <select id="fin-cat-tipo" class="form-input">
+              <option value="receita">Receita</option>
+              <option value="despesa">Despesa</option>
+              <option value="investimento">Investimento</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Grupo pai (opcional)</label>
+            <select id="fin-cat-pai" class="form-input">
+              <option value="">— Nenhum —</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn-save" onclick="submitCategoria()">Salvar</button>
+      </div>
+    </div>
+
+  </div>
+</div>

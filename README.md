@@ -5,7 +5,6 @@
 ---
 
 ## Índice
-exercises
 1. [O que é o BodyLog?](#1-o-que-é-o-bodylog)
 2. [Visão geral da arquitetura](#2-visão-geral-da-arquitetura)
 3. [Estrutura de arquivos](#3-estrutura-de-arquivos)
@@ -66,40 +65,34 @@ MeuSite/
 │
 └── FrontEnd/
     ├── index.html             ← ÚNICO arquivo HTML — esqueleto da aplicação
-    ├── style.css              ← TODOS os estilos
+    ├── style.css              ← entrada CSS (importa shared/css/app.css + shared/css/polish.css)
+    ├── shared/                ← recursos compartilhados entre páginas
+    │   ├── js/                ← nav.js, api.js, app.js
+    │   ├── css/               ← app.css, polish.css, base/
+    │   └── html/              ← fragmentos HTML compartilhados (quando houver)
     │
-    ├── sections/              ← cada seção é um fragmento HTML carregado sob demanda
-    │   ├── body.html          ← KPIs + gráficos de métricas corporais
-    │   ├── exercises.html     ← KPIs + gráficos de treinos
-    │   ├── goals.html         ← overview de meses + detalhe + calendário heatmap
-    │   └── finances.html      ← placeholder
+    ├── pages/                 ← organização por página (html + js + css juntos)
+    │   ├── body/              ← body.html + body.js + body.css + checkin.js + checkin-modal.html
+    │   ├── exercises/         ← exercises.html + exercises.js + exercises.css + exercise-modal.html
+    │   ├── goals/             ← goals.html + goals.js + goals.css + goals-modal.html
+    │   ├── finances/          ← finances.html + fin-*.js + finances.css
+    │   └── home/              ← home.html + home.js + home.css
     │
-    ├── modals/                ← modais carregados sob demanda
-    │   ├── checkin-modal.html ← formulário de novo check-in
-    │   ├── exercise-modal.html← formulário de novo treino
-    │   └── goals-modal.html   ← registro diário de metas semanais
-    │
-    └── js/
-        ├── nav.js             ← NAVEGAÇÃO: troca de seções, sidebar, filtros
-        ├── api.js             ← DADOS: todas as chamadas ao backend ficam aqui
-        ├── app.js             ← INIT: APP_VERSION, loadHTML, modais, ESC handler
-        ├── checkin.js         ← FORMULÁRIO: submit do check-in
-        ├── dashboard.js       ← RENDERIZAÇÃO: gráficos e KPIs da seção Body
-        ├── exercicios.js      ← RENDERIZAÇÃO: gráficos e KPIs da seção Exercises
-        └── goals.js           ← RENDERIZAÇÃO: score mensal, calendário e KPIs de Goals
 ```
 
 **Regra de ouro dos arquivos JS:**
 
 | Arquivo | Responsabilidade única |
 |---|---|
-| `nav.js` | Navegação: `DEFAULT_SECTION`, `SECTION_META`, `switchSection()` |
-| `api.js` | Comunicação HTTP: helper `_apiFetch()` + uma função por endpoint |
-| `app.js` | Init: `APP_VERSION`, `loadHTML()`, `init()`, handlers de modal e ESC |
-| `dashboard.js` | Sabe *como desenhar* o dashboard Body |
-| `exercicios.js` | Sabe *como desenhar* o dashboard Exercises |
-| `goals.js` | Calcula scores e desenha o dashboard Goals |
-| `checkin.js` | Sabe *como enviar* o formulário de check-in |
+| `shared/js/nav.js` | Navegação: `DEFAULT_SECTION`, `SECTION_META`, `switchSection()` |
+| `shared/js/api.js` | Comunicação HTTP: helper `_apiFetch()` + uma função por endpoint |
+| `shared/js/app.js` | Init: `APP_VERSION`, `loadHTML()`, `init()`, handlers de modal e ESC |
+| `pages/body/body.js` | Sabe *como desenhar* o dashboard Body |
+| `pages/exercises/exercises.js` | Sabe *como desenhar* o dashboard Exercises |
+| `pages/goals/goals.js` | Calcula scores e desenha o dashboard Goals |
+| `pages/home/home.js` | Renderiza os cards e KPIs do overview Home |
+| `pages/finances/fin-*.js` | Módulos da seção Finances (core, overview, lançamentos, investimentos, viagens, modais) |
+| `pages/body/checkin.js` | Sabe *como enviar* o formulário de check-in |
 
 ---
 
@@ -288,13 +281,13 @@ window.goalsEntradas = []  // histórico de checks diários
 - Chips de filtro clicáveis para cada meta semanal
 
 **Modal de registro** — `openGoalsModal()` / `saveGoalEntradas()`:
-- Carregado sob demanda de `modals/goals-modal.html`
+- Carregado sob demanda de `pages/goals/goals-modal.html`
 - Toggle por meta semanal; salva todas de uma vez ao clicar "Salvar"
 - Faz upsert no banco (atualiza se já existe entrada para aquele dia)
 
 ### 4.8 Estilos: `style.css`
 
-Um único arquivo organizado em seções com comentários:
+Entrada única que importa os compartilhados em `shared/css` e os estilos de página:
 
 ```
 :root { ... }           ← variáveis CSS (design tokens)
@@ -382,12 +375,12 @@ Exemplo: usuário abre o app e vê o peso atual.
 ```
 1. Browser abre index.html
         ↓
-2. Os scripts carregam em ordem: nav.js → api.js → checkin.js → dashboard.js → exercicios.js → app.js
-   app.js chama init() automaticamente ao carregar
+2. Os scripts carregam em ordem: shared/js/nav.js → shared/js/api.js → scripts de página → shared/js/app.js
+  shared/js/app.js chama init() automaticamente ao carregar
         ↓
 3. init() faz em paralelo:
-   - loadHTML('sections/body.html', 'section-body')    → injeta HTML da seção
-   - loadHTML('modals/checkin-modal.html', 'modal-container')
+  - loadHTML('pages/body/body.html', 'section-body')              → injeta HTML da seção
+  - loadHTML('pages/body/checkin-modal.html', 'modal-container')
         ↓
 4. init() busca dados:
    entries = await fetchCheckins()    ← GET /api/checkins
@@ -413,7 +406,7 @@ Vamos criar uma tela fictícia chamada **"Sleep"** para rastrear sono.
 
 ### Passo 1 — Criar o arquivo de seção HTML
 
-Crie `FrontEnd/sections/sleep.html`:
+Crie `FrontEnd/pages/sleep/sleep.html`:
 
 ```html
 <div id="sleep-empty" class="empty-state" style="display:none">
@@ -439,7 +432,7 @@ Crie `FrontEnd/sections/sleep.html`:
 > Use os mesmos nomes de classes (`kpi-grid`, `kpi-card`, `chart-card`) — o estilo já existe em `style.css`.
 > Use um prefixo único nos IDs (`sleep-*`) para não colidir com outras seções.
 
-### Passo 2 — Registrar no `nav.js`
+### Passo 2 — Registrar no `shared/js/nav.js`
 
 ```js
 const SECTION_META = {
@@ -448,13 +441,13 @@ const SECTION_META = {
 }
 ```
 
-### Passo 3 — Registrar no `app.js`
+### Passo 3 — Registrar no `shared/js/app.js`
 
 ```js
 // Adicionar ao objeto SECTIONS:
 const SECTIONS = {
   // ... existentes ...
-  sleep: 'sections/sleep.html',
+  sleep: 'pages/sleep/sleep.html',
 }
 
 // Adicionar ao listener sectionchange:
@@ -478,7 +471,7 @@ Dentro de `<div id="main-content">`:
 <section class="section" id="section-sleep"></section>
 ```
 
-### Passo 6 — Criar função na API (`api.js`)
+### Passo 6 — Criar função na API (`shared/js/api.js`)
 
 ```js
 async function fetchSleep() {
@@ -486,7 +479,7 @@ async function fetchSleep() {
 }
 ```
 
-### Passo 7 — Criar arquivo de renderização (`js/sleep.js`)
+### Passo 7 — Criar arquivo de renderização (`pages/sleep/sleep.js`)
 
 ```js
 let sleepData = []
@@ -515,8 +508,8 @@ function renderSleepDash() {
 ### Passo 8 — Incluir o script no `index.html`
 
 ```html
-<script src="js/sleep.js"></script>  <!-- antes de app.js -->
-<script src="js/app.js"></script>    <!-- sempre por último -->
+<script src="pages/sleep/sleep.js"></script>    <!-- script da página -->
+<script src="shared/js/app.js"></script>        <!-- sempre por último -->
 ```
 
 ### Passo 9 — Criar rota no backend (`main.py`)
@@ -530,15 +523,15 @@ def get_sleep():
 
 ### Checklist resumido
 
-- [ ] `sections/sleep.html` — HTML com IDs únicos (prefixo `sleep-*`)
+- [ ] `pages/sleep/sleep.html` — HTML com IDs únicos (prefixo `sleep-*`)
 - [ ] `nav.js` → `SECTION_META` — titulo, ação, filters
-- [ ] `app.js` → `SECTIONS` — caminho do arquivo HTML
-- [ ] `app.js` → listener `sectionchange` — chama `initSleepSection()`
+- [ ] `shared/js/app.js` → `SECTIONS` — caminho do arquivo HTML
+- [ ] `shared/js/app.js` → listener `sectionchange` — chama `initSleepSection()`
 - [ ] `index.html` → sidebar — novo botão `<button class="sidebar-item">`
 - [ ] `index.html` → `#main-content` — novo `<section id="section-sleep">`
-- [ ] `index.html` → scripts — `<script src="js/sleep.js">` (antes de `app.js`)
+- [ ] `index.html` → scripts — `<script src="pages/sleep/sleep.js">` (antes de `shared/js/app.js`)
 - [ ] `api.js` — funções de fetch para a nova seção (usam `_apiFetch()`)
-- [ ] `js/sleep.js` — `initSleepSection()` + `renderSleepDash()`
+- [ ] `pages/sleep/sleep.js` — `initSleepSection()` + `renderSleepDash()`
 - [ ] `main.py` — rotas GET e POST (se precisar salvar dados)
 - [ ] `models.py` + `bodylog.sql` — tabelas novas (se precisar)
 
@@ -562,10 +555,10 @@ Ao criar nova seção, use um prefixo único para evitar conflitos.
 
 Os dados principais ficam em variáveis globais (sem módulos ES6):
 ```js
-let entries = []         // dashboard.js — check-ins de body
-let medidas = []         // dashboard.js — estrutura de medidas
-window.exercicios = []   // exercicios.js
-window.codigosEx  = []   // exercicios.js
+let entries = []         // pages/body/body.js — check-ins de body
+let medidas = []         // pages/body/body.js — estrutura de medidas
+window.exercicios = []   // pages/exercises/exercises.js
+window.codigosEx  = []   // pages/exercises/exercises.js
 ```
 
 Isso funciona porque todos os scripts compartilham o mesmo `window`. É a forma mais simples sem bundler.
@@ -585,20 +578,22 @@ window.addEventListener('sectionchange', async e => { ... })
 
 A ordem importa porque não há módulos:
 ```html
-<script src="js/nav.js"></script>       <!-- 1. navegação (funções usadas pelo HTML inline) -->
-<script src="js/api.js"></script>       <!-- 2. API (usada por todos) -->
-<script src="js/checkin.js"></script>   <!-- 3. formulário -->
-<script src="js/dashboard.js"></script> <!-- 4. renderização body -->
-<script src="js/exercicios.js"></script><!-- 5. renderização exercises -->
-<script src="js/goals.js"></script>     <!-- 6. renderização goals -->
-<script src="js/app.js"></script>       <!-- 7. SEMPRE POR ÚLTIMO — usa tudo que veio antes -->
+<script src="shared/js/nav.js"></script>             <!-- 1. navegação -->
+<script src="shared/js/api.js"></script>             <!-- 2. API compartilhada -->
+<script src="pages/body/checkin.js"></script>        <!-- 3. formulário body -->
+<script src="pages/body/body.js"></script>           <!-- 4. renderização body -->
+<script src="pages/exercises/exercises.js"></script> <!-- 5. renderização exercises -->
+<script src="pages/goals/goals.js"></script>         <!-- 6. renderização goals -->
+<script src="pages/home/home.js"></script>           <!-- 7. renderização home -->
+<script src="pages/finances/fin-core.js"></script>   <!-- 8. finances core -->
+<script src="shared/js/app.js"></script>             <!-- 9. SEMPRE POR ÚLTIMO -->
 ```
 
 ---
 
 ## 9. Variáveis CSS e design tokens
 
-Definidas em `:root` em `style.css`. Use sempre variáveis, nunca valores hardcoded:
+Definidas em `:root` em `shared/css/base/tokens.css`. Use sempre variáveis, nunca valores hardcoded:
 
 ```css
 :root {

@@ -1,0 +1,67 @@
+<div id="goals-overview">
+
+  <div class="kpi-grid goals-card-gap">
+    <div class="kpi-card kpi-color-accent">
+      <div class="kpi-label">Score médio</div>
+      <div class="kpi-value" id="goals-kpi-avg">—<span class="kpi-unit">%</span></div>
+      <div class="kpi-delta" id="goals-kpi-avg-sub"></div>
+    </div>
+    <div class="kpi-card kpi-color-accent2">
+      <div class="kpi-label">Melhor indicador</div>
+      <div class="kpi-value" id="goals-kpi-best-ind">—</div>
+      <div class="kpi-delta" id="goals-kpi-best-ind-sub"></div>
+    </div>
+    <div class="kpi-card kpi-color-danger">
+      <div class="kpi-label">Pior indicador</div>
+      <div class="kpi-value" id="goals-kpi-worst-ind">—</div>
+      <div class="kpi-delta" id="goals-kpi-worst-ind-sub"></div>
+    </div>
+    <div class="kpi-card kpi-color-gold">
+      <div class="kpi-label">Próximo peso</div>
+      <div class="kpi-value" id="goals-kpi-next-weight">—</div>
+      <div class="kpi-delta" id="goals-kpi-next-weight-sub"></div>
+    </div>
+  </div>
+
+  <div id="goals-months-grid"></div>
+
+</div>
+
+<div id="goals-detail" class="fin-hidden">
+
+  <div class="g-det-header">
+    <button class="g-back-btn" onclick="goalsShowOverview()">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 2L4 7l5 5"/></svg>
+      voltar
+    </button>
+    <div class="goals-detail-title-row">
+      <span id="goals-det-title" class="g-det-title"></span>
+      <span id="goals-det-grade" class="g-grade-badge"></span>
+    </div>
+  </div>
+
+  <div class="g-det-top">
+    <div class="g-ring-wrap">
+      <div class="g-ring" id="goals-det-ring">
+        <div class="g-ring-inner">
+          <span id="goals-det-pct" class="g-ring-pct"></span>
+          <span class="g-ring-sub">score mensal</span>
+        </div>
+      </div>
+      <div class="g-ring-days" id="goals-det-days"></div>
+    </div>
+    <div id="goals-weight-card" class="g-weight-card"></div>
+  </div>
+
+  <div class="chart-card goals-card-gap">
+    <div class="chart-title">Indicadores diários</div>
+    <div class="g-ind-subtitle">% de dias no mês em que a meta foi cumprida</div>
+    <div id="goals-breakdown"></div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-title">Calendário do mês</div>
+    <div id="goals-calendar"></div>
+  </div>
+
+</div>

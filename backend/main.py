@@ -30,7 +30,6 @@ with engine.connect() as _conn:
     _conn.execute(_text("ALTER TABLE codigo_financa        DROP COLUMN IF EXISTS dono"))
     _conn.commit()
 
-# ── UTILITÁRIO DE BANCO ───────────────────────────────────────────────────────
 
 @contextmanager
 def get_db():
@@ -40,11 +39,9 @@ def get_db():
     finally:
         db.close()
 
-# ── SEED ─────────────────────────────────────────────────────────────────────
 
 def seed():
     with get_db() as db:
-        # 1. Unidades de medida
         unidades_data = [
             ("kg",        "quilograma"),
             ("cm",        "centímetro"),
@@ -63,7 +60,6 @@ def seed():
 
         unidade_map = {u.sigla: u.id for u in db.query(UnidadeMedida).all()}
 
-        # 2. Grupos e medidas corporais
         seed_data = [
             ("Bioimpedância",    None,               ""),
             ("Dobras Cutâneas",  None,               ""),
@@ -115,12 +111,10 @@ def seed():
 
 seed()
 
-# ── ROTAS — BODY ──────────────────────────────────────────────────────────────
 
 class CheckinInput(BaseModel):
     date: str
     medidas: dict
-
 
 @app.get("/api/medidas")
 def get_medidas():
@@ -131,7 +125,6 @@ def get_medidas():
             filhos = [{"id": f.id, "descricao": f.descricao, "unidade": f.unidade.sigla if f.unidade else ""} for f in (grupo.filhos or [])]
             resultado.append({"id": grupo.id, "descricao": grupo.descricao, "filhos": filhos})
     return resultado
-
 
 @app.get("/api/checkins")
 def get_checkins():
@@ -163,7 +156,6 @@ def get_checkins():
 
     return resultado
 
-
 @app.post("/api/checkins")
 def post_checkin(body: CheckinInput):
     with get_db() as db:
@@ -177,15 +169,12 @@ def post_checkin(body: CheckinInput):
     return {"ok": True}
 
 
-# ── ROTAS — EXERCISES ─────────────────────────────────────────────────────────
-
 class ExercicioInput(BaseModel):
     date:         str
     hora:         str
     cd_exercicio: int
     duracao:      Optional[int] = None
     esforco:      Optional[int] = None
-
 
 @app.get("/api/exercicios/codigos")
 def get_codigos_exercicio():
@@ -230,7 +219,6 @@ def get_exercicios():
 
     return resultado
 
-
 @app.post("/api/exercicios")
 def post_exercicio(body: ExercicioInput):
     with get_db() as db:
@@ -248,13 +236,11 @@ def post_exercicio(body: ExercicioInput):
 def health():
     return {"status": "ok"}
 
-# ── ROTAS — GOALS ─────────────────────────────────────────────────────────────
 
 class EntradaGoalInput(BaseModel):
     date:      str
     cd_goal:   int
     progresso: float
-
 
 @app.get("/api/goals/codigos")
 def get_goals_codigos():
@@ -268,7 +254,6 @@ def get_goals_codigos():
                   for f in todos if f.cd_pai == g.id]
         resultado.append({"id": g.id, "nome": g.nome, "descricao": g.descricao, "filhos": filhos})
     return resultado
-
 
 @app.get("/api/goals/metas")
 def get_goals_metas():
@@ -305,7 +290,6 @@ def get_goals_metas():
             })
     return resultado
 
-
 @app.get("/api/goals/entradas")
 def get_goals_entradas():
     with get_db() as db:
@@ -314,8 +298,6 @@ def get_goals_entradas():
             {"id": r.id, "data": str(r.data), "cd_goal": r.cd_goal, "progresso": 1.0 if r.realizado_no_dia else 0.0}
             for r in rows
         ]
-
-
 
 @app.post("/api/goals/entradas")
 def post_goal_entrada(body: EntradaGoalInput):
@@ -336,15 +318,10 @@ def post_goal_entrada(body: EntradaGoalInput):
         db.commit()
     return {"ok": True}
 
-# ── STATIC ────────────────────────────────────────────────────────────────────
-
-# app.mount("/app", StaticFiles(directory="../frontend", html=True))
-
-# ── ROTAS — FINANÇAS ──────────────────────────────────────────────────────────
 
 class CodigoFinancaInput(BaseModel):
     nome:   str
-    tipo:   Optional[str] = None   # ignorado — tipo é derivado da hierarquia
+    tipo:   Optional[str] = None   # ignorado - tipo é derivado da hierarquia
     cd_pai: Optional[int] = None
 
 _FORMAS_VALIDAS = {'debito', 'credito', None}
@@ -386,7 +363,6 @@ class SnapshotInvestimentoInput(BaseModel):
     cd_financa: int
     saldo:      float
 
-# ── helper: deriva tipo subindo até o nó raiz ────────────────────────────────
 def _derive_tipo(c_id: int, lookup: dict) -> str:
     """Sobe a árvore até o nó raiz (cd_pai=NULL) e devolve o nome em minúsculas."""
     c = lookup.get(c_id)
@@ -396,7 +372,6 @@ def _derive_tipo(c_id: int, lookup: dict) -> str:
         return c.nome.lower()   # 'receita' | 'despesa' | 'investimento'
     return _derive_tipo(c.cd_pai, lookup)
 
-# Categorias
 @app.get("/api/financas/codigos")
 def get_financas_codigos():
     with get_db() as db:
@@ -421,8 +396,6 @@ def delete_financa_codigo(id: int):
         db.commit()
     return {"ok": True}
 
-
-# Lançamentos
 @app.get("/api/financas/lancamentos")
 def get_lancamentos():
     with get_db() as db:
@@ -466,8 +439,6 @@ def delete_lancamento(id: int):
         db.commit()
     return {"ok": True}
 
-
-# Orçamento
 @app.get("/api/financas/orcamento")
 def get_orcamento():
     with get_db() as db:
@@ -510,8 +481,6 @@ def delete_orcamento(id: int):
         db.commit()
     return {"ok": True}
 
-
-# Investimentos
 @app.get("/api/financas/investimentos")
 def get_investimentos():
     with get_db() as db:
@@ -542,8 +511,6 @@ def delete_investimento(id: int):
         db.commit()
     return {"ok": True}
 
-
-# Viagens
 class ViagemRenameInput(BaseModel):
     nome_viagem: str
 
@@ -559,7 +526,6 @@ def get_viagens():
             l.id: l for l in db.query(LancamentoFinanceiro)
             .filter(LancamentoFinanceiro.id.in_(ids_rel)).all()
         }
-        # agrupa por nome_viagem
         grupos = defaultdict(list)
         for r in rels:
             l = lancs.get(r.cd_lancamento)
@@ -576,15 +542,21 @@ def get_viagens():
                 "descricao": l.descricao,
                 "forma_pagamento": l.forma_pagamento,
             })
-        return [
-            {
+        viagens = []
+        for nome, items in grupos.items():
+            lancs_sorted = sorted(items, key=lambda x: x["data"])
+            viagens.append({
                 "nome_viagem": nome,
                 "total": sum(l["valor"] for l in items),
                 "num_lancamentos": len(items),
-                "lancamentos": sorted(items, key=lambda x: x["data"]),
-            }
-            for nome, items in sorted(grupos.items())
-        ]
+                "ultima_data": (lancs_sorted[-1]["data"] if lancs_sorted else None),
+                "lancamentos": lancs_sorted,
+            })
+
+        # Mais recentes primeiro (desempate por nome)
+        viagens.sort(key=lambda v: v["nome_viagem"])
+        viagens.sort(key=lambda v: v.get("ultima_data") or "", reverse=True)
+        return viagens
 
 @app.patch("/api/financas/viagens/{cd_lancamento}")
 def rename_viagem(cd_lancamento: int, body: ViagemRenameInput):
@@ -601,7 +573,6 @@ def rename_viagem(cd_lancamento: int, body: ViagemRenameInput):
         db.commit()
     return {"ok": True}
 
-# ── INDICADORES ──────────────────────────────────────────────────────────────
 
 class IndicadorInput(BaseModel):
     ano:   int
@@ -619,7 +590,7 @@ def post_indicador(body: IndicadorInput):
             CodigoFinanca.nome   == body.nome,
         ).first()
         if not cat:
-            cat = CodigoFinanca(nome=body.nome, cd_pai=78, tipo='investimento')
+            cat = CodigoFinanca(nome=body.nome, cd_pai=78)
             db.add(cat)
             db.flush()
         data = datetime.date(body.ano, body.mes, 1)
@@ -642,5 +613,4 @@ def unlink_viagem(cd_lancamento: int):
             .filter(RelacionamentoLancamentoViagem.cd_lancamento == cd_lancamento).delete()
         db.commit()
     return {"ok": True}
-
 

@@ -10,7 +10,6 @@ class UnidadeMedida(Base):
     sigla = Column(String, nullable=False)
     nome  = Column(String, nullable=True)
 
-
 class CodigoMedida(Base):
     __tablename__ = "codigo_medida"
 
@@ -22,13 +21,12 @@ class CodigoMedida(Base):
 
     unidade = relationship("UnidadeMedida")
 
-    # RELAÇÃO CORRETA
+    # Relacao auto-referenciada para navegar entre medida pai e medidas filhas.
     pai = relationship(
         "CodigoMedida",
         remote_side=[id],
         backref="filhos"
     )
-
 
 class Checkin(Base):
     __tablename__ = "checkins"
@@ -52,7 +50,6 @@ class CodigoExercicio(Base):
         remote_side="CodigoExercicio.id"
     )
 
-
 class EntradaExercicio(Base):
     __tablename__ = "entrada_exercicio"
 
@@ -61,7 +58,7 @@ class EntradaExercicio(Base):
     hora         = Column(Time,    nullable=False)
     cd_exercicio = Column(Integer, ForeignKey("codigo_exercicio.id"), nullable=False)
     duracao      = Column(Integer, nullable=True)
-    esforco      = Column(Integer, nullable=True)   # 1–10
+    esforco      = Column(Integer, nullable=True)   # 1-10
 
 class CodigoGoal(Base):
     __tablename__ = "codigo_goals"
@@ -91,8 +88,6 @@ class Meta(Base):
     cd_medida  = Column(Integer, ForeignKey("codigo_medida.id"), nullable=True)
 
 
-# ── FINANÇAS ──────────────────────────────────────────────────────────────────
-
 class CodigoFinanca(Base):
     """Categorias hierárquicas (pai/filho). receita | despesa | investimento são nós raiz (cd_pai=NULL)."""
     __tablename__ = "codigo_financa"
@@ -108,7 +103,6 @@ class CodigoFinanca(Base):
         remote_side="CodigoFinanca.id"
     )
 
-
 class LancamentoFinanceiro(Base):
     """Receitas e despesas diárias."""
     __tablename__ = "lancamento_financeiro"
@@ -122,7 +116,6 @@ class LancamentoFinanceiro(Base):
 
     categoria = relationship("CodigoFinanca")
 
-
 class OrcamentoFinanceiro(Base):
     """Orçamento mensal por grupo (categoria pai)."""
     __tablename__ = "orcamento_financeiro"
@@ -135,7 +128,6 @@ class OrcamentoFinanceiro(Base):
     forma_pagamento = Column(String,  nullable=True)
 
     categoria = relationship("CodigoFinanca")
-
 
 class SnapshotInvestimento(Base):
     """Saldo periódico de cada caixinha de investimento."""
@@ -156,3 +148,4 @@ class RelacionamentoLancamentoViagem(Base):
     nome_viagem   = Column(String, nullable=False)
 
     lancamento = relationship("LancamentoFinanceiro", backref="viagem")
+

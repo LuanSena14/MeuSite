@@ -1,0 +1,92 @@
+<div id="ex-active-chips" class="ex-active-chips is-hidden"></div>
+
+<div id="ex-empty" class="empty-state is-hidden">
+  <div class="empty-icon">◇</div>
+  <h3>Nenhum treino encontrado</h3>
+  <p>Tente ajustar os filtros ou adicione um novo treino.</p>
+  <button class="btn-add empty-cta" onclick="openExModal()">+ Adicionar treino</button>
+</div>
+
+<div id="ex-content">
+
+  <!-- KPIs -->
+  <div class="kpi-grid">
+    <div class="kpi-card kpi-color-accent">
+      <div class="kpi-label">Treinos no período</div>
+      <div class="kpi-value" id="ex-kpi-total">—</div>
+      <div class="kpi-delta" id="ex-kpi-total-delta"></div>
+    </div>
+    <div class="kpi-card kpi-color-accent2">
+      <div class="kpi-label">Duração média</div>
+      <div class="kpi-value" id="ex-kpi-media">—<span class="kpi-unit">min</span></div>
+      <div class="kpi-delta" id="ex-kpi-media-delta"></div>
+    </div>
+    <div class="kpi-card kpi-color-gold">
+      <div class="kpi-label">Tempo total</div>
+      <div class="kpi-value" id="ex-kpi-tempo">—<span class="kpi-unit">min</span></div>
+    </div>
+    <div class="kpi-card kpi-color-accent3">
+      <div class="kpi-label">Esforço médio</div>
+      <div class="kpi-value" id="ex-kpi-esforco">—<span class="kpi-unit">/10</span></div>
+    </div>
+  </div>
+
+  <!-- Gráfico de barras (meses → dias) -->
+  <div class="chart-card ex-chart-mes-card card-gap">
+    <div class="ex-chart-head">
+      <div class="ex-chart-title-row">
+        <span class="chart-title ex-chart-title-inline" id="ex-bar-title">Treinos por mês</span>
+        <span class="ex-chart-hint" id="ex-bar-hint">clique numa barra para ver os dias</span>
+      </div>
+      <!-- breadcrumb drill -->
+      <div id="ex-bar-breadcrumb" class="is-hidden">
+        <button class="ex-drill-back" onclick="exDrillBack()">← voltar aos meses</button>
+      </div>
+    </div>
+    <div class="ex-chart-mes-scroll">
+      <canvas id="ex-chart-freq"></canvas>
+    </div>
+  </div>
+
+  <!-- Rosca (grupo → exercício) + período lado a lado -->
+  <div class="ex-charts-row card-gap">
+    <div class="chart-card ex-chart-half">
+      <div class="ex-chart-head ex-chart-head-tight">
+        <div class="ex-chart-title-row">
+          <span class="chart-title ex-chart-title-inline" id="ex-rosca-title">Por grupo muscular</span>
+          <span class="ex-chart-hint" id="ex-rosca-hint">clique para ver exercícios</span>
+        </div>
+        <div id="ex-rosca-breadcrumb" class="is-hidden">
+          <button class="ex-drill-back" onclick="exRoscaDrillBack()">← grupos</button>
+        </div>
+      </div>
+      <div class="ex-chart-box-260">
+        <canvas id="ex-chart-tipo"></canvas>
+      </div>
+    </div>
+    <div class="chart-card ex-chart-half">
+      <div class="chart-title">Treinos por período do dia</div>
+      <div class="ex-chart-box-260">
+        <canvas id="ex-chart-periodo"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Histórico -->
+  <div class="history-card">
+    <div class="ex-history-head">
+      <div class="chart-title ex-chart-title-inline">Histórico de Treinos</div>
+      <span id="ex-history-count" class="ex-history-count"></span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Data</th><th>Hora</th><th>Exercício</th>
+          <th>Grupo</th><th>Duração</th><th>Esforço</th>
+        </tr>
+      </thead>
+      <tbody id="ex-history-body"></tbody>
+    </table>
+  </div>
+
+</div>

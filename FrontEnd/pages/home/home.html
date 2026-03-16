@@ -1,0 +1,68 @@
+<div class="home-page">
+
+  <header class="home-header">
+    <div class="home-header-left">
+      <div class="home-greeting" id="home-greeting"></div>
+      <div class="home-date"     id="home-date"></div>
+    </div>
+    <select id="home-mes-filter" class="home-mes-select" onchange="homeFilterMes(this.value)"></select>
+  </header>
+
+  <div id="home-feedback" class="section-feedback section-feedback-inline home-feedback is-hidden"></div>
+
+  <div class="home-grid">
+
+<article class="home-card hcard-body" onclick="switchSection('body')">
+      <div class="hcard-header">
+        <span class="hcard-icon">◎</span>
+        <span class="hcard-name">Body</span>
+        <button class="hcard-add-btn" onclick="event.stopPropagation(); openModal()" title="Novo check-in">+ check-in</button>
+      </div>
+      <div id="home-body-content" class="hcard-content">
+        <div class="hcard-skel"></div>
+        <div class="hcard-skel hcard-skel-65"></div>
+        <div class="hcard-skel hcard-skel-45"></div>
+      </div>
+    </article>
+
+<article class="home-card hcard-finances" onclick="switchSection('finances')">
+      <div class="hcard-header">
+        <span class="hcard-icon">◈</span>
+        <span class="hcard-name">Finances</span>
+        <button class="hcard-add-btn" onclick="_homeOpenFinAdd(event)" title="Novo lançamento">+ lançamento</button>
+      </div>
+      <div id="home-fin-content" class="hcard-content">
+        <div class="hcard-skel"></div>
+        <div class="hcard-skel hcard-skel-65"></div>
+        <div class="hcard-skel hcard-skel-45"></div>
+      </div>
+    </article>
+
+<article class="home-card hcard-exercises" onclick="switchSection('exercises')">
+      <div class="hcard-header">
+        <span class="hcard-icon">◇</span>
+        <span class="hcard-name">Exercises</span>
+        <button class="hcard-add-btn" onclick="_homeOpenExAdd(event)" title="Novo treino">+ treino</button>
+      </div>
+      <div id="home-ex-content" class="hcard-content">
+        <div class="hcard-skel"></div>
+        <div class="hcard-skel hcard-skel-65"></div>
+        <div class="hcard-skel hcard-skel-45"></div>
+      </div>
+    </article>
+
+<article class="home-card hcard-goals" onclick="switchSection('goals')">
+      <div class="hcard-header">
+        <span class="hcard-icon">◆</span>
+        <span class="hcard-name">Goals</span>
+        <button class="hcard-add-btn" onclick="_homeOpenGoalsAdd(event)" title="Registrar dia">+ dia</button>
+      </div>
+      <div id="home-goals-content" class="hcard-content">
+        <div class="hcard-skel"></div>
+        <div class="hcard-skel hcard-skel-65"></div>
+        <div class="hcard-skel hcard-skel-45"></div>
+      </div>
+    </article>
+
+  </div>
+</div>
