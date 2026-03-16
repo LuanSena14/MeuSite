@@ -1,7 +1,7 @@
 
-const API = 'http://localhost:8001'
+//const API = 'http://localhost:8001'
 // Endpoint alternativo para deploy remoto.
-// const API = "https://meusite-3.onrender.com"
+const API = "https://meusite-3.onrender.com"
 
 async function _apiFetch(path, options = {}) {
   const response = await fetch(`${API}${path}`, options)

@@ -478,23 +478,66 @@
   flex-shrink: 0;
 }
 @media (max-width: 600px) {
-  #goals-months-grid {
-    grid-template-columns: 1fr;
-  }
+  #goals-months-grid { grid-template-columns: 1fr; }
+
   .g-det-top {
     flex-direction: column;
     align-items: stretch;
+    gap: 14px;
   }
+
   .g-ring-wrap {
     flex-direction: row;
     align-items: center;
-    gap: 16px;
+    gap: 14px;
   }
-  .g-weight-card {
-    max-width: none;
+
+  .g-back-btn {
+    min-height: 42px;
+    font-size: 0.84rem;
+    padding: 8px 12px;
   }
+
+  .g-weight-card { max-width: none; }
+
+  .g-w-input-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .g-w-save-btn {
+    width: 100%;
+    min-height: 40px;
+  }
+
   .g-ind-bottom {
     padding-left: 0;
+    flex-wrap: wrap;
+    gap: 6px;
   }
+
+  .g-cal-chip {
+    min-height: 34px;
+    padding: 6px 12px;
+    font-size: 0.72rem;
+  }
+
+  .g-cal-grid { gap: 4px; }
+  .g-cal-day { min-height: 42px; }
+}
+
+@media (max-width: 420px) {
+  .g-ring {
+    width: 128px;
+    height: 128px;
+  }
+
+  .g-ring-inner {
+    width: 96px;
+    height: 96px;
+  }
+
+  .g-ring-pct { font-size: 1.45rem; }
+  .g-det-title { font-size: 1.1rem; }
 }
 

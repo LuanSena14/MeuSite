@@ -430,9 +430,6 @@ select.fin-col-filter {
   gap: 16px;
   margin-top: 16px;
 }
-@media (max-width: 900px) {
-  .fin-inv-layout { grid-template-columns: 1fr; }
-}
 
 .viag-card {
   background: var(--surface);
@@ -552,11 +549,6 @@ select.fin-col-filter {
   text-transform: uppercase;
 }
 
-@media (max-width: 680px) {
-  .fin-overview-top-row { grid-template-columns: 1fr; }
-  .fin-overview-grid { grid-template-columns: 1fr; }
-  .fin-inv-cards     { flex-wrap: wrap; }
-}
 .fin-val-table {
   width: 100%;
   border-collapse: collapse;
@@ -867,4 +859,136 @@ select.form-input {
   gap: 12px;
 }
 .fin-form-row .form-label { margin-top: 16px; }
+
+@media (max-width: 900px) {
+  .fin-tabs {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+
+  .fin-tabs::-webkit-scrollbar { display: none; }
+
+  .fin-tab {
+    flex: 0 0 auto;
+    min-height: 42px;
+    padding: 10px 14px;
+  }
+
+  .fin-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .fin-toolbar-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .fin-toolbar-actions .btn-add { width: 100%; }
+
+  .fin-overview-top-row {
+    margin-top: 20px;
+    gap: 16px;
+  }
+
+  .fin-overview-grid { grid-template-columns: 1fr; }
+  .fin-inv-layout { grid-template-columns: 1fr; }
+
+  .fin-row-between {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .fin-table { min-width: 640px; }
+
+  .fin-rec-layout {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .fin-rec-summary {
+    width: 100%;
+    flex: 1;
+  }
+
+  .fin-rec-donos {
+    width: 100%;
+    padding-bottom: 4px;
+  }
+
+  .fin-form {
+    padding: 18px 16px 20px;
+  }
+
+  .fin-form-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 680px) {
+  .fin-filter-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 0.8rem;
+  }
+
+  .fin-tab {
+    font-size: 0.8rem;
+    padding: 9px 12px;
+  }
+
+  .fin-inv-cards {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 10px;
+    padding-bottom: 2px;
+  }
+
+  .fin-inv-card,
+  .fin-inv-card-total {
+    flex: 0 0 min(82vw, 260px);
+  }
+
+  .viag-card-header { padding: 12px 12px 10px; }
+
+  .viag-card-title-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  .viag-card-stats {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+
+  .fin-chart-box-320 { height: 260px; }
+
+  .fin-val-table { font-size: 0.78rem; }
+
+  .fin-val-tbl-num,
+  .fin-val-tbl-children .fin-val-tbl-num {
+    width: 92px;
+    min-width: 92px;
+  }
+}
+
+@media (max-width: 480px) {
+  .fin-resumo-row {
+    gap: 8px;
+    font-size: 0.78rem;
+    padding: 8px 10px;
+  }
+
+  .fin-tab { min-height: 40px; }
+
+  .fin-chart-box-320 { height: 230px; }
+}
 
