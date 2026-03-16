@@ -128,39 +128,61 @@ function _homeBodyCard(checkins, mesKey) {
   const endOfMonthStr = new Date(my, mm, 0).toISOString().slice(0, 10)
   const upToMonth = sorted.filter(c => c.date <= endOfMonthStr)
 
+  // Última altura conhecida — do histórico completo (backend só faz forward-fill após 1ª medição)
+  const _imcAlturaRaw = sorted.slice().reverse().find(c => parseFloat(c.altura) > 0)?.altura
+  const _imcAltura = _imcAlturaRaw
+    ? (parseFloat(_imcAlturaRaw) > 3 ? parseFloat(_imcAlturaRaw) / 100 : parseFloat(_imcAlturaRaw))
+    : null
+
   // Computa valor de um campo (incluindo campos derivados)
+  // Para campos compostos, retorna null se QUALQUER dependência estiver ausente na mesma entrada
   function mVal(c, field) {
     switch (field) {
       case 'gorduraPct': {
         const g = parseFloat(c.gordura), p = parseFloat(c.peso)
-        return Number.isFinite(g) && Number.isFinite(p) && p > 0 ? g / p * 100 : null
+        return Number.isFinite(g) && g > 0 && Number.isFinite(p) && p > 0 ? g / p * 100 : null
       }
       case 'imc': {
         const p = parseFloat(c.peso)
-        const h = parseFloat(c.altura)
-        const a = h > 3 ? h / 100 : h
-        return Number.isFinite(p) && Number.isFinite(a) && a > 0 ? p / (a * a) : null
+        const hRaw = parseFloat(c.altura)
+        const a = Number.isFinite(hRaw) && hRaw > 0
+          ? (hRaw > 3 ? hRaw / 100 : hRaw)
+          : _imcAltura
+        return Number.isFinite(p) && p > 0 && a != null && a > 0 ? p / (a * a) : null
       }
       default: {
         const v = parseFloat(c[field])
-        return Number.isFinite(v) ? v : null
+        return Number.isFinite(v) && v > 0 ? v : null
       }
     }
   }
 
-  // Retorna { val, dLast, dAno, firstFmt } para um campo
+  // Para cada campo: valor atual = última medição até o fim do mês selecionado
+  //                 prevC       = medição anterior DAQUELE CAMPO no histórico completo
+  //                 dAno        = primeira medição do campo no ano selecionado (até lastC)
   function metricInfo(field) {
-    const withVal = upToMonth.filter(c => mVal(c, field) !== null)
-    const lastC  = withVal.at(-1)
-    const prevC  = withVal.at(-2)
-    const firstC = withVal.find(c => c.date.startsWith(String(my)))
+    // Valor atual: último registro válido até o fim do mês
+    const inWindow = upToMonth.filter(c => mVal(c, field) !== null)
+    const lastC = inWindow.at(-1)
     if (!lastC) return null
-    const val    = mVal(lastC, field)
-    const dLast  = prevC  != null ? val - mVal(prevC,  field) : null
-    const dAno   = firstC && firstC.date !== lastC.date ? val - mVal(firstC, field) : null
-    const firstFmt = firstC
-      ? new Date(firstC.date + 'T00:00:00').toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
+
+    const val = mVal(lastC, field)
+
+    // Medição anterior: busca no histórico COMPLETO antes da data de lastC
+    const prevC = sorted
+      .filter(c => c.date < lastC.date && mVal(c, field) !== null)
+      .at(-1) ?? null
+    const dLast = prevC ? val - mVal(prevC, field) : null
+
+    // Primeira medição DESTE campo no ano selecionado (até lastC)
+    const firstAnoC = inWindow.find(c => c.date.startsWith(String(my))) ?? null
+    const dAno = firstAnoC && firstAnoC.date !== lastC.date
+      ? val - mVal(firstAnoC, field) : null
+
+    const firstFmt = firstAnoC
+      ? new Date(firstAnoC.date + 'T00:00:00').toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
       : null
+
     return { val, dLast, dAno, firstFmt, lastDate: lastC.date }
   }
 
@@ -254,9 +276,6 @@ function _homeFinCard(lancamentos, codigos, orcamento, unlocked, mesKey) {
 
   const saldo  = receitas - despesas
   const fmtBRL = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
-  const fmtK   = v => v >= 1000
-    ? `R$${(v / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}k`
-    : fmtBRL(v)
   const orcColor = pct => pct >= 100 ? 'var(--danger)' : pct >= 80 ? 'var(--accent3)' : 'var(--accent2)'
 
   // Orçamento: realizado vs orçado por categoria de despesa
@@ -284,7 +303,7 @@ function _homeFinCard(lancamentos, codigos, orcamento, unlocked, mesKey) {
       const pct       = orcado > 0 ? Math.round((realizado / orcado) * 100) : 0
       orcRows.push({ nome: cat.nome, orcado, realizado, pct })
     })
-    orcRows.sort((a, b) => b.realizado - a.realizado)
+    orcRows.sort((a, b) => b.orcado - a.orcado)
   }
 
   if (!doMes.length && !orcRows.length) {
@@ -297,9 +316,9 @@ function _homeFinCard(lancamentos, codigos, orcamento, unlocked, mesKey) {
       <span class="hcard-big" style="color:${saldo >= 0 ? 'var(--accent)' : 'var(--danger)'}">${fmtBRL(saldo)}</span>
     </div>
     <div class="hcard-rec-des">
-      <span style="color:var(--accent2)">↑ ${fmtK(receitas)}</span>
+      <span style="color:var(--accent2)">↑ ${fmtBRL(receitas)}</span>
       <span class="hcard-rec-des-sep">·</span>
-      <span style="color:var(--danger)">↓ ${fmtK(despesas)}</span>
+      <span style="color:var(--danger)">↓ ${fmtBRL(despesas)}</span>
     </div>
     ${orcRows.length ? `
     <div class="hcard-divider"></div>
@@ -307,7 +326,7 @@ function _homeFinCard(lancamentos, codigos, orcamento, unlocked, mesKey) {
       <div class="hcard-bar-row">
         <span class="hcard-bar-lbl hcard-bar-cat">${r.nome}</span>
         <div class="hcard-bar"><div class="hcard-bar-fill" style="width:${Math.min(r.pct, 100)}%;background:${orcColor(r.pct)}"></div></div>
-        <span class="hcard-orc-vals">${fmtK(r.realizado)}<span class="hcard-orc-sep">/</span>${fmtK(r.orcado)}</span>
+        <span class="hcard-orc-vals">${fmtBRL(r.realizado)}<span class="hcard-orc-sep">/</span>${fmtBRL(r.orcado)}</span>
       </div>`).join('')}` : ''}
     <div class="hcard-foot">${doMes.length} lançamentos${orcRows.length ? ` · ${orcRows.length} cats orçadas` : ''}</div>
   `
@@ -412,7 +431,7 @@ function _homeGoalsCard(entradas, metas, mesKey) {
   }
 
   const grade    = score.grade ?? { label: '?', color: 'var(--surface2)', fg: 'var(--text-muted)' }
-  const allMetas = [...(score.metaScores ?? [])].sort((a, b) => b.possivel - a.possivel)
+  const allMetas = [...(score.metaScores ?? [])].sort((a, b) => b.pct - a.pct)
 
   el.innerHTML = `
     <div class="hcard-main-row" style="align-items:center;gap:12px">

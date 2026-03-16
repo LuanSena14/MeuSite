@@ -2467,6 +2467,7 @@ select.form-input {
   overflow-y: auto;
   overflow-x: hidden;
   min-height: 0;
+  padding-right: 4px;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
@@ -2561,7 +2562,7 @@ select.form-input {
 }
 
 .hcard-bar-cat {
-  width: 72px;
+  width: 100px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2698,7 +2699,7 @@ select.form-input {
   font-size: 0.62rem;
   font-family: 'DM Mono', monospace;
   color: var(--text-dim);
-  width: 72px;
+  width: 130px;
   text-align: right;
   flex-shrink: 0;
   white-space: nowrap;

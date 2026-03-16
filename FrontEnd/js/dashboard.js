@@ -285,10 +285,35 @@ function renderDash() {
   content.style.display = 'block'
 
   const last         = entries[entries.length - 1]
-  const prev         = entries.length > 1 ? entries[entries.length - 2] : null
+  const lastIdx      = entries.length - 1
   const latestAltura = getLatestKnown(entries, 'altura')
   const lastDerived  = buildDerivedMetrics(last, latestAltura)
-  const prevDerived  = prev ? buildDerivedMetrics(prev, latestAltura) : null
+
+  // Per-metric: scan backwards for the most recent entry BEFORE last that has a valid value
+  function prevDerivedVal(key) {
+    for (let i = lastIdx - 1; i >= 0; i--) {
+      const d = buildDerivedMetrics(entries[i], latestAltura)
+      if (d[key] != null) return d[key]
+    }
+    return null
+  }
+  function prevFieldVal(field) {
+    for (let i = lastIdx - 1; i >= 0; i--) {
+      const v = parseFloat(entries[i][field])
+      if (Number.isFinite(v)) return v
+    }
+    return null
+  }
+
+  // Build a smart prevDerived where each key is independently resolved
+  const smartPrevDerived = lastIdx > 0 ? {
+    gorduraPct:     prevDerivedVal('gorduraPct'),
+    imc:            prevDerivedVal('imc'),
+    ffmi:           prevDerivedVal('ffmi'),
+    mlg:            prevDerivedVal('mlg'),
+    massa_muscular: prevDerivedVal('massa_muscular'),
+    massa_gordura:  prevDerivedVal('massa_gordura'),
+  } : null
 
   document.getElementById('last-update-label').textContent =
     'Último check-in: ' + formatDate(last.date)
@@ -296,22 +321,22 @@ function renderDash() {
   document.getElementById('kpi-peso').innerHTML =
     (last.peso ?? '—') + '<span class="kpi-unit">kg</span>'
   document.getElementById('kpi-peso-delta').innerHTML =
-    prev ? delta(last.peso, prev.peso, ' kg') : ''
+    delta(last.peso, prevFieldVal('peso'), ' kg')
 
   document.getElementById('kpi-gordura').innerHTML =
     (lastDerived.gorduraPct ?? '—') + '<span class="kpi-unit">%</span>'
   document.getElementById('kpi-gordura-delta').innerHTML =
-    prevDerived ? delta(lastDerived.gorduraPct, prevDerived.gorduraPct, '%') : ''
+    delta(lastDerived.gorduraPct, smartPrevDerived?.gorduraPct ?? null, '%')
 
   document.getElementById('kpi-musculo').innerHTML =
     (lastDerived.massa_muscular ?? '—') + '<span class="kpi-unit">kg</span>'
   document.getElementById('kpi-musculo-delta').innerHTML =
-    prevDerived ? delta(lastDerived.massa_muscular, prevDerived.massa_muscular, ' kg') : ''
+    delta(lastDerived.massa_muscular, smartPrevDerived?.massa_muscular ?? null, ' kg')
 
   document.getElementById('kpi-ffmi').innerHTML =
     (lastDerived.ffmi ?? '—') + '<span class="kpi-unit"></span>'
   document.getElementById('kpi-ffmi-delta').innerHTML =
-    prevDerived ? delta(lastDerived.ffmi, prevDerived.ffmi, '') : ''
+    delta(lastDerived.ffmi, smartPrevDerived?.ffmi ?? null, '')
 
   renderLineChart(
     'chart-peso',
@@ -323,7 +348,7 @@ function renderDash() {
 
   buildMetricSelector()  // usa a árvore que veio do banco (var global `medidas`)
 
-  renderMeasures(last, lastDerived, prevDerived)
+  renderMeasures(last, lastDerived, smartPrevDerived)
   renderHistory(latestAltura)
 }
 
