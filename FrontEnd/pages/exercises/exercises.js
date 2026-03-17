@@ -187,6 +187,8 @@ function populateExFilterSelects() {
 
 
 function openExModal() {
+  const today = new Date().toISOString().split('T')[0]
+  document.getElementById('ex-data').value = today
   document.getElementById('ex-modal-overlay').classList.add('open')
   document.body.style.overflow = 'hidden'
 }

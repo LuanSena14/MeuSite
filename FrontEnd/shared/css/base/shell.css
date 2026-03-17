@@ -330,6 +330,8 @@ body.sidebar-collapsed #app-wrapper { margin-left: 60px; }
     transition: transform 0.28s cubic-bezier(.4,0,.2,1);
     box-shadow: 14px 0 40px rgba(0,0,0,0.35);
     border-right-color: color-mix(in srgb, var(--border) 70%, black);
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
   #sidebar.mobile-open { transform: translateX(0); }
@@ -361,8 +363,8 @@ body.sidebar-collapsed #app-wrapper { margin-left: 60px; }
 
   #topbar {
     display: flex !important;
-    min-height: 56px;
-    padding: max(6px, env(safe-area-inset-top)) 12px 6px;
+    min-height: calc(56px + env(safe-area-inset-top));
+    padding: max(10px, env(safe-area-inset-top)) 12px 8px;
     gap: 8px;
   }
 
@@ -404,8 +406,17 @@ body.sidebar-collapsed #app-wrapper { margin-left: 60px; }
 }
 
 @media (max-width: 480px) {
-  #topbar { padding-left: 10px; padding-right: 10px; }
+  #topbar { padding-left: max(10px, env(safe-area-inset-left)); padding-right: max(10px, env(safe-area-inset-right)); }
   #topbar-section-title { font-size: 0.84rem; }
   .section { padding: 12px 10px; }
+}
+
+/* iOS home indicator — evita conteúdo embaixo do indicador */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  @media (max-width: 768px) {
+    #main-content {
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+  }
 }
 
