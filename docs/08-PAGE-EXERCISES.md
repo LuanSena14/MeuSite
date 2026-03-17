@@ -96,9 +96,10 @@ Tabela de histórico mostra:
 
 Fluxo:
 
-1. Usuário escolhe grupo.
-2. `onGrupoChange()` habilita e preenche lista de exercícios filhos.
-3. `saveExercise()` valida obrigatórios:
+1. `openExModal()` preenche automaticamente o campo de data (`ex-data`) com a data de hoje (`new Date().toISOString().split('T')[0]`).
+2. Usuário escolhe grupo.
+3. `onGrupoChange()` habilita e preenche lista de exercícios filhos.
+4. `saveExercise()` valida obrigatórios:
    - exercício
    - hora
    - data
