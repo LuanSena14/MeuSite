@@ -462,6 +462,32 @@ select.fin-col-filter {
 .fin-inv-scroll-wrap::-webkit-scrollbar-thumb { background: #3a3e3c; border-radius: 2px; }
 .fin-inv-scroll-wrap::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
+.fin-inv-chart-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 900px;
+  position: relative;
+  background-image: repeating-linear-gradient(
+    to right,
+    transparent 0,
+    transparent calc(var(--fin-inv-step, 88px) - 1px),
+    rgba(58, 62, 60, 0.45) calc(var(--fin-inv-step, 88px) - 1px),
+    rgba(58, 62, 60, 0.45) var(--fin-inv-step, 88px)
+  );
+  background-repeat: no-repeat;
+  background-position: var(--fin-inv-offset, 44px) 0;
+}
+
+.fin-inv-chart-row {
+  position: relative;
+}
+
+.fin-inv-chart-row-top {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
 .viag-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -803,7 +829,7 @@ select.fin-col-filter {
 }
 
 .fin-inv-card-total {
-  border: 1px solid var(--accent);
+  border: 1px solid var(--border);
   flex: 0 0 220px;
 }
 .fin-inv-card-total .fin-inv-card-saldo {

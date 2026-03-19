@@ -39,8 +39,7 @@ function _renderInvCards(mesStr, prevStr, mesLabel, indicIds) {
   const container = document.getElementById('fin-inv-cards')
   if (!container) return
 
-  // O gráfico agora é sempre consolidado (total geral), sem seleção por card.
-  window._finInvSelected = null
+  if (!(window._finInvSelectedIds instanceof Set)) window._finInvSelectedIds = new Set()
 
   const invSnaps    = window.finInvestimentos.filter(s => !indicIds.has(s.cd_financa))
   const snapsPorCat = {}
@@ -92,7 +91,13 @@ function _renderInvCards(mesStr, prevStr, mesLabel, indicIds) {
     }
   }).filter(Boolean).sort((a, b) => b.saldo - a.saldo)
 
-  const cardHtml = ({ nome, saldo, rendimento, aportes, resgates }) => {
+  // Remove seleções de cards que não existem mais no recorte atual.
+  const validIds = new Set(cardsData.map(c => c.id))
+  ;[...window._finInvSelectedIds].forEach(id => {
+    if (!validIds.has(id)) window._finInvSelectedIds.delete(id)
+  })
+
+  const cardHtml = ({ id, nome, saldo, rendimento, aportes, resgates }) => {
     let deltaHtml = ''
     if (rendimento !== null) {
       deltaHtml = `<div class="fin-inv-card-rend ${rendimento >= 0 ? 'pos' : 'neg'}">${rendimento >= 0 ? '+' : ''}${_fmtBRL(rendimento)} rendimento</div>`
@@ -105,7 +110,8 @@ function _renderInvCards(mesStr, prevStr, mesLabel, indicIds) {
       detalhesHtml = `<div class="fin-inv-card-details" style="font-size:0.85em;color:var(--text-muted);margin-top:4px;">⬆ ${aportes_fmt} | ⬇ ${resgates_fmt}</div>`
     }
     
-    return `<div class="fin-inv-card">
+    const isSelected = window._finInvSelectedIds.has(id)
+    return `<div class="fin-inv-card fin-clickable${isSelected ? ' fin-inv-card-selected' : ''}" data-inv-id="${id}" onclick="_toggleInvChartFilter(${id})">
       <div class="fin-inv-card-name">${nome}</div>
       <div class="fin-inv-card-saldo">${_fmtBRL(saldo)}</div>
       ${deltaHtml}
@@ -119,7 +125,8 @@ function _renderInvCards(mesStr, prevStr, mesLabel, indicIds) {
   const totalDeltaHtml = totalRend !== null
     ? `<div class="fin-inv-card-rend ${totalRend >= 0 ? 'pos' : 'neg'}">${totalRend >= 0 ? '+' : ''}${_fmtBRL(totalRend)} rendimento</div>`
     : (totalDelta !== null ? `<div class="fin-inv-card-rend ${totalDelta >= 0 ? 'pos' : 'neg'}">${totalDelta >= 0 ? '+' : ''}${_fmtBRL(totalDelta)} no mês</div>` : '')
-  const totalCard = `<div class="fin-inv-card fin-inv-card-total">
+  const totalSelected = window._finInvSelectedIds.size === 0
+  const totalCard = `<div class="fin-inv-card fin-inv-card-total fin-clickable${totalSelected ? ' fin-inv-card-selected' : ''}" onclick="_clearInvChartFilter()">
     <div class="fin-inv-card-name">Total geral</div>
     <div class="fin-inv-card-saldo">${_fmtBRL(totalAtual)}</div>
     ${totalDeltaHtml}
@@ -127,7 +134,51 @@ function _renderInvCards(mesStr, prevStr, mesLabel, indicIds) {
 
   container.innerHTML = totalCard + cardsData.map(cardHtml).join('')
 
+  window._finInvSnapsPorCat = snapsPorCat
+  window._finInvCats        = cats
   _renderChartInvestimentos(snapsPorCat, cats)
+}
+
+function _syncInvCardSelectionClasses() {
+  const selected = window._finInvSelectedIds instanceof Set ? window._finInvSelectedIds : new Set()
+
+  document.querySelectorAll('#fin-inv-cards [data-inv-id]').forEach(el => {
+    const id = Number(el.getAttribute('data-inv-id'))
+    el.classList.toggle('fin-inv-card-selected', selected.has(id))
+  })
+
+  const totalCard = document.querySelector('#fin-inv-cards .fin-inv-card-total')
+  if (totalCard) totalCard.classList.toggle('fin-inv-card-selected', selected.size === 0)
+}
+
+function _toggleInvChartFilter(catId) {
+  if (!(window._finInvSelectedIds instanceof Set)) window._finInvSelectedIds = new Set()
+
+  if (window._finInvSelectedIds.has(catId)) window._finInvSelectedIds.delete(catId)
+  else window._finInvSelectedIds.add(catId)
+
+  _syncInvCardSelectionClasses()
+  _renderChartInvestimentos(window._finInvSnapsPorCat || {}, window._finInvCats || [])
+}
+
+function _clearInvChartFilter() {
+  window._finInvSelectedIds = new Set()
+  _syncInvCardSelectionClasses()
+  _renderChartInvestimentos(window._finInvSnapsPorCat || {}, window._finInvCats || [])
+}
+
+function _updateInvChartTitle(activeCats, selectedCount) {
+  const titleEl = document.getElementById('fin-inv-chart-title')
+  if (!titleEl) return
+
+  const base = 'Evolução mensal consolidada (Fluxo, Investimento e Total)'
+  if (!selectedCount) {
+    titleEl.textContent = `${base} - Total Geral`
+    return
+  }
+
+  const scope = activeCats.map(c => c.nome).join(' + ')
+  titleEl.textContent = `${base} - ${scope}`
 }
 
 function _renderIndCards(mesStr, prevStr, mesLabel, indicIds) {
@@ -240,12 +291,26 @@ function _buildTimelineChart(canvasId, chartKey, snapsPorCat, cats, colors, fmtV
 
 function _renderChartInvestimentos(snapsPorCat, cats) {
   _destroyChart('inv')
+  _destroyChart('inv-total')
+  _destroyChart('inv-bars')
 
-  const canvas = document.getElementById('fin-chart-inv')
-  const wrap   = document.querySelector('.fin-inv-scroll-wrap')
-  if (!canvas || !wrap) return
+  const canvasTotal = document.getElementById('fin-chart-inv-total')
+  const canvasBars  = document.getElementById('fin-chart-inv-bars')
+  const wrap        = document.querySelector('.fin-inv-scroll-wrap')
+  if (!canvasTotal || !canvasBars || !wrap) return
+  const stack = wrap.querySelector('.fin-inv-chart-stack')
 
-  const mesesSet = new Set(Object.values(snapsPorCat).flat().map(s => s.data.slice(0, 7)))
+  const selected = window._finInvSelectedIds instanceof Set ? window._finInvSelectedIds : new Set()
+  const activeCats = selected.size
+    ? cats.filter(c => selected.has(c.id))
+    : cats
+
+  _updateInvChartTitle(activeCats, selected.size)
+
+  const activeSnapsPorCat = {}
+  activeCats.forEach(c => { activeSnapsPorCat[c.id] = snapsPorCat[c.id] || [] })
+
+  const mesesSet = new Set(Object.values(activeSnapsPorCat).flat().map(s => s.data.slice(0, 7)))
   const meses = [...mesesSet].sort()
   if (!meses.length) return
 
@@ -255,8 +320,8 @@ function _renderChartInvestimentos(snapsPorCat, cats) {
   const rendimentosMes = Array(meses.length).fill(0)
   const saldoTotal = Array(meses.length).fill(0)
 
-  cats.forEach(cat => {
-    const snaps = (snapsPorCat[cat.id] || []).slice().sort((a, b) => a.data.localeCompare(b.data))
+  activeCats.forEach(cat => {
+    const snaps = (activeSnapsPorCat[cat.id] || []).slice().sort((a, b) => a.data.localeCompare(b.data))
     if (!snaps.length) return
 
     const latestByMonth = {}
@@ -281,6 +346,31 @@ function _renderChartInvestimentos(snapsPorCat, cats) {
   const fluxoMes = meses.map((_, idx) => aportesMes[idx] - resgatesMes[idx])
   const balancoMes = meses.map((_, idx) => aportesMes[idx] - resgatesMes[idx] + rendimentosMes[idx])
 
+  // Reduz impacto de meses fora da curva para evitar excesso de espaço em branco.
+  const rawBarVals = [...fluxoMes, ...rendimentosMes].filter(v => Number.isFinite(v) && v !== 0)
+  const percentile = (arr, p) => {
+    if (!arr.length) return 0
+    const sorted = arr.slice().sort((a, b) => a - b)
+    const idx = (sorted.length - 1) * p
+    const lo = Math.floor(idx)
+    const hi = Math.ceil(idx)
+    if (lo === hi) return sorted[lo]
+    return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo)
+  }
+
+  const absP75 = percentile(rawBarVals.map(v => Math.abs(v)), 0.75)
+  const maxAbs = rawBarVals.length ? Math.max(...rawBarVals.map(v => Math.abs(v))) : 0
+  const clampAbs = Math.max(1200, rawBarVals.length >= 8 ? absP75 * 1.6 : maxAbs * 1.05)
+
+  const hasPos = rawBarVals.some(v => v > 0)
+  const hasNeg = rawBarVals.some(v => v < 0)
+  const y1Min = hasNeg ? -clampAbs : 0
+  const y1Max = hasPos ? clampAbs : 1200
+
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v))
+  const fluxoMesPlot = fluxoMes.map(v => clamp(v, y1Min, y1Max))
+  const rendimentosMesPlot = rendimentosMes.map(v => clamp(v, y1Min, y1Max))
+
   const labels = meses.map(mk => {
     const [y, m] = mk.split('-')
     return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
@@ -289,50 +379,39 @@ function _renderChartInvestimentos(snapsPorCat, cats) {
   const BAR_W = 88
   const minW = Math.max(wrap.clientWidth || 900, 900)
   const totalW = Math.max(meses.length * BAR_W, minW)
-  canvas.style.width  = totalW + 'px'
-  canvas.style.height = '320px'
-  canvas.width  = totalW
-  canvas.height = 320
 
-  _finChartsInstances['inv'] = new Chart(canvas, {
-    type: 'bar',
+  const TOP_H = 150
+  const BOTTOM_H = 230
+  ;[canvasTotal, canvasBars].forEach(c => {
+    c.style.width = totalW + 'px'
+    c.width = totalW
+  })
+  if (stack) {
+    stack.style.width = totalW + 'px'
+    stack.style.setProperty('--fin-inv-step', `${BAR_W}px`)
+    stack.style.setProperty('--fin-inv-offset', '0px')
+  }
+  canvasTotal.style.height = TOP_H + 'px'
+  canvasTotal.height = TOP_H
+  canvasBars.style.height = BOTTOM_H + 'px'
+  canvasBars.height = BOTTOM_H
+
+  // Escala da linha (só total geral): sem mistura com barras.
+  const saldoVals = saldoTotal.filter(v => Number.isFinite(v))
+  const saldoMin = saldoVals.length ? Math.min(...saldoVals) : 0
+  const saldoMax = saldoVals.length ? Math.max(...saldoVals) : 0
+  const saldoRange = Math.max(1, saldoMax - saldoMin)
+  const yLineMin = saldoMin - saldoRange * 0.2
+  const yLineMax = saldoMax + saldoRange * 0.35
+
+  _finChartsInstances['inv-total'] = new Chart(canvasTotal, {
+    type: 'line',
     plugins: _finDL,
     data: {
       labels,
       datasets: [
         {
-          label: 'Fluxo (Aportes - Resgates)',
-          data: fluxoMes,
-          backgroundColor: fluxoMes.map(v => v >= 0 ? 'rgba(78,204,163,0.55)' : 'rgba(224,92,92,0.55)'),
-          borderRadius: 3,
-          yAxisID: 'y1',
-          order: 2,
-          datalabels: {
-            anchor: 'end',
-            align: 'top',
-            color: ctx => fluxoMes[ctx.dataIndex] >= 0 ? 'rgba(78,204,163,0.95)' : 'rgba(224,92,92,0.95)',
-            font: { size: 9, family: 'DM Mono', weight: '600' },
-            formatter: v => Number(v) !== 0 ? _fmtShort(v) : null,
-          },
-        },
-        {
-          label: 'Investimento (Rendimento)',
-          data: rendimentosMes,
-          backgroundColor: rendimentosMes.map(v => v >= 0 ? 'rgba(124,158,255,0.55)' : 'rgba(255,159,71,0.55)'),
-          borderRadius: 3,
-          yAxisID: 'y1',
-          order: 2,
-          datalabels: {
-            anchor: 'end',
-            align: 'top',
-            color: ctx => rendimentosMes[ctx.dataIndex] >= 0 ? 'rgba(124,158,255,0.95)' : 'rgba(255,159,71,0.95)',
-            font: { size: 9, family: 'DM Mono', weight: '600' },
-            formatter: v => Number(v) !== 0 ? _fmtShort(v) : null,
-          },
-        },
-        {
           label: 'Total geral',
-          type: 'line',
           data: saldoTotal,
           borderColor: '#f5d742',
           backgroundColor: 'transparent',
@@ -340,16 +419,15 @@ function _renderChartInvestimentos(snapsPorCat, cats) {
           pointRadius: 4,
           pointHoverRadius: 6,
           tension: 0.25,
-          yAxisID: 'y',
-          order: 1,
           datalabels: {
             align: 'top',
-            offset: 6,
+            offset: 10,
             color: '#f5d742',
             font: { size: 9, family: 'DM Mono', weight: '700' },
             backgroundColor: 'rgba(16,20,18,0.75)',
             borderRadius: 3,
             padding: { top: 2, bottom: 2, left: 4, right: 4 },
+            clamp: true,
             formatter: v => Number(v) !== 0 ? _fmtShort(v) : null,
           },
         },
@@ -358,19 +436,103 @@ function _renderChartInvestimentos(snapsPorCat, cats) {
     options: {
       responsive: false,
       maintainAspectRatio: false,
-      layout: { padding: { top: 16, right: 8, left: 8 } },
+      layout: { padding: { top: 16, right: 8, left: 8, bottom: 0 } },
       scales: {
         x: {
-          ticks: { color: '#a0a8a4', font: { size: 11 } },
-          grid: { color: '#2a2f2c' },
+          offset: true,
+          bounds: 'ticks',
+          ticks: { display: false },
+          grid: { display: false },
         },
         y: {
-          position: 'left',
+          min: yLineMin,
+          max: yLineMax,
           ticks: { display: false },
+          grid: { display: false },
+        },
+      },
+      plugins: {
+        legend: { labels: { color: '#a0a8a4', font: { size: 11 }, boxWidth: 12 } },
+        datalabels: {},
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const i = ctx.dataIndex
+              return ` Total geral: ${_fmtBRL(saldoTotal[i])} | Balanço do mês: ${_fmtBRL(balancoMes[i])} (A: ${_fmtBRL(aportesMes[i])} R: ${_fmtBRL(-resgatesMes[i])} I: ${_fmtBRL(rendimentosMes[i])})`
+            },
+          },
+        },
+      },
+    },
+  })
+
+  _finChartsInstances['inv-bars'] = new Chart(canvasBars, {
+    type: 'bar',
+    plugins: _finDL,
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Fluxo (Aportes - Resgates)',
+          data: fluxoMesPlot,
+          backgroundColor: fluxoMes.map(v => v >= 0 ? 'rgba(78,204,163,0.55)' : 'rgba(224,92,92,0.55)'),
+          borderRadius: 3,
+          barThickness: 24,
+          maxBarThickness: 28,
+          categoryPercentage: 0.55,
+          barPercentage: 0.9,
+          yAxisID: 'y1',
+          order: 2,
+          datalabels: {
+            anchor: 'end',
+            align: 'top',
+            color: ctx => fluxoMes[ctx.dataIndex] >= 0 ? 'rgba(78,204,163,0.95)' : 'rgba(224,92,92,0.95)',
+            font: { size: 9, family: 'DM Mono', weight: '600' },
+            formatter: (_v, ctx) => {
+              const realV = fluxoMes[ctx.dataIndex]
+              return Number(realV) !== 0 ? _fmtShort(realV) : null
+            },
+          },
+        },
+        {
+          label: 'Investimento (Rendimento)',
+          data: rendimentosMesPlot,
+          backgroundColor: rendimentosMes.map(v => v >= 0 ? 'rgba(124,158,255,0.55)' : 'rgba(255,159,71,0.55)'),
+          borderRadius: 3,
+          barThickness: 24,
+          maxBarThickness: 28,
+          categoryPercentage: 0.55,
+          barPercentage: 0.9,
+          yAxisID: 'y1',
+          order: 2,
+          datalabels: {
+            anchor: 'end',
+            align: 'top',
+            color: ctx => rendimentosMes[ctx.dataIndex] >= 0 ? 'rgba(124,158,255,0.95)' : 'rgba(255,159,71,0.95)',
+            font: { size: 9, family: 'DM Mono', weight: '600' },
+            formatter: (_v, ctx) => {
+              const realV = rendimentosMes[ctx.dataIndex]
+              return Number(realV) !== 0 ? _fmtShort(realV) : null
+            },
+          },
+        },
+      ],
+    },
+    options: {
+      responsive: false,
+      maintainAspectRatio: false,
+      layout: { padding: { top: 2, right: 8, left: 8, bottom: 0 } },
+      scales: {
+        x: {
+          offset: true,
+          bounds: 'ticks',
+          ticks: { color: '#a0a8a4', font: { size: 11 } },
           grid: { display: false },
         },
         y1: {
           position: 'right',
+          min: y1Min,
+          max: y1Max,
           ticks: { display: false },
           grid: { drawOnChartArea: false },
         },
@@ -383,12 +545,12 @@ function _renderChartInvestimentos(snapsPorCat, cats) {
             label: ctx => {
               const i = ctx.dataIndex
               if (ctx.datasetIndex === 0) {
-                return ` Fluxo: ${_fmtBRL(ctx.raw)} (A ${_fmtBRL(aportesMes[i])} | R ${_fmtBRL(resgatesMes[i])})`
+                return ` Fluxo: ${_fmtBRL(fluxoMes[i])} (A ${_fmtBRL(aportesMes[i])} | R ${_fmtBRL(resgatesMes[i])})`
               }
               if (ctx.datasetIndex === 1) {
-                return ` Investimento: ${_fmtBRL(ctx.raw)}`
+                return ` Investimento: ${_fmtBRL(rendimentosMes[i])}`
               }
-              return ` Total geral: ${_fmtBRL(ctx.raw)} | Balanço do mês: ${_fmtBRL(balancoMes[i])} (A: ${_fmtBRL(aportesMes[i])} R: ${_fmtBRL(-resgatesMes[i])} I: ${_fmtBRL(rendimentosMes[i])})`
+              return ` Total geral: ${_fmtBRL(saldoTotal[i])}`
             },
           },
         },
