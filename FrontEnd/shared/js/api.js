@@ -1,7 +1,29 @@
 
-//const API = 'http://localhost:8001'
-// Endpoint alternativo para deploy remoto.
-const API = "https://meusite-3.onrender.com"
+const API_DEFAULT_LOCAL  = 'http://127.0.0.1:8001'
+const API_DEFAULT_REMOTE = 'https://meusite-3.onrender.com'
+
+function _safeNormalizeApiBase(v) {
+  return String(v || '').trim().replace(/\/+$/, '')
+}
+
+function _resolveApiBase() {
+  try {
+    const q = new URLSearchParams(window.location.search)
+    const qApi = _safeNormalizeApiBase(q.get('api'))
+    if (qApi) return qApi
+  } catch (_) {}
+
+  try {
+    const lsApi = _safeNormalizeApiBase(window.localStorage?.getItem('bodylog_api_base'))
+    if (lsApi) return lsApi
+  } catch (_) {}
+
+  const host = window.location.hostname
+  const isLocalHost = host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0'
+  return isLocalHost ? API_DEFAULT_LOCAL : API_DEFAULT_REMOTE
+}
+
+const API = _resolveApiBase()
 
 async function _apiFetch(path, options = {}) {
   const response = await fetch(`${API}${path}`, options)
