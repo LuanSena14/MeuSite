@@ -83,22 +83,27 @@ Na tela de Investimentos, cada card mostra agora:
 
 ```
 ┌─────────────────────┐
-│    Fundo X          │  ← Nome do investimento
-│  R$ 197.000         │  ← Saldo atual
-│  +R$ 2.000 rendimento  │  ← ✨ NOVO! (verde se positivo)
-│  ⬆ R$ 2.000 | ⬇ R$ 0   │  ← ✨ NOVO! (aportes | resgates deste mês)
+│ Fundo X              │
+│ R$ 197.000,00        │  ← Saldo atual
+│ +R$ 1.500,00 Δ M/M   │  ← ÚNICA linha com destaque verde/vermelho
+│ Líquido: +R$ 2.000,00│  ← Aportes - resgates do período
+│ Rend.: +R$ 500,00    │  ← Neutro (sem destaque)
 └─────────────────────┘
 ```
 
-E também no **Total Geral**:
+No **Total Geral** segue o mesmo padrão visual.
+
+Além disso, no topo direito do gráfico de evolução dos investimentos existe um resumo dinâmico:
 
 ```
-┌─────────────────────┐
-│   Total Geral       │
-│  R$ 500.000         │
-│  +R$ 18.500 rendimento  │  ← Somatório de rendimentos
-└─────────────────────┘
+Δ Total | Líquido | Rend.
 ```
+
+Esse bloco muda automaticamente quando você aplica filtros por card.
+
+### Mês inicial automático
+
+Ao abrir a aba de Investimentos, o filtro de mês passa a iniciar no **último mês com snapshot disponível** (em vez do mês atual sem dados).
 
 ### Nos Dados da API
 
@@ -187,6 +192,9 @@ R: O rendimento só aparece se houver snapshot do mês ANTERIOR. Sem ele, mostra
 
 **P: E se registrar dois snapshots no mesmo mês?**
 R: Usa sempre o **mais recente** (a data mais à frente no mês).
+
+**P: Qual mês abre por padrão na aba de investimentos?**
+R: O sistema abre no **último mês com snapshot**. Se você alterar manualmente o filtro, a seleção manual passa a ser respeitada.
 
 **P: Valor negativo é possível?**
 R: Sim! Se o investimento rendeu menos que as despesas deducidas, será negativo.

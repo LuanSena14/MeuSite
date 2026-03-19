@@ -85,6 +85,8 @@ Se o cache estiver fresco e houver dados, a seção não refaz fetch completo.
    - `empty` (sem dados)
    - `ready` (com dados)
 4. aplica filtros padrão de mês
+  - overview/lançamentos: mês atual
+  - investimentos: último mês com snapshot disponível (até o usuário mudar manualmente)
 5. renderiza aba ativa
 
 ## 7. Módulo Overview (fin-overview.js)
@@ -126,15 +128,22 @@ Detalhes:
 
 Funcionalidades:
 
-- cards por ativo de investimento com saldo atual e delta mensal
+- cards por ativo de investimento com visual compacto:
+  - saldo atual
+  - `Δ M/M` (variação mensal, com cor positiva/negativa)
+  - `Líquido` (aportes - resgates no período desde a última entrada de saldo)
+  - `Rend.` (rendimento no mesmo período, em estilo neutro)
 - cards de indicadores não financeiros
-- gráficos de linha temporal para investimentos e indicadores
+- gráfico de investimentos em painel duplo (linha total + barras de fluxo/rendimento)
+- resumo no topo direito do gráfico de investimentos (`Δ Total`, `Líquido`, `Rend.`) atualizado pelos filtros ativos
+- gráfico de indicadores ao lado dos cards de indicadores (cards em coluna)
 - filtro por mês e por card selecionado
 
 Regras:
 
 - separa investimentos financeiros de indicadores (ramo id 78 e descendentes)
 - usa "último snapshot até o mês" para compor cards
+- na primeira abertura, força o mês do último snapshot de investimentos (evita abrir em mês sem dados)
 
 ## 10. Módulo Viagens (fin-viagens.js)
 
