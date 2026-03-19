@@ -249,10 +249,10 @@ function _renderChartInvestimentos(snapsPorCat, cats) {
   const meses = [...mesesSet].sort()
   if (!meses.length) return
 
-  // Agrega por mês: saldo total consolidado (carry forward) + aportes/resgates mensais.
-  const saldoTotal = Array(meses.length).fill(0)
+  // Agrega por mês com regra: total_mes = aportes - resgates + rendimentos.
   const aportesMes = Array(meses.length).fill(0)
   const resgatesMes = Array(meses.length).fill(0)
+  const rendimentosMes = Array(meses.length).fill(0)
 
   cats.forEach(cat => {
     const snaps = (snapsPorCat[cat.id] || []).slice().sort((a, b) => a.data.localeCompare(b.data))
@@ -264,17 +264,18 @@ function _renderChartInvestimentos(snapsPorCat, cats) {
       if (!latestByMonth[mk] || s.data > latestByMonth[mk].data) latestByMonth[mk] = s
     })
 
-    let runningSaldo = null
     meses.forEach((mk, idx) => {
       const mSnap = latestByMonth[mk]
       if (mSnap) {
-        runningSaldo = Number(mSnap.saldo)
         aportesMes[idx] += Number(mSnap.aportes_mes || 0)
         resgatesMes[idx] += Number(mSnap.resgates_mes || 0)
+        rendimentosMes[idx] += Number(mSnap.rendimento_calculado || 0)
       }
-      if (runningSaldo !== null) saldoTotal[idx] += runningSaldo
     })
   })
+
+  const fluxoMes = meses.map((_, idx) => aportesMes[idx] - resgatesMes[idx])
+  const totalMes = meses.map((_, idx) => aportesMes[idx] - resgatesMes[idx] + rendimentosMes[idx])
 
   const labels = meses.map(mk => {
     const [y, m] = mk.split('-')
@@ -295,25 +296,25 @@ function _renderChartInvestimentos(snapsPorCat, cats) {
       labels,
       datasets: [
         {
-          label: 'Aportes',
-          data: aportesMes,
-          backgroundColor: 'rgba(78,204,163,0.55)',
+          label: 'Fluxo (Aportes - Resgates)',
+          data: fluxoMes,
+          backgroundColor: fluxoMes.map(v => v >= 0 ? 'rgba(78,204,163,0.55)' : 'rgba(224,92,92,0.55)'),
           borderRadius: 3,
           yAxisID: 'y1',
           order: 2,
         },
         {
-          label: 'Resgates',
-          data: resgatesMes,
-          backgroundColor: 'rgba(224,92,92,0.55)',
+          label: 'Investimento (Rendimento)',
+          data: rendimentosMes,
+          backgroundColor: rendimentosMes.map(v => v >= 0 ? 'rgba(124,158,255,0.55)' : 'rgba(255,159,71,0.55)'),
           borderRadius: 3,
           yAxisID: 'y1',
           order: 2,
         },
         {
-          label: 'Total',
+          label: 'Total do mês',
           type: 'line',
-          data: saldoTotal,
+          data: totalMes,
           borderColor: '#f5d742',
           backgroundColor: 'transparent',
           borderWidth: 2.5,
@@ -350,7 +351,16 @@ function _renderChartInvestimentos(snapsPorCat, cats) {
         datalabels: { display: false },
         tooltip: {
           callbacks: {
-            label: ctx => ' ' + _fmtBRL(ctx.raw),
+            label: ctx => {
+              const i = ctx.dataIndex
+              if (ctx.datasetIndex === 0) {
+                return ` Fluxo: ${_fmtBRL(ctx.raw)} (A ${_fmtBRL(aportesMes[i])} | R ${_fmtBRL(resgatesMes[i])})`
+              }
+              if (ctx.datasetIndex === 1) {
+                return ` Investimento: ${_fmtBRL(ctx.raw)}`
+              }
+              return ` Total: ${_fmtBRL(ctx.raw)}`
+            },
           },
         },
       },
