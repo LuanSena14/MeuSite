@@ -444,6 +444,24 @@ select.fin-col-filter {
   margin-top: 16px;
 }
 
+.fin-inv-layout-invest {
+  grid-template-columns: 1fr;
+}
+
+.fin-inv-scroll-wrap {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #3a3e3c #1a1e1c;
+  padding-bottom: 6px;
+  cursor: grab;
+}
+.fin-inv-scroll-wrap:active { cursor: grabbing; }
+.fin-inv-scroll-wrap::-webkit-scrollbar { height: 4px; }
+.fin-inv-scroll-wrap::-webkit-scrollbar-track { background: #1a1e1c; border-radius: 2px; }
+.fin-inv-scroll-wrap::-webkit-scrollbar-thumb { background: #3a3e3c; border-radius: 2px; }
+.fin-inv-scroll-wrap::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
 .viag-card {
   background: var(--surface);
   border: 1px solid var(--border);
