@@ -6,7 +6,7 @@
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  height: var(--app-height);
   position: fixed;
   left: 0; top: 0; bottom: 0;
   z-index: 200;
@@ -220,7 +220,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  height: var(--app-height);
   transition: margin-left 0.25s cubic-bezier(.4,0,.2,1);
   min-width: 0;
 }
@@ -291,6 +291,7 @@ body.sidebar-collapsed #app-wrapper { margin-left: 60px; }
 }
 #main-content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   position: relative;
@@ -358,7 +359,7 @@ body.sidebar-collapsed #app-wrapper { margin-left: 60px; }
 
   #app-wrapper {
     margin-left: 0 !important;
-    height: 100dvh;
+    height: var(--app-height);
   }
 
   #topbar {

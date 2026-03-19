@@ -2,6 +2,21 @@
 
 const DEFAULT_SECTION = 'home'
 
+function syncAppViewportHeight() {
+  const vv = window.visualViewport
+  const h = Math.round(vv ? vv.height : window.innerHeight)
+  if (!h || Number.isNaN(h)) return
+  document.documentElement.style.setProperty('--app-height', `${h}px`)
+}
+
+syncAppViewportHeight()
+window.addEventListener('resize', syncAppViewportHeight)
+window.addEventListener('orientationchange', syncAppViewportHeight)
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', syncAppViewportHeight)
+  window.visualViewport.addEventListener('scroll', syncAppViewportHeight)
+}
+
 const SECTION_META = {
   home:      { title: 'BodyLog',           action: null,                                                                 filters: false },
   body:      { title: 'Body metrics',      action: { label: 'Novo check-in',   fn: 'openModal()' },                      filters: false },
@@ -159,6 +174,7 @@ window.addEventListener('resize', () => {
   const meta = SECTION_META[_currentSection] || {}
   const topbar = document.getElementById('topbar')
   if (topbar) topbar.classList.toggle('has-content', !!meta.filters)
+  syncAppViewportHeight()
 })
 
 // Sincronização inicial da sidebar com a seção padrão

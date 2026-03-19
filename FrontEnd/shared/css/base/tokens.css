@@ -1,5 +1,6 @@
 
 :root {
+  --app-height: 100svh;
   --bg:          #0d0f0e;
   --surface:     #141716;
   --surface2:    #1c1f1d;
@@ -25,7 +26,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: 'DM Sans', sans-serif;
-  min-height: 100vh;
+  min-height: var(--app-height);
   display: flex;
   overflow: hidden;
 }
