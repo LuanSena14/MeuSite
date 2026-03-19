@@ -55,7 +55,7 @@ function _renderInvCards(mesStr, prevStr, mesLabel, indicIds) {
     return
   }
 
-  let totalAtual = 0, totalAnterior = 0, prevCount = 0
+  let totalAtual = 0, totalAnterior = 0, totalRendimento = 0, prevCount = 0
   const cardsData = cats.map(cat => {
     const snaps    = snapsPorCat[cat.id] || []
     const curSnap  = _snapLatestUpTo(snaps, mesStr)
@@ -63,26 +63,60 @@ function _renderInvCards(mesStr, prevStr, mesLabel, indicIds) {
     if (!curSnap) return null
     const saldo = Number(curSnap.saldo)
     totalAtual += saldo
-    if (prevSnap) { totalAnterior += Number(prevSnap.saldo); prevCount++ }
-    return { id: cat.id, nome: cat.nome, saldo, prevSaldo: prevSnap ? Number(prevSnap.saldo) : null }
+    
+    // Usa rendimento_calculado se disponível, senão fallback para diferença simples
+    let rendimento = null
+    if (curSnap.rendimento_calculado !== null && curSnap.rendimento_calculado !== undefined) {
+      rendimento = Number(curSnap.rendimento_calculado)
+    } else if (prevSnap) {
+      rendimento = saldo - Number(prevSnap.saldo)
+    }
+    
+    if (prevSnap) { 
+      totalAnterior += Number(prevSnap.saldo)
+      prevCount++
+      if (rendimento !== null) totalRendimento += rendimento
+    }
+    
+    return { 
+      id: cat.id, 
+      nome: cat.nome, 
+      saldo, 
+      prevSaldo: prevSnap ? Number(prevSnap.saldo) : null,
+      rendimento: rendimento,
+      aportes: curSnap.aportes_mes !== undefined ? Number(curSnap.aportes_mes) : null,
+      resgates: curSnap.resgates_mes !== undefined ? Number(curSnap.resgates_mes) : null,
+    }
   }).filter(Boolean).sort((a, b) => b.saldo - a.saldo)
 
-  const cardHtml = ({ id, nome, saldo, prevSaldo }) => {
-    const deltaHtml = prevSaldo !== null
-      ? `<div class="fin-inv-card-rend ${saldo - prevSaldo >= 0 ? 'pos' : 'neg'}">${saldo - prevSaldo >= 0 ? '+' : ''}${_fmtBRL(saldo - prevSaldo)} no mês</div>`
-      : ''
+  const cardHtml = ({ id, nome, saldo, rendimento, aportes, resgates }) => {
+    let deltaHtml = ''
+    if (rendimento !== null) {
+      deltaHtml = `<div class="fin-inv-card-rend ${rendimento >= 0 ? 'pos' : 'neg'}">${rendimento >= 0 ? '+' : ''}${_fmtBRL(rendimento)} rendimento</div>`
+    }
+    
+    let detalhesHtml = ''
+    if (aportes !== null || resgates !== null) {
+      const aportes_fmt = _fmtBRL(aportes || 0)
+      const resgates_fmt = _fmtBRL(resgates || 0)
+      detalhesHtml = `<div class="fin-inv-card-details" style="font-size:0.85em;color:var(--text-muted);margin-top:4px;">⬆ ${aportes_fmt} | ⬇ ${resgates_fmt}</div>`
+    }
+    
     const isSelected = window._finInvSelected === id
     return `<div class="fin-inv-card fin-clickable${isSelected ? ' fin-inv-card-selected' : ''}" onclick="_filterInvChart(${id})">
       <div class="fin-inv-card-name">${nome}</div>
       <div class="fin-inv-card-saldo">${_fmtBRL(saldo)}</div>
       ${deltaHtml}
+      ${detalhesHtml}
     </div>`
   }
 
   const totalDelta     = prevCount > 0 ? totalAtual - totalAnterior : null
-  const totalDeltaHtml = totalDelta !== null
-    ? `<div class="fin-inv-card-rend ${totalDelta >= 0 ? 'pos' : 'neg'}">${totalDelta >= 0 ? '+' : ''}${_fmtBRL(totalDelta)} no mês</div>`
-    : ''
+  // Usa totalRendimento se disponível, senão fallback para totalDelta
+  const totalRend      = prevCount > 0 ? totalRendimento : null
+  const totalDeltaHtml = totalRend !== null
+    ? `<div class="fin-inv-card-rend ${totalRend >= 0 ? 'pos' : 'neg'}">${totalRend >= 0 ? '+' : ''}${_fmtBRL(totalRend)} rendimento</div>`
+    : (totalDelta !== null ? `<div class="fin-inv-card-rend ${totalDelta >= 0 ? 'pos' : 'neg'}">${totalDelta >= 0 ? '+' : ''}${_fmtBRL(totalDelta)} no mês</div>` : '')
   const totalCard = `<div class="fin-inv-card fin-inv-card-total">
     <div class="fin-inv-card-name">Total geral</div>
     <div class="fin-inv-card-saldo">${_fmtBRL(totalAtual)}</div>

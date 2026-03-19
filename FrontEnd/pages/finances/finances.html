@@ -117,6 +117,7 @@
     <div class="fin-toolbar">
       <input type="month" id="fin-inv-filter-mes" class="ex-filter-input" oninput="renderInvestimentos()">
       <div class="fin-toolbar-actions">
+        <button class="btn-add" onclick="openFinModal('debito-investimento')">Regras de débito</button>
         <button class="btn-add" onclick="openFinModal('investimento')">+ Investimento</button>
         <button class="btn-add" onclick="openFinModal('indicador')">+ Indicador</button>
       </div>
@@ -321,6 +322,34 @@
           </div>
         </div>
         <button class="btn-save" onclick="submitCategoria()">Salvar</button>
+      </div>
+    </div>
+
+    <div id="fin-form-debito-investimento" class="fin-hidden">
+      <div class="modal-header">
+        <h2 class="modal-title">Regras de débito</h2>
+        <button class="modal-close" onclick="closeFinModal()">✕</button>
+      </div>
+      <div class="fin-form">
+        <p class="fin-modal-hint">
+          Defina de qual caixinha cada despesa não recorrente deve sair. Se não houver regra, o sistema usa Year Bills automaticamente.
+        </p>
+        <div class="fin-form-row">
+          <div>
+            <label class="form-label">Categoria de despesa</label>
+            <select id="fin-debito-origem" class="form-input"></select>
+          </div>
+          <div>
+            <label class="form-label">Caixinha de investimento</label>
+            <select id="fin-debito-invest" class="form-input"></select>
+          </div>
+        </div>
+        <button class="btn-save" onclick="submitDebitoInvestimento()">Salvar regra</button>
+
+        <div class="fin-block-mt16">
+          <div class="fin-orc-section-label">Regras ativas</div>
+          <div id="fin-debito-regras-list" class="fin-table-wrap"></div>
+        </div>
       </div>
     </div>
 

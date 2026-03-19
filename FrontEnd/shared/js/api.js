@@ -66,6 +66,7 @@ async function fetchLancamentos()       { return _apiFetch('/api/financas/lancam
 async function fetchOrcamento()         { return _apiFetch('/api/financas/orcamento') }
 async function fetchInvestimentos()     { return _apiFetch('/api/financas/investimentos') }
 async function fetchViagens()           { return _apiFetch('/api/financas/viagens') }
+async function fetchDebitoInvestimento(){ return _apiFetch('/api/financas/debito-investimento') }
 
 async function postFinancaCodigo(body) {
   return _apiFetch('/api/financas/codigos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -93,6 +94,18 @@ async function postInvestimento(body) {
 }
 async function deleteInvestimento(id) {
   return _apiFetch(`/api/financas/investimentos/${id}`, { method: 'DELETE' })
+}
+
+async function postDebitoInvestimento(body) {
+  return _apiFetch('/api/financas/debito-investimento', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+}
+
+async function deleteDebitoInvestimento(cdFinancaOrigem) {
+  return _apiFetch(`/api/financas/debito-investimento/${cdFinancaOrigem}`, { method: 'DELETE' })
 }
 
 async function postIndicador(body) {

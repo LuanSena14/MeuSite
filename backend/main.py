@@ -8,7 +8,7 @@ from pydantic import BaseModel, field_validator
 from typing import Optional
 
 from database import Session, engine
-from models import Base, Checkin, CodigoMedida, UnidadeMedida, CodigoExercicio, EntradaExercicio, CodigoGoal, EntradaGoal, Meta, CodigoFinanca, LancamentoFinanceiro, OrcamentoFinanceiro, SnapshotInvestimento, RelacionamentoLancamentoViagem
+from models import Base, Checkin, CodigoMedida, UnidadeMedida, CodigoExercicio, EntradaExercicio, CodigoGoal, EntradaGoal, Meta, CodigoFinanca, LancamentoFinanceiro, OrcamentoFinanceiro, SnapshotInvestimento, RelacionamentoDebitoInvestimento, RelacionamentoLancamentoViagem
 import datetime
 
 app = FastAPI()
@@ -325,6 +325,8 @@ class CodigoFinancaInput(BaseModel):
     cd_pai: Optional[int] = None
 
 _FORMAS_VALIDAS = {'debito', 'credito', None}
+ID_DESPESA_RECORRENTE = 6
+ID_INVEST_DEFAULT_YEAR_BILLS = 57
 
 class LancamentoInput(BaseModel):
     data:            str
@@ -362,6 +364,10 @@ class SnapshotInvestimentoInput(BaseModel):
     data:       str
     cd_financa: int
     saldo:      float
+
+class DebitoInvestimentoInput(BaseModel):
+    cd_financa_origem: int
+    cd_financa_investimento: int
 
 def _derive_tipo(c_id: int, lookup: dict) -> str:
     """Sobe a árvore até o nó raiz (cd_pai=NULL) e devolve o nome em minúsculas."""
@@ -481,17 +487,208 @@ def delete_orcamento(id: int):
         db.commit()
     return {"ok": True}
 
+def _get_descendant_ids(cd_financa: int, codigos: dict) -> list:
+    """Retorna IDs de todas as categorias filhas (recursivamente)."""
+    cat = codigos.get(cd_financa)
+    if not cat:
+        return []
+    result = [cd_financa]
+    for c_id, c_obj in codigos.items():
+        if c_obj.cd_pai == cd_financa:
+            result.extend(_get_descendant_ids(c_id, codigos))
+    return result
+
+def _month_bounds(ano: int, mes: int):
+    inicio = datetime.date(ano, mes, 1)
+    fim = datetime.date(ano + (1 if mes == 12 else 0), 1 if mes == 12 else mes + 1, 1)
+    return inicio, fim
+
+def _is_descendant_of(cd_filho: int, cd_ancestral: int, codigos: dict) -> bool:
+    atual = codigos.get(cd_filho)
+    visitados = set()
+    while atual and atual.id not in visitados:
+        if atual.id == cd_ancestral:
+            return True
+        visitados.add(atual.id)
+        if atual.cd_pai is None:
+            break
+        atual = codigos.get(atual.cd_pai)
+    return False
+
+def _find_default_investimento_id(codigos: dict):
+    if ID_INVEST_DEFAULT_YEAR_BILLS in codigos:
+        return ID_INVEST_DEFAULT_YEAR_BILLS
+
+    for c in codigos.values():
+        if _derive_tipo(c.id, codigos) == 'investimento' and c.nome.strip().lower() == 'year bills':
+            return c.id
+    return None
+
+def _resolve_investimento_debito(cd_financa_despesa: int, rel_map: dict, codigos: dict, default_invest_id):
+    atual = codigos.get(cd_financa_despesa)
+    visitados = set()
+
+    # Herança de regra: se a categoria filha não tem mapeamento, sobe para o pai.
+    while atual and atual.id not in visitados:
+        visitados.add(atual.id)
+        mapped = rel_map.get(atual.id)
+        if mapped is not None and _derive_tipo(mapped, codigos) == 'investimento':
+            return mapped
+        if atual.cd_pai is None:
+            break
+        atual = codigos.get(atual.cd_pai)
+
+    return default_invest_id
+
+def _get_investimento_movimentacoes(cd_financa: int, ano: int, mes: int, lancamentos_mes: list, codigos: dict, rel_map: dict, default_invest_id):
+    """
+    Calcula aportes e resgates de um investimento em um mês específico.
+
+    Estratégia:
+    - Aportes: lançamentos diretos na própria caixinha
+    - Resgates: despesas não-recorrentes debitadas na caixinha mapeada
+      (ou fallback automático para Year Bills)
+
+    Retorna: {"aportes_mes": float, "resgates_mes": float}
+    """
+    _ = (ano, mes)  # Mantido para semântica da função.
+    aportes = 0.0
+    resgates = 0.0
+
+    for l in lancamentos_mes:
+        tipo = _derive_tipo(l.cd_financa, codigos)
+
+        if tipo == 'investimento' and l.cd_financa == cd_financa:
+            aportes += float(l.valor)
+            continue
+
+        if tipo != 'despesa':
+            continue
+        if _is_descendant_of(l.cd_financa, ID_DESPESA_RECORRENTE, codigos):
+            continue
+
+        alvo = _resolve_investimento_debito(l.cd_financa, rel_map, codigos, default_invest_id)
+        if alvo == cd_financa:
+            resgates += float(l.valor)
+
+    return {"aportes_mes": aportes, "resgates_mes": resgates}
+
+@app.get("/api/financas/debito-investimento")
+def get_debito_investimento_rel():
+    with get_db() as db:
+        codigos = {c.id: c for c in db.query(CodigoFinanca).all()}
+        rels = db.query(RelacionamentoDebitoInvestimento).all()
+        return [{
+            "cd_financa_origem": r.cd_financa_origem,
+            "origem_nome": codigos[r.cd_financa_origem].nome if r.cd_financa_origem in codigos else "",
+            "cd_financa_investimento": r.cd_financa_investimento,
+            "investimento_nome": codigos[r.cd_financa_investimento].nome if r.cd_financa_investimento in codigos else "",
+        } for r in rels]
+
+@app.post("/api/financas/debito-investimento")
+def post_debito_investimento_rel(body: DebitoInvestimentoInput):
+    with get_db() as db:
+        codigos = {c.id: c for c in db.query(CodigoFinanca).all()}
+
+        if body.cd_financa_origem not in codigos:
+            raise HTTPException(400, "cd_financa_origem inexistente")
+        if body.cd_financa_investimento not in codigos:
+            raise HTTPException(400, "cd_financa_investimento inexistente")
+        if _derive_tipo(body.cd_financa_origem, codigos) != 'despesa':
+            raise HTTPException(400, "cd_financa_origem deve ser categoria de despesa")
+        if _derive_tipo(body.cd_financa_investimento, codigos) != 'investimento':
+            raise HTTPException(400, "cd_financa_investimento deve ser categoria de investimento")
+
+        existing = db.query(RelacionamentoDebitoInvestimento).filter(
+            RelacionamentoDebitoInvestimento.cd_financa_origem == body.cd_financa_origem
+        ).first()
+
+        if existing:
+            existing.cd_financa_investimento = body.cd_financa_investimento
+        else:
+            db.add(RelacionamentoDebitoInvestimento(
+                cd_financa_origem=body.cd_financa_origem,
+                cd_financa_investimento=body.cd_financa_investimento,
+            ))
+        db.commit()
+    return {"ok": True}
+
+@app.delete("/api/financas/debito-investimento/{cd_financa_origem}")
+def delete_debito_investimento_rel(cd_financa_origem: int):
+    with get_db() as db:
+        db.query(RelacionamentoDebitoInvestimento).filter(
+            RelacionamentoDebitoInvestimento.cd_financa_origem == cd_financa_origem
+        ).delete()
+        db.commit()
+    return {"ok": True}
+
 @app.get("/api/financas/investimentos")
 def get_investimentos():
     with get_db() as db:
-        rows = db.query(SnapshotInvestimento).order_by(SnapshotInvestimento.data).all()
+        snapshots = db.query(SnapshotInvestimento).order_by(SnapshotInvestimento.data).all()
         codigos = {c.id: c for c in db.query(CodigoFinanca).all()}
-        return [{
-            "id": r.id, "data": str(r.data),
-            "cd_financa": r.cd_financa,
-            "nome": codigos[r.cd_financa].nome if r.cd_financa in codigos else "",
-            "saldo": r.saldo,
-        } for r in rows]
+        rel_map = {
+            r.cd_financa_origem: r.cd_financa_investimento
+            for r in db.query(RelacionamentoDebitoInvestimento).all()
+        }
+
+        default_invest_id = _find_default_investimento_id(codigos)
+
+        months_needed = {(s.data.year, s.data.month) for s in snapshots}
+        lancamentos_por_mes = defaultdict(list)
+        for l in db.query(LancamentoFinanceiro).all():
+            key = (l.data.year, l.data.month)
+            if key in months_needed:
+                lancamentos_por_mes[key].append(l)
+        
+        # Agrupa snapshots por cd_financa
+        snaps_por_cat = defaultdict(list)
+        for s in snapshots:
+            snaps_por_cat[s.cd_financa].append(s)
+        
+        resultado = []
+        for r in snapshots:
+            cat_snaps = snaps_por_cat[r.cd_financa]
+            
+            # Extrai ano e mês da data do snapshot
+            snap_date = r.data
+            ano, mes = snap_date.year, snap_date.month
+            
+            # Encontra snapshot mais recente do mês anterior
+            prev_mes = mes - 1 if mes > 1 else 12
+            prev_ano = ano if mes > 1 else ano - 1
+            prev_snaps = [s for s in cat_snaps if s.data.year == prev_ano and s.data.month == prev_mes]
+            saldo_anterior = prev_snaps[-1].saldo if prev_snaps else None
+            
+            # Calcula aportes e resgates do mês
+            mov = _get_investimento_movimentacoes(
+                r.cd_financa,
+                ano,
+                mes,
+                lancamentos_por_mes.get((ano, mes), []),
+                codigos,
+                rel_map,
+                default_invest_id,
+            )
+            
+            # Calcula rendimento
+            rendimento = None
+            if saldo_anterior is not None:
+                rendimento = r.saldo - saldo_anterior - (mov["aportes_mes"] - mov["resgates_mes"])
+            
+            resultado.append({
+                "id": r.id,
+                "data": str(r.data),
+                "cd_financa": r.cd_financa,
+                "nome": codigos[r.cd_financa].nome if r.cd_financa in codigos else "",
+                "saldo": r.saldo,
+                "saldo_anterior": saldo_anterior,
+                "aportes_mes": mov["aportes_mes"],
+                "resgates_mes": mov["resgates_mes"],
+                "rendimento_calculado": rendimento,
+            })
+        
+        return resultado
 
 @app.post("/api/financas/investimentos")
 def post_investimento(body: SnapshotInvestimentoInput):

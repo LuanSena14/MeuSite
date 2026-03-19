@@ -38,6 +38,7 @@ TABLE_ORDER = [
     "lancamento_financeiro",
     "orcamento_financeiro",
     "snapshot_investimento",
+    "relacionamento_debito_investimento",
     "relacionamento_lancamento_viagem",
 ]
 

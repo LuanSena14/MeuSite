@@ -140,6 +140,16 @@ class SnapshotInvestimento(Base):
 
     categoria = relationship("CodigoFinanca")
 
+class RelacionamentoDebitoInvestimento(Base):
+    """Mapeia categorias de despesa para a caixinha de investimento que será debitada."""
+    __tablename__ = "relacionamento_debito_investimento"
+
+    cd_financa_origem       = Column(Integer, ForeignKey("codigo_financa.id"), primary_key=True)
+    cd_financa_investimento = Column(Integer, ForeignKey("codigo_financa.id"), nullable=False)
+
+    origem       = relationship("CodigoFinanca", foreign_keys=[cd_financa_origem])
+    investimento = relationship("CodigoFinanca", foreign_keys=[cd_financa_investimento])
+
 class RelacionamentoLancamentoViagem(Base):
     """Vincula um lançamento a uma viagem (1-para-1: cada lançamento pertence a no máximo uma viagem)."""
     __tablename__ = "relacionamento_lancamento_viagem"

@@ -80,6 +80,13 @@
 .fin-chart-box-320 { height: 320px; position: relative; }
 .fin-list-mt16 { margin-top: 16px; }
 .modal-narrow { max-width: 460px; }
+.fin-modal-wide { max-width: 900px; }
+.fin-modal-hint {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  margin-bottom: 12px;
+}
 .fin-orc-section-label-top { margin-top: 20px; }
 .fin-block-mt16 { margin-top: 16px; }
 .fin-row-between {
@@ -144,6 +151,12 @@
 .fin-table .fin-col-valor { font-variant-numeric: tabular-nums; font-weight: 600; }
 .fin-table .fin-receita { color: var(--accent); }
 .fin-table .fin-despesa { color: var(--danger); }
+.fin-debito-table th:nth-child(1),
+.fin-debito-table td:nth-child(1) { width: 46%; }
+.fin-debito-table th:nth-child(2),
+.fin-debito-table td:nth-child(2) { width: 46%; }
+.fin-debito-table th:nth-child(3),
+.fin-debito-table td:nth-child(3) { width: 8%; text-align: center; }
 .fin-filter-row th {
   padding: 4px 6px 8px;
   text-transform: none;
