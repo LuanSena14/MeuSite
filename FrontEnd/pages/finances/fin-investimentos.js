@@ -14,9 +14,30 @@ function _snapLatestInMonth(snaps, mk) {
               .sort((a, b) => b.data.localeCompare(a.data))[0] || null
 }
 
+function _markInvMesFilterTouched() {
+  const invFilterEl = document.getElementById('fin-inv-filter-mes')
+  if (invFilterEl) invFilterEl.dataset.userTouched = '1'
+}
+
 
 function renderInvestimentos() {
-  const mesFilter = document.getElementById('fin-inv-filter-mes')?.value || ''
+  const invFilterEl = document.getElementById('fin-inv-filter-mes')
+  let mesFilter = invFilterEl?.value || ''
+  const indicIds = new Set([78, ..._getDescendantIds(78)])
+  const isUserTouched = invFilterEl?.dataset.userTouched === '1'
+
+  // Enquanto o usuário não tocar no filtro, mantém no último mês com snapshot.
+  const lastSnapshotDate = (window.finInvestimentos || [])
+    .filter(s => !indicIds.has(s.cd_financa) && s?.data)
+    .map(s => s.data)
+    .sort()
+    .at(-1)
+  const lastSnapshotMonth = lastSnapshotDate ? lastSnapshotDate.slice(0, 7) : ''
+  if (lastSnapshotMonth && (!isUserTouched || !mesFilter)) {
+    mesFilter = lastSnapshotMonth
+    if (invFilterEl) invFilterEl.value = mesFilter
+  }
+
   let ano, mes
   if (mesFilter) {
     ;[ano, mes] = mesFilter.split('-').map(Number)
@@ -29,8 +50,6 @@ function renderInvestimentos() {
   const prevStr  = mes === 1 ? `${ano - 1}-12` : `${ano}-${String(mes - 1).padStart(2, '0')}`
   const mesLabel = new Date(ano, mes - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 
-  const indicIds = new Set([78, ..._getDescendantIds(78)])
-
   _renderInvCards(mesStr, prevStr, mesLabel, indicIds)
   _renderIndCards(mesStr, prevStr, mesLabel, indicIds)
 }
@@ -41,7 +60,7 @@ function _renderInvCards(mesStr, prevStr, mesLabel, indicIds) {
 
   if (!(window._finInvSelectedIds instanceof Set)) window._finInvSelectedIds = new Set()
 
-  const invSnaps    = window.finInvestimentos.filter(s => !indicIds.has(s.cd_financa))
+  const invSnaps = window.finInvestimentos.filter(s => !indicIds.has(s.cd_financa))
   const snapsPorCat = {}
   invSnaps.forEach(s => {
     if (!snapsPorCat[s.cd_financa]) snapsPorCat[s.cd_financa] = []
@@ -57,37 +76,69 @@ function _renderInvCards(mesStr, prevStr, mesLabel, indicIds) {
     return
   }
 
-  let totalAtual = 0, totalAnterior = 0, totalRendimento = 0, prevCount = 0
+  const _fmtSignedBRL = v => `${v >= 0 ? '+' : ''}${_fmtBRL(v)}`
+
+  let totalAtual = 0
+  let totalVariacaoMes = 0
+  let totalAportesPeriodo = 0
+  let totalResgatesPeriodo = 0
+  let totalRendimentoPeriodo = 0
+  let prevCount = 0
+  let rendPeriodoCount = 0
+
   const cardsData = cats.map(cat => {
-    const snaps    = snapsPorCat[cat.id] || []
-    const curSnap  = _snapLatestUpTo(snaps, mesStr)
-    const prevSnap = _snapLatestInMonth(snaps, prevStr)
+    const snaps = (snapsPorCat[cat.id] || []).slice().sort((a, b) => a.data.localeCompare(b.data))
+    const curSnap = _snapLatestUpTo(snaps, mesStr)
+    const prevMonthSnap = _snapLatestInMonth(snaps, prevStr)
     if (!curSnap) return null
+
+    const prevEntrySnap = snaps.filter(s => s.data < curSnap.data).sort((a, b) => b.data.localeCompare(a.data))[0] || null
+    const curMonth = curSnap.data.slice(0, 7)
+    const prevEntryMonth = prevEntrySnap ? prevEntrySnap.data.slice(0, 7) : null
+
+    const latestByMonth = {}
+    snaps.forEach(s => {
+      if (s.data > curSnap.data) return
+      const mk = s.data.slice(0, 7)
+      if (!latestByMonth[mk] || s.data > latestByMonth[mk].data) latestByMonth[mk] = s
+    })
+
+    const periodoMeses = Object.keys(latestByMonth).sort().filter(mk => {
+      if (!prevEntryMonth) return mk === curMonth
+      return mk > prevEntryMonth && mk <= curMonth
+    })
+
+    const aportesPeriodo = periodoMeses.reduce((acc, mk) => acc + Number(latestByMonth[mk].aportes_mes || 0), 0)
+    const resgatesPeriodo = periodoMeses.reduce((acc, mk) => acc + Number(latestByMonth[mk].resgates_mes || 0), 0)
+
     const saldo = Number(curSnap.saldo)
     totalAtual += saldo
-    
-    // Usa rendimento_calculado se disponível, senão fallback para diferença simples
-    let rendimento = null
-    if (curSnap.rendimento_calculado !== null && curSnap.rendimento_calculado !== undefined) {
-      rendimento = Number(curSnap.rendimento_calculado)
-    } else if (prevSnap) {
-      rendimento = saldo - Number(prevSnap.saldo)
-    }
-    
-    if (prevSnap) { 
-      totalAnterior += Number(prevSnap.saldo)
+
+    const variacaoMes = prevMonthSnap ? saldo - Number(prevMonthSnap.saldo) : null
+    if (variacaoMes !== null) {
+      totalVariacaoMes += variacaoMes
       prevCount++
-      if (rendimento !== null) totalRendimento += rendimento
     }
-    
-    return { 
-      id: cat.id, 
-      nome: cat.nome, 
-      saldo, 
-      prevSaldo: prevSnap ? Number(prevSnap.saldo) : null,
-      rendimento: rendimento,
-      aportes: curSnap.aportes_mes !== undefined ? Number(curSnap.aportes_mes) : null,
-      resgates: curSnap.resgates_mes !== undefined ? Number(curSnap.resgates_mes) : null,
+
+    const rendimentoPeriodo = prevEntrySnap
+      ? saldo - Number(prevEntrySnap.saldo) - (aportesPeriodo - resgatesPeriodo)
+      : null
+
+    totalAportesPeriodo += aportesPeriodo
+    totalResgatesPeriodo += resgatesPeriodo
+    if (rendimentoPeriodo !== null) {
+      totalRendimentoPeriodo += rendimentoPeriodo
+      rendPeriodoCount++
+    }
+
+    return {
+      id: cat.id,
+      nome: cat.nome,
+      saldo,
+      variacaoMes,
+      aportesPeriodo,
+      resgatesPeriodo,
+      rendimentoPeriodo,
     }
   }).filter(Boolean).sort((a, b) => b.saldo - a.saldo)
 
@@ -97,45 +148,52 @@ function _renderInvCards(mesStr, prevStr, mesLabel, indicIds) {
     if (!validIds.has(id)) window._finInvSelectedIds.delete(id)
   })
 
-  const cardHtml = ({ id, nome, saldo, rendimento, aportes, resgates }) => {
-    let deltaHtml = ''
-    if (rendimento !== null) {
-      deltaHtml = `<div class="fin-inv-card-rend ${rendimento >= 0 ? 'pos' : 'neg'}">${rendimento >= 0 ? '+' : ''}${_fmtBRL(rendimento)} rendimento</div>`
-    }
-    
-    let detalhesHtml = ''
-    if (aportes !== null || resgates !== null) {
-      const aportes_fmt = _fmtBRL(aportes || 0)
-      const resgates_fmt = _fmtBRL(resgates || 0)
-      detalhesHtml = `<div class="fin-inv-card-details" style="font-size:0.85em;color:var(--text-muted);margin-top:4px;">⬆ ${aportes_fmt} | ⬇ ${resgates_fmt}</div>`
-    }
-    
+  const cardHtml = ({ id, nome, saldo, variacaoMes, aportesPeriodo, resgatesPeriodo, rendimentoPeriodo }) => {
+    const variacaoClass = variacaoMes > 0 ? 'pos' : variacaoMes < 0 ? 'neg' : 'neu'
+    const variacaoHtml = variacaoMes !== null
+      ? `<div class="fin-inv-card-rend ${variacaoClass}">${_fmtSignedBRL(variacaoMes)} Δ M/M</div>`
+      : '<div class="fin-inv-card-meta">— Δ M/M</div>'
+
+    const fluxoLiquidoPeriodo = aportesPeriodo - resgatesPeriodo
+    const fluxoLiquidoHtml = `<div class="fin-inv-card-meta">Líquido: ${_fmtSignedBRL(fluxoLiquidoPeriodo)}</div>`
+
+    const rendimentoPeriodoHtml = rendimentoPeriodo !== null
+      ? `<div class="fin-inv-card-meta">Rend.: ${_fmtSignedBRL(rendimentoPeriodo)}</div>`
+      : '<div class="fin-inv-card-meta">— Rend.</div>'
+
     const isSelected = window._finInvSelectedIds.has(id)
     return `<div class="fin-inv-card fin-clickable${isSelected ? ' fin-inv-card-selected' : ''}" data-inv-id="${id}" onclick="_toggleInvChartFilter(${id})">
       <div class="fin-inv-card-name">${nome}</div>
       <div class="fin-inv-card-saldo">${_fmtBRL(saldo)}</div>
-      ${deltaHtml}
-      ${detalhesHtml}
+      ${variacaoHtml}
+      ${fluxoLiquidoHtml}
+      ${rendimentoPeriodoHtml}
     </div>`
   }
 
-  const totalDelta     = prevCount > 0 ? totalAtual - totalAnterior : null
-  // Usa totalRendimento se disponível, senão fallback para totalDelta
-  const totalRend      = prevCount > 0 ? totalRendimento : null
-  const totalDeltaHtml = totalRend !== null
-    ? `<div class="fin-inv-card-rend ${totalRend >= 0 ? 'pos' : 'neg'}">${totalRend >= 0 ? '+' : ''}${_fmtBRL(totalRend)} rendimento</div>`
-    : (totalDelta !== null ? `<div class="fin-inv-card-rend ${totalDelta >= 0 ? 'pos' : 'neg'}">${totalDelta >= 0 ? '+' : ''}${_fmtBRL(totalDelta)} no mês</div>` : '')
+  const totalDelta = prevCount > 0 ? totalVariacaoMes : null
+  const totalDeltaClass = totalDelta > 0 ? 'pos' : totalDelta < 0 ? 'neg' : 'neu'
+  const totalDeltaHtml = totalDelta !== null
+    ? `<div class="fin-inv-card-rend ${totalDeltaClass}">${_fmtSignedBRL(totalDelta)} Δ M/M</div>`
+    : '<div class="fin-inv-card-meta">— Δ M/M</div>'
+  const totalFluxoLiquidoPeriodo = totalAportesPeriodo - totalResgatesPeriodo
+  const totalFluxoLiquidoHtml = `<div class="fin-inv-card-meta">Líquido: ${_fmtSignedBRL(totalFluxoLiquidoPeriodo)}</div>`
+  const totalRendimentoHtml = rendPeriodoCount > 0
+    ? `<div class="fin-inv-card-meta">Rend.: ${_fmtSignedBRL(totalRendimentoPeriodo)}</div>`
+    : '<div class="fin-inv-card-meta">— Rend.</div>'
   const totalSelected = window._finInvSelectedIds.size === 0
   const totalCard = `<div class="fin-inv-card fin-inv-card-total fin-clickable${totalSelected ? ' fin-inv-card-selected' : ''}" onclick="_clearInvChartFilter()">
     <div class="fin-inv-card-name">Total geral</div>
     <div class="fin-inv-card-saldo">${_fmtBRL(totalAtual)}</div>
     ${totalDeltaHtml}
+    ${totalFluxoLiquidoHtml}
+    ${totalRendimentoHtml}
   </div>`
 
   container.innerHTML = totalCard + cardsData.map(cardHtml).join('')
 
   window._finInvSnapsPorCat = snapsPorCat
-  window._finInvCats        = cats
+  window._finInvCats = cats
   _renderChartInvestimentos(snapsPorCat, cats)
 }
 
@@ -181,6 +239,37 @@ function _updateInvChartTitle(activeCats, selectedCount) {
   titleEl.textContent = `${base} - ${scope}`
 }
 
+function _renderInvChartSummary({ variacaoTotal, liquidoTotal, rendimentoTotal } = {}) {
+  const box = document.getElementById('fin-inv-chart-kpis')
+  if (!box) return
+
+  if (
+    variacaoTotal === undefined ||
+    liquidoTotal === undefined ||
+    rendimentoTotal === undefined
+  ) {
+    box.innerHTML = ''
+    return
+  }
+
+  const fmtSigned = v => `${v >= 0 ? '+' : ''}${_fmtBRL(v)}`
+  const variacaoClass = variacaoTotal > 0 ? 'pos' : variacaoTotal < 0 ? 'neg' : 'neu'
+
+  box.innerHTML = `
+    <div class="fin-inv-kpi-item">
+      <div class="fin-inv-kpi-label">Δ Total</div>
+      <div class="fin-inv-card-rend ${variacaoClass}">${fmtSigned(variacaoTotal)}</div>
+    </div>
+    <div class="fin-inv-kpi-item">
+      <div class="fin-inv-kpi-label">Líquido</div>
+      <div class="fin-inv-card-meta">${fmtSigned(liquidoTotal)}</div>
+    </div>
+    <div class="fin-inv-kpi-item">
+      <div class="fin-inv-kpi-label">Rend.</div>
+      <div class="fin-inv-card-meta">${fmtSigned(rendimentoTotal)}</div>
+    </div>`
+}
+
 function _renderIndCards(mesStr, prevStr, mesLabel, indicIds) {
   const container = document.getElementById('fin-ind-content')
   if (!container) return
@@ -224,8 +313,18 @@ function _renderIndCards(mesStr, prevStr, mesLabel, indicIds) {
   }).filter(Boolean).join('')
 
   container.innerHTML = `
-    <div class="fin-inv-section-label">Indicadores — ${mesLabel}</div>
-    <div class="fin-inv-cards">${cardsHtml}</div>`
+    <div class="fin-ind-section">
+      <div class="fin-inv-section-label">Indicadores — ${mesLabel}</div>
+      <div class="fin-ind-grid">
+        <div class="dash-card fin-card-min0 fin-ind-cards-card">
+          <div class="fin-ind-cards-grid">${cardsHtml}</div>
+        </div>
+        <div class="dash-card fin-card-min0 fin-ind-chart-card" id="fin-ind-chart-card">
+          <div class="dash-card-title">Evolução dos indicadores</div>
+          <div class="fin-chart-wrap fin-ind-chart-wrap"><canvas id="fin-chart-ind"></canvas></div>
+        </div>
+      </div>
+    </div>`
 
   window._finIndSnapsPorCat = snapsPorCat
   window._finIndCats        = indCats
@@ -274,15 +373,27 @@ function _buildTimelineChart(canvasId, chartKey, snapsPorCat, cats, colors, fmtV
 
   _finChartsInstances[chartKey] = new Chart(canvas, {
     type: 'line',
+    plugins: _finDL,
     data: { labels: allDates.map(d => _fmtDate(d)), datasets },
     options: {
+      responsive: true,
+      maintainAspectRatio: false,
       scales: {
         x: { ticks: { color: '#a0a8a4', font: { size: 11 } }, grid: { color: '#2a2f2c' } },
-        y: { ticks: { color: '#a0a8a4', font: { size: 11 }, callback: v => fmtValue(v) }, grid: { color: '#2a2f2c' } },
+        y: { ticks: { display: false }, grid: { display: false, drawBorder: false } },
       },
       plugins: {
         legend:     { labels: { color: '#a0a8a4', font: { size: 11 }, boxWidth: 12 } },
-        datalabels: { display: false },
+        datalabels: {
+          display: true,
+          align: 'top',
+          anchor: 'end',
+          offset: 4,
+          color: ctx => ctx.dataset.borderColor,
+          font: { size: 9, family: 'DM Mono', weight: '600' },
+          formatter: v => (v === null || v === undefined ? null : Number(v).toLocaleString('pt-BR')),
+          clamp: true,
+        },
         tooltip:    { callbacks: { label: ctx => ' ' + fmtValue(ctx.raw) } },
       },
     },
@@ -312,7 +423,10 @@ function _renderChartInvestimentos(snapsPorCat, cats) {
 
   const mesesSet = new Set(Object.values(activeSnapsPorCat).flat().map(s => s.data.slice(0, 7)))
   const meses = [...mesesSet].sort()
-  if (!meses.length) return
+  if (!meses.length) {
+    _renderInvChartSummary()
+    return
+  }
 
   // Agrega por mês: total geral consolidado + componentes do balanço mensal.
   const aportesMes = Array(meses.length).fill(0)
@@ -345,6 +459,11 @@ function _renderChartInvestimentos(snapsPorCat, cats) {
 
   const fluxoMes = meses.map((_, idx) => aportesMes[idx] - resgatesMes[idx])
   const balancoMes = meses.map((_, idx) => aportesMes[idx] - resgatesMes[idx] + rendimentosMes[idx])
+
+  const variacaoTotal = saldoTotal.length >= 2 ? saldoTotal[saldoTotal.length - 1] - saldoTotal[0] : 0
+  const liquidoTotal = fluxoMes.reduce((acc, v) => acc + v, 0)
+  const rendimentoTotal = rendimentosMes.reduce((acc, v) => acc + v, 0)
+  _renderInvChartSummary({ variacaoTotal, liquidoTotal, rendimentoTotal })
 
   // Reduz impacto de meses fora da curva para evitar excesso de espaço em branco.
   const rawBarVals = [...fluxoMes, ...rendimentosMes].filter(v => Number.isFinite(v) && v !== 0)

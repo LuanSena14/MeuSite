@@ -422,8 +422,15 @@ select.fin-col-filter {
   font-variant-numeric: tabular-nums;
   margin-top: 4px;
 }
+.fin-inv-card-meta {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+  margin-top: 4px;
+}
 .fin-inv-card-rend.pos { color: var(--accent); }
 .fin-inv-card-rend.neg { color: var(--danger); }
+.fin-inv-card-rend.neu { color: var(--text-muted); }
 .fin-inv-card-selected { border-color: var(--accent) !important; }
 
 .fin-inv-section-label {
@@ -446,6 +453,81 @@ select.fin-col-filter {
 
 .fin-inv-layout-invest {
   grid-template-columns: 1fr;
+}
+
+.fin-inv-chart-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.fin-inv-chart-kpis {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.fin-inv-kpi-item {
+  min-width: 120px;
+  text-align: right;
+}
+
+.fin-inv-kpi-label {
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.fin-ind-section {
+  margin-top: 18px;
+}
+
+.fin-ind-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.fin-ind-cards-card,
+.fin-ind-chart-card {
+  min-width: 0;
+}
+
+.fin-ind-cards-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fin-ind-cards-grid .fin-inv-card,
+.fin-ind-cards-grid .fin-inv-card-total {
+  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.fin-ind-chart-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.fin-ind-chart-wrap {
+  flex: 1;
+  max-height: none;
+  min-height: 340px;
+  grid-row: auto;
+  grid-column: auto;
+}
+
+.fin-ind-chart-wrap canvas {
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .fin-inv-scroll-wrap {
@@ -956,6 +1038,22 @@ select.form-input {
 
   .fin-overview-grid { grid-template-columns: 1fr; }
   .fin-inv-layout { grid-template-columns: 1fr; }
+  .fin-ind-grid { grid-template-columns: 1fr; }
+
+  .fin-inv-chart-head {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .fin-inv-chart-kpis {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .fin-inv-kpi-item {
+    text-align: left;
+    min-width: 106px;
+  }
 
   .fin-row-between {
     flex-wrap: wrap;
@@ -1006,6 +1104,10 @@ select.form-input {
     overflow-x: auto;
     gap: 10px;
     padding-bottom: 2px;
+  }
+
+  .fin-ind-cards-grid {
+    grid-template-columns: 1fr;
   }
 
   .fin-inv-card,
