@@ -182,7 +182,7 @@ function _renderIndCards(mesStr, prevStr, mesLabel, indicIds) {
 }
 
 
-// Clique em card de investimento: filtra o gráfico para mostrar só aquele ativo
+// Clique em card de investimento: drill-down (saldo + aportes + rendimento) ou visão geral
 function _filterInvChart(catId) {
   window._finInvSelected = window._finInvSelected === catId ? null : catId
 
@@ -190,13 +190,11 @@ function _filterInvChart(catId) {
     el.classList.toggle('fin-inv-card-selected', window._finInvSelected === (window._finInvCats || [])[i]?.id)
   })
 
-  const cats  = window._finInvSelected !== null
-    ? (window._finInvCats || []).filter(c => c.id === window._finInvSelected)
-    : (window._finInvCats || [])
-  const snaps = window._finInvSelected !== null
-    ? { [window._finInvSelected]: (window._finInvSnapsPorCat || {})[window._finInvSelected] || [] }
-    : (window._finInvSnapsPorCat || {})
-  _renderChartInvestimentos(snaps, cats)
+  if (window._finInvSelected !== null) {
+    _renderChartInvestimentoDetalhe(window._finInvSelected, window._finInvSnapsPorCat || {})
+  } else {
+    _renderChartInvestimentos(window._finInvSnapsPorCat || {}, window._finInvCats || [])
+  }
 }
 
 // Clique em card de indicador: filtra o gráfico para mostrar só aquele indicador
@@ -258,6 +256,92 @@ function _buildTimelineChart(canvasId, chartKey, snapsPorCat, cats, colors, fmtV
 function _renderChartInvestimentos(snapsPorCat, cats) {
   const colors = ['#4ecca3','#7c9eff','#f5d742','#ff9f47','#9b59b6','#e05c5c','#1abc9c']
   _buildTimelineChart('fin-chart-inv', 'inv', snapsPorCat, cats, colors, v => _fmtBRL(v))
+}
+
+// Drill-down: gráfico misto com linha de saldo + barras de aportes e rendimento
+function _renderChartInvestimentoDetalhe(catId, snapsPorCat) {
+  const snaps = (snapsPorCat[catId] || []).slice().sort((a, b) => a.data.localeCompare(b.data))
+  if (!snaps.length) return
+
+  // Um ponto por mês (snapshot mais recente do mês)
+  const byMonth = {}
+  snaps.forEach(s => {
+    const mk = s.data.slice(0, 7)
+    if (!byMonth[mk] || s.data > byMonth[mk].data) byMonth[mk] = s
+  })
+  const months = Object.keys(byMonth).sort()
+  const labels = months.map(mk => {
+    const [y, m] = mk.split('-')
+    return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
+  })
+
+  const saldos      = months.map(mk => Number(byMonth[mk].saldo))
+  const aportes     = months.map(mk => byMonth[mk].aportes_mes      != null ? Number(byMonth[mk].aportes_mes)           : 0)
+  const rendimentos = months.map(mk => byMonth[mk].rendimento_calculado != null ? Number(byMonth[mk].rendimento_calculado) : null)
+
+  _destroyChart('inv')
+  const canvas = document.getElementById('fin-chart-inv')
+  if (!canvas) return
+
+  _finChartsInstances['inv'] = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          type: 'line',
+          label: 'Saldo',
+          data: saldos,
+          borderColor: '#4ecca3',
+          backgroundColor: '#4ecca320',
+          fill: false,
+          tension: 0.3,
+          yAxisID: 'y',
+          order: 0,
+        },
+        {
+          type: 'bar',
+          label: 'Aportes',
+          data: aportes,
+          backgroundColor: '#7c9eff55',
+          borderColor: '#7c9eff',
+          borderWidth: 1,
+          yAxisID: 'y1',
+          order: 1,
+        },
+        {
+          type: 'bar',
+          label: 'Rendimento',
+          data: rendimentos,
+          backgroundColor: rendimentos.map(v => v != null && v >= 0 ? '#4ecca355' : '#e05c5c55'),
+          borderColor:     rendimentos.map(v => v != null && v >= 0 ? '#4ecca3'   : '#e05c5c'),
+          borderWidth: 1,
+          yAxisID: 'y1',
+          order: 2,
+        },
+      ],
+    },
+    options: {
+      scales: {
+        x:  { ticks: { color: '#a0a8a4', font: { size: 11 } }, grid: { color: '#2a2f2c' } },
+        y:  {
+          position: 'left',
+          ticks: { color: '#4ecca3', font: { size: 11 }, callback: v => _fmtBRL(v) },
+          grid:  { color: '#2a2f2c' },
+        },
+        y1: {
+          position: 'right',
+          ticks: { color: '#a0a8a4', font: { size: 11 }, callback: v => _fmtBRL(v) },
+          grid:  { drawOnChartArea: false },
+        },
+      },
+      plugins: {
+        legend:     { labels: { color: '#a0a8a4', font: { size: 11 }, boxWidth: 12 } },
+        datalabels: { display: false },
+        tooltip:    { callbacks: { label: ctx => ' ' + _fmtBRL(ctx.raw) } },
+      },
+    },
+  })
 }
 
 function _renderChartIndicadores(snapsPorCat, cats) {
