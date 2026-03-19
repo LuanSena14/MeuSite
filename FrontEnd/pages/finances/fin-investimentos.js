@@ -14,6 +14,15 @@ function _snapLatestInMonth(snaps, mk) {
               .sort((a, b) => b.data.localeCompare(a.data))[0] || null
 }
 
+function _fmtMonthYearShort(isoDate) {
+  const ym = String(isoDate || '').slice(0, 7)
+  const [y, m] = ym.split('-')
+  const mm = Number(m)
+  if (!y || !Number.isFinite(mm) || mm < 1 || mm > 12) return '—'
+  const months = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+  return `${months[mm - 1]}/${String(y).slice(2)}`
+}
+
 function _markInvMesFilterTouched() {
   const invFilterEl = document.getElementById('fin-inv-filter-mes')
   if (invFilterEl) invFilterEl.dataset.userTouched = '1'
@@ -374,7 +383,7 @@ function _buildTimelineChart(canvasId, chartKey, snapsPorCat, cats, colors, fmtV
   _finChartsInstances[chartKey] = new Chart(canvas, {
     type: 'line',
     plugins: _finDL,
-    data: { labels: allDates.map(d => _fmtDate(d)), datasets },
+    data: { labels: allDates.map(d => _fmtMonthYearShort(d)), datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
