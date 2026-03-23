@@ -14,6 +14,7 @@
 //   diario  → (dias com realizado_no_dia no mês) / lastDay  × pts
 //   semanal → feitos / (lastDay × valor_alvo/7)  × pts   [crédito parcial]
 //   mensal  → pts inteiros se há medição <= valor_alvo (ou entrada manual)
+//   lastDay → último dia com entrada registrada no mês (fallback para dia atual/último dia do mês)
 //
 // Calendário: usa TODAS as metas (diario + semanal), colore por % de goals feitos no dia
 
@@ -62,10 +63,17 @@ function _gMonthScore(mesKey) {
   const daysInMonth = new Date(y, m, 0).getDate()
   const today       = new Date()
   const isCurrent   = y === today.getFullYear() && m === today.getMonth() + 1
-  const lastDay     = isCurrent ? today.getDate() : daysInMonth
 
   // Entradas deste mês, indexadas por cd_goal
   const entradasMes = window.goalsEntradas.filter(e => e.data.startsWith(mesKey))
+  const lastEntryDay = entradasMes.reduce((max, e) => {
+    const day = Number(e.data?.slice(8, 10))
+    return Number.isFinite(day) ? Math.max(max, day) : max
+  }, 0)
+  const lastDay = lastEntryDay > 0
+    ? lastEntryDay
+    : (isCurrent ? today.getDate() : daysInMonth)
+
   const entrByGoal  = {}
   entradasMes.forEach(e => {
     ;(entrByGoal[e.cd_goal] = entrByGoal[e.cd_goal] || []).push(e)
