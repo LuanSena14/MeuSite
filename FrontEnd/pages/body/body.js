@@ -61,6 +61,54 @@ function getLatestKnown(entriesList, field) {
   return null
 }
 
+function getLatestFieldPoint(entriesList, field) {
+  for (let i = entriesList.length - 1; i >= 0; i--) {
+    const v = parseFloat(entriesList[i]?.[field])
+    if (Number.isFinite(v)) return { value: v, index: i, date: entriesList[i]?.date }
+  }
+  return null
+}
+
+function getPrevFieldValueBefore(entriesList, field, beforeIndex) {
+  if (!Number.isInteger(beforeIndex) || beforeIndex <= 0) return null
+  for (let i = beforeIndex - 1; i >= 0; i--) {
+    const v = parseFloat(entriesList[i]?.[field])
+    if (Number.isFinite(v)) return v
+  }
+  return null
+}
+
+function getLatestDerivedPoint(entriesList, key, fallbackAltura) {
+  for (let i = entriesList.length - 1; i >= 0; i--) {
+    const derived = buildDerivedMetrics(entriesList[i], fallbackAltura)
+    const v = parseFloat(derived?.[key])
+    if (Number.isFinite(v)) return { value: v, index: i, date: entriesList[i]?.date }
+  }
+  return null
+}
+
+function getPrevDerivedValueBefore(entriesList, key, beforeIndex, fallbackAltura) {
+  if (!Number.isInteger(beforeIndex) || beforeIndex <= 0) return null
+  for (let i = beforeIndex - 1; i >= 0; i--) {
+    const derived = buildDerivedMetrics(entriesList[i], fallbackAltura)
+    const v = parseFloat(derived?.[key])
+    if (Number.isFinite(v)) return v
+  }
+  return null
+}
+
+function buildLatestKnownEntry(entriesList) {
+  if (!entriesList.length) return null
+  const latest = { ...entriesList[entriesList.length - 1] }
+  for (let i = entriesList.length - 2; i >= 0; i--) {
+    for (const [campo, valor] of Object.entries(entriesList[i])) {
+      if (campo === 'date') continue
+      if (latest[campo] == null && valor != null) latest[campo] = valor
+    }
+  }
+  return latest
+}
+
 
 function calcGorduraDobras(entry) {
   const triceps     = parseFloat(entry?.dobra_triceps)
@@ -285,54 +333,59 @@ function renderDash() {
   _setHidden(content, false)
 
   const last         = entries[entries.length - 1]
-  const lastIdx      = entries.length - 1
+  const latestEntry  = buildLatestKnownEntry(entries)
   const latestAltura = getLatestKnown(entries, 'altura')
-  const lastDerived  = buildDerivedMetrics(last, latestAltura)
-  function prevDerivedVal(key) {
-    for (let i = lastIdx - 1; i >= 0; i--) {
-      const d = buildDerivedMetrics(entries[i], latestAltura)
-      if (d[key] != null) return d[key]
-    }
-    return null
+  const baseDerived  = buildDerivedMetrics(latestEntry, latestAltura)
+
+  const pesoPoint         = getLatestFieldPoint(entries, 'peso')
+  const gorduraPctPoint   = getLatestDerivedPoint(entries, 'gorduraPct', latestAltura)
+  const massaMuscularPoint = getLatestDerivedPoint(entries, 'massa_muscular', latestAltura)
+  const ffmiPoint         = getLatestDerivedPoint(entries, 'ffmi', latestAltura)
+  const imcPoint          = getLatestDerivedPoint(entries, 'imc', latestAltura)
+  const mlgPoint          = getLatestDerivedPoint(entries, 'mlg', latestAltura)
+  const massaGorduraPoint = getLatestDerivedPoint(entries, 'massa_gordura', latestAltura)
+
+  const lastDerived = {
+    ...baseDerived,
+    gorduraPct:     gorduraPctPoint?.value ?? baseDerived.gorduraPct,
+    massa_muscular: massaMuscularPoint?.value ?? baseDerived.massa_muscular,
+    ffmi:           ffmiPoint?.value ?? baseDerived.ffmi,
+    imc:            imcPoint?.value ?? baseDerived.imc,
+    mlg:            mlgPoint?.value ?? baseDerived.mlg,
+    massa_gordura:  massaGorduraPoint?.value ?? baseDerived.massa_gordura,
   }
-  function prevFieldVal(field) {
-    for (let i = lastIdx - 1; i >= 0; i--) {
-      const v = parseFloat(entries[i][field])
-      if (Number.isFinite(v)) return v
-    }
-    return null
+
+  const smartPrevDerived = {
+    gorduraPct:     gorduraPctPoint ? getPrevDerivedValueBefore(entries, 'gorduraPct', gorduraPctPoint.index, latestAltura) : null,
+    imc:            imcPoint ? getPrevDerivedValueBefore(entries, 'imc', imcPoint.index, latestAltura) : null,
+    ffmi:           ffmiPoint ? getPrevDerivedValueBefore(entries, 'ffmi', ffmiPoint.index, latestAltura) : null,
+    mlg:            mlgPoint ? getPrevDerivedValueBefore(entries, 'mlg', mlgPoint.index, latestAltura) : null,
+    massa_muscular: massaMuscularPoint ? getPrevDerivedValueBefore(entries, 'massa_muscular', massaMuscularPoint.index, latestAltura) : null,
+    massa_gordura:  massaGorduraPoint ? getPrevDerivedValueBefore(entries, 'massa_gordura', massaGorduraPoint.index, latestAltura) : null,
   }
-  const smartPrevDerived = lastIdx > 0 ? {
-    gorduraPct:     prevDerivedVal('gorduraPct'),
-    imc:            prevDerivedVal('imc'),
-    ffmi:           prevDerivedVal('ffmi'),
-    mlg:            prevDerivedVal('mlg'),
-    massa_muscular: prevDerivedVal('massa_muscular'),
-    massa_gordura:  prevDerivedVal('massa_gordura'),
-  } : null
 
   document.getElementById('last-update-label').textContent =
     'Último check-in: ' + formatDate(last.date)
 
   document.getElementById('kpi-peso').innerHTML =
-    (last.peso ?? '—') + '<span class="kpi-unit">kg</span>'
+    (pesoPoint?.value ?? '—') + '<span class="kpi-unit">kg</span>'
   document.getElementById('kpi-peso-delta').innerHTML =
-    delta(last.peso, prevFieldVal('peso'), ' kg')
+    delta(pesoPoint?.value ?? null, getPrevFieldValueBefore(entries, 'peso', pesoPoint?.index), ' kg')
 
   document.getElementById('kpi-gordura').innerHTML =
-    (lastDerived.gorduraPct ?? '—') + '<span class="kpi-unit">%</span>'
+    (gorduraPctPoint?.value ?? '—') + '<span class="kpi-unit">%</span>'
   document.getElementById('kpi-gordura-delta').innerHTML =
-    delta(lastDerived.gorduraPct, smartPrevDerived?.gorduraPct ?? null, '%')
+    delta(gorduraPctPoint?.value ?? null, smartPrevDerived.gorduraPct, '%')
 
   document.getElementById('kpi-musculo').innerHTML =
-    (lastDerived.massa_muscular ?? '—') + '<span class="kpi-unit">kg</span>'
+    (massaMuscularPoint?.value ?? '—') + '<span class="kpi-unit">kg</span>'
   document.getElementById('kpi-musculo-delta').innerHTML =
-    delta(lastDerived.massa_muscular, smartPrevDerived?.massa_muscular ?? null, ' kg')
+    delta(massaMuscularPoint?.value ?? null, smartPrevDerived.massa_muscular, ' kg')
 
   document.getElementById('kpi-ffmi').innerHTML =
-    (lastDerived.ffmi ?? '—') + '<span class="kpi-unit"></span>'
+    (ffmiPoint?.value ?? '—') + '<span class="kpi-unit"></span>'
   document.getElementById('kpi-ffmi-delta').innerHTML =
-    delta(lastDerived.ffmi, smartPrevDerived?.ffmi ?? null, '')
+    delta(ffmiPoint?.value ?? null, smartPrevDerived.ffmi, '')
 
   renderLineChart(
     'chart-peso',
@@ -340,11 +393,11 @@ function renderDash() {
     entries.map(e => e.peso),
     '#b5f542'
   )
-  renderDonut('chart-composicao', lastDerived.gorduraPct, lastDerived.massa_muscular, last.peso)
+  renderDonut('chart-composicao', lastDerived.gorduraPct, lastDerived.massa_muscular, pesoPoint?.value ?? null)
 
   buildMetricSelector()  // usa a árvore que veio do banco (var global `medidas`)
 
-  renderMeasures(last, lastDerived, smartPrevDerived)
+  renderMeasures(latestEntry, lastDerived, smartPrevDerived)
   renderHistory(latestAltura)
 }
 
