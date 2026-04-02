@@ -238,6 +238,14 @@ header { display: none; } /* não usado com sidebar */
   transition: all 0.2s;
 }
 .btn-secondary:hover { border-color: var(--text-muted); color: var(--text); }
+
+@media (hover: none) and (pointer: coarse) {
+  .btn-add:hover,
+  .btn-primary:hover,
+  .btn-secondary:hover {
+    transform: none;
+  }
+}
 .gm-row {
   display: flex;
   align-items: center;

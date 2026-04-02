@@ -1,8 +1,8 @@
 
-const APP_VERSION = '22'
+const APP_VERSION = '23'
 
 async function loadHTML(file, targetId) {
-  const response = await fetch(`${file}?v=${APP_VERSION}`, { cache: 'no-cache' })
+  const response = await fetch(`${file}?v=${APP_VERSION}`, { cache: 'default' })
   if (!response.ok) {
     throw new Error(`Falha ao carregar HTML (${response.status}): ${file}`)
   }
@@ -36,6 +36,71 @@ const SECTIONS = {
   finances:  'pages/finances/finances.html',
   exercises: 'pages/exercises/exercises.html',
   goals:     'pages/goals/goals.html',
+}
+
+const SECTION_SCRIPTS = {
+  home: [
+    'pages/home/home.js?v=5',
+  ],
+  body: [
+    'pages/body/checkin.js?v=2',
+    'pages/body/body.js?v=19',
+  ],
+  exercises: [
+    'pages/exercises/exercises.js?v=20',
+  ],
+  goals: [
+    'pages/goals/goals.js?v=23',
+  ],
+  finances: [
+    'pages/finances/fin-core.js?v=5',
+    'pages/finances/fin-overview.js?v=3',
+    'pages/finances/fin-lancamentos.js?v=4',
+    'pages/finances/fin-investimentos.js?v=27',
+    'pages/finances/fin-viagens.js?v=5',
+    'pages/finances/fin-modals.js?v=4',
+  ],
+}
+
+const _scriptLoadPromises = new Map()
+
+function loadScriptOnce(src) {
+  const cached = _scriptLoadPromises.get(src)
+  if (cached) return cached
+
+  const promise = new Promise((resolve, reject) => {
+    const el = document.createElement('script')
+    el.src = src
+    el.async = false
+    el.onload = () => resolve()
+    el.onerror = () => reject(new Error(`Falha ao carregar script: ${src}`))
+    document.body.appendChild(el)
+  })
+
+  _scriptLoadPromises.set(src, promise)
+  return promise
+}
+
+async function ensureSectionScripts(section) {
+  const scripts = SECTION_SCRIPTS[section] || []
+  for (const src of scripts) {
+    await loadScriptOnce(src)
+  }
+}
+
+function _configureChartPerformanceDefaults() {
+  if (!window.Chart) return
+
+  const isTouchDevice = navigator.maxTouchPoints > 0
+  const isSmallViewport = window.matchMedia('(max-width: 900px)').matches
+  if (!isTouchDevice && !isSmallViewport) return
+
+  Chart.defaults.animation = false
+  Chart.defaults.responsiveAnimationDuration = 0
+  Chart.defaults.datasets.line.pointRadius = 2
+  Chart.defaults.datasets.line.pointHoverRadius = 3
+  Chart.defaults.elements.line.tension = 0.25
+  Chart.defaults.plugins.legend.labels.usePointStyle = true
 }
 
 const loadedSections = new Set()
@@ -91,6 +156,8 @@ window.addEventListener('sectionchange', async e => {
       document.querySelectorAll('.section').forEach(s => s.classList.remove('active'))
       document.getElementById('section-' + section).classList.add('active')
     }
+
+    await ensureSectionScripts(section)
 
     _activeSection = section
 
@@ -202,6 +269,8 @@ async function initExSection(forceRefresh = false) {
 }
 
 async function init() {
+  _configureChartPerformanceDefaults()
+
   try {
     await Promise.all([
       loadHTML(SECTIONS.home, 'section-home'),
@@ -214,6 +283,13 @@ async function init() {
 
   loadedSections.add('home')
   document.getElementById('section-home').classList.add('active')
+
+  try {
+    await ensureSectionScripts('home')
+  } catch (err) {
+    showAppError('Não foi possível carregar os recursos da Home.', err)
+    return
+  }
 
   const fData = document.getElementById('f-data')
   if (fData) fData.value = new Date().toISOString().split('T')[0]

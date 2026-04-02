@@ -185,6 +185,19 @@
   color: var(--hcard-color);
   background: color-mix(in srgb, var(--hcard-color) 8%, transparent);
 }
+
+@media (hover: none) and (pointer: coarse) {
+  .home-card:hover {
+    border-color: var(--border);
+    transform: none;
+  }
+
+  .hcard-add-btn:hover {
+    border-color: var(--border);
+    color: var(--text-muted);
+    background: transparent;
+  }
+}
 .hcard-content {
   flex: 1;
   overflow-y: auto;

@@ -25,10 +25,78 @@ function _resolveApiBase() {
 
 const API = _resolveApiBase()
 
+const _API_GET_CACHE_TTL_MS = 20000
+const _apiGetCache = new Map()
+const _apiGetInFlight = new Map()
+
+function _cloneApiPayload(data) {
+  if (data == null || typeof data !== 'object') return data
+  try {
+    return structuredClone(data)
+  } catch (_) {
+    return JSON.parse(JSON.stringify(data))
+  }
+}
+
+function _clearApiGetCaches() {
+  _apiGetCache.clear()
+  _apiGetInFlight.clear()
+}
+
 async function _apiFetch(path, options = {}) {
-  const response = await fetch(`${API}${path}`, options)
-  if (!response.ok) throw new Error(`HTTP ${response.status}: ${path}`)
-  return response.json()
+  const method = String(options.method || 'GET').toUpperCase()
+  const isGet = method === 'GET'
+  const key = `${method} ${path}`
+
+  if (isGet) {
+    const cached = _apiGetCache.get(key)
+    if (cached && (Date.now() - cached.ts) < _API_GET_CACHE_TTL_MS) {
+      return _cloneApiPayload(cached.data)
+    }
+
+    const pending = _apiGetInFlight.get(key)
+    if (pending) {
+      const result = await pending
+      return _cloneApiPayload(result)
+    }
+  }
+
+  const fetchPromise = (async () => {
+    const timeoutMs = Number.isFinite(options.timeoutMs) ? options.timeoutMs : 12000
+    const controller = new AbortController()
+    const merged = {
+      ...options,
+      method,
+      signal: controller.signal,
+    }
+    delete merged.timeoutMs
+
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+    try {
+      const response = await fetch(`${API}${path}`, merged)
+      if (!response.ok) throw new Error(`HTTP ${response.status}: ${path}`)
+      const payload = await response.json()
+
+      if (isGet) {
+        _apiGetCache.set(key, { ts: Date.now(), data: payload })
+      } else {
+        _clearApiGetCaches()
+      }
+
+      return payload
+    } catch (err) {
+      if (err?.name === 'AbortError') {
+        throw new Error(`Timeout após ${timeoutMs}ms: ${path}`)
+      }
+      throw err
+    } finally {
+      clearTimeout(timeoutId)
+      if (isGet) _apiGetInFlight.delete(key)
+    }
+  })()
+
+  if (isGet) _apiGetInFlight.set(key, fetchPromise)
+  return fetchPromise
 }
 
 async function fetchCheckins() {

@@ -120,6 +120,16 @@
   padding: 24px;
 }
 
+.history-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.history-table-scroll table {
+  min-width: 640px;
+}
+
 table { width: 100%; border-collapse: collapse; }
 thead th {
   text-align: left;
@@ -256,6 +266,15 @@ tbody td:first-child { color: var(--text); }
   .history-card { padding: 18px 14px; }
 
   .kpi-grid { grid-template-columns: 1fr 1fr; }
+
+  .kpi-card,
+  .chart-card {
+    animation: none;
+  }
+
+  .measure-bar-fill {
+    transition: none;
+  }
 }
 
 @media (max-width: 520px) {
@@ -264,5 +283,15 @@ tbody td:first-child { color: var(--text); }
 
   .kpi-value { font-size: 1.9rem; }
   .kpi-label { font-size: 0.68rem; }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .kpi-card:hover {
+    transform: none;
+  }
+
+  tbody tr:hover {
+    background: transparent;
+  }
 }
 
