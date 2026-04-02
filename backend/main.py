@@ -144,14 +144,22 @@ def get_checkins():
                 por_data[d] = {"date": d}
             por_data[d][medida.descricao] = checkin.valor
 
-    altura_atual = None
+    # Herdar TODAS as medidas do último check-in disponível
+    ultimas_medidas = {}
     resultado = []
     for data in sorted(por_data.keys()):
         registro = por_data[data]
-        if registro.get("altura") is not None:
-            altura_atual = registro["altura"]
-        elif altura_atual is not None:
-            registro["altura"] = altura_atual
+        
+        # Atualizar valores conhecidos
+        for campo, valor in registro.items():
+            if campo != "date" and valor is not None:
+                ultimas_medidas[campo] = valor
+        
+        # Herdar valores anteriores que faltam
+        for campo, valor in ultimas_medidas.items():
+            if campo not in registro or registro[campo] is None:
+                registro[campo] = valor
+        
         resultado.append(registro)
 
     return resultado
