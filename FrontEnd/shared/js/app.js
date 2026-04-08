@@ -40,6 +40,7 @@ const SECTIONS = {
 
 const SECTION_SCRIPTS = {
   home: [
+    'pages/goals/goals.js?v=23',
     'pages/home/home.js?v=5',
   ],
   body: [
