@@ -1,4 +1,4 @@
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 
 from collections import defaultdict
 
@@ -9,9 +9,22 @@ from typing import Optional
 
 from database import Session, engine
 from models import Base, Checkin, CodigoMedida, UnidadeMedida, CodigoExercicio, EntradaExercicio, CodigoGoal, EntradaGoal, Meta, CodigoFinanca, LancamentoFinanceiro, OrcamentoFinanceiro, SnapshotInvestimento, RelacionamentoDebitoInvestimento, RelacionamentoLancamentoViagem
+from sqlalchemy import text as _text
 import datetime
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    Base.metadata.create_all(engine)
+    with engine.connect() as _conn:
+        _conn.execute(_text("ALTER TABLE lancamento_financeiro ADD COLUMN IF NOT EXISTS forma_pagamento VARCHAR DEFAULT 'debito'"))
+        _conn.execute(_text("ALTER TABLE orcamento_financeiro  ADD COLUMN IF NOT EXISTS forma_pagamento VARCHAR"))
+        _conn.execute(_text("ALTER TABLE codigo_financa        DROP COLUMN IF EXISTS dono"))
+        _conn.commit()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -19,16 +32,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
-
-Base.metadata.create_all(engine)
-
-# Migrações incrementais (adiciona colunas sem recriar tabelas existentes)
-with engine.connect() as _conn:
-    from sqlalchemy import text as _text
-    _conn.execute(_text("ALTER TABLE lancamento_financeiro ADD COLUMN IF NOT EXISTS forma_pagamento VARCHAR DEFAULT 'debito'"))
-    _conn.execute(_text("ALTER TABLE orcamento_financeiro  ADD COLUMN IF NOT EXISTS forma_pagamento VARCHAR"))
-    _conn.execute(_text("ALTER TABLE codigo_financa        DROP COLUMN IF EXISTS dono"))
-    _conn.commit()
 
 
 @contextmanager
