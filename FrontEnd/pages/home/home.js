@@ -12,18 +12,30 @@ function _homeHasFreshCache() {
     && Object.keys(_homeData).length > 0
 }
 
-function _homeSetFeedback(failedSources = []) {
+function _homeSetFeedback(failedSources = [], mode = 'error') {
   const el = document.getElementById('home-feedback')
   if (!el) return
 
-  if (!failedSources.length) {
+  if (!failedSources.length && mode !== 'connecting') {
     el.classList.add('is-hidden')
-    el.classList.remove('error')
+    el.classList.remove('error', 'connecting')
     el.innerHTML = ''
     return
   }
 
   el.classList.remove('is-hidden')
+
+  if (mode === 'connecting') {
+    el.classList.remove('error')
+    el.classList.add('connecting')
+    el.innerHTML = `
+      <div class="section-feedback-title">Aguardando servidor...</div>
+      <div class="section-feedback-sub">O servidor está acordando, isso pode levar alguns segundos.</div>
+    `
+    return
+  }
+
+  el.classList.remove('connecting')
   el.classList.add('error')
   el.innerHTML = `
     <div class="section-feedback-title">Home carregada parcialmente</div>
@@ -49,6 +61,14 @@ async function initHomeSection(forceRefresh = false) {
     _homeRenderAll()
     return
   }
+
+  _homeSetFeedback([], 'connecting')
+  const backendOk = await ensureBackendAwake()
+  if (!backendOk) {
+    _homeSetFeedback(['Body', 'Exercises', 'Goals'])
+    return
+  }
+  _homeSetFeedback([])
 
   const finOk = typeof _financesUnlocked === 'function' && _financesUnlocked()
 

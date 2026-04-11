@@ -21,6 +21,12 @@
 .home-feedback {
   margin: 0 16px 8px;
 }
+.home-feedback.connecting {
+  color: var(--text-muted);
+}
+.home-feedback.connecting .section-feedback-title {
+  color: var(--text);
+}
 .home-header {
   display: flex;
   align-items: center;

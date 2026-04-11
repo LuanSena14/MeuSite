@@ -43,6 +43,15 @@ function _clearApiGetCaches() {
   _apiGetInFlight.clear()
 }
 
+async function ensureBackendAwake() {
+  try {
+    await _apiFetch('/health', { timeoutMs: 55000 })
+    return true
+  } catch (_) {
+    return false
+  }
+}
+
 async function _apiFetch(path, options = {}) {
   const method = String(options.method || 'GET').toUpperCase()
   const isGet = method === 'GET'
