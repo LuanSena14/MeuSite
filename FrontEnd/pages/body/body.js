@@ -500,7 +500,10 @@ function renderHistory(fallbackAltura) {
     const d = buildDerivedMetrics(e, fallbackAltura)
     return `
       <tr>
-        <td>${formatDate(e.date)}</td>
+        <td>
+          <span class="date-text">${formatDate(e.date)}</span>
+          <button class="btn-edit-date" title="Corrigir data" onclick="openEditDateCheckin('${e.date}')">✎</button>
+        </td>
         <td>${e.peso           != null ? e.peso + ' kg'            : '—'}</td>
         <td>${d.gorduraPct     != null ? d.gorduraPct + '%'        : '—'}</td>
         <td>${d.massa_muscular != null ? d.massa_muscular + ' kg'  : '—'}</td>
@@ -510,4 +513,19 @@ function renderHistory(fallbackAltura) {
       </tr>
     `
   }).join('')
+}
+
+function openEditDateCheckin(oldDate) {
+  const novaData = prompt(`Corrigir data do check-in\nData atual: ${oldDate}\n\nNova data (AAAA-MM-DD):`, oldDate)
+  if (!novaData || novaData === oldDate) return
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(novaData)) { alert('Formato inválido. Use AAAA-MM-DD.'); return }
+  fetch('/api/checkins/date', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ old_date: oldDate, new_date: novaData })
+  }).then(async r => {
+    if (!r.ok) { const e = await r.json(); alert('Erro: ' + (e.detail || r.status)); return }
+    entries = await fetchCheckins()
+    renderDash()
+  }).catch(() => alert('Erro de conexão'))
 }

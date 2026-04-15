@@ -166,6 +166,30 @@ def post_checkin(body: CheckinInput):
     return {"ok": True}
 
 
+class CheckinDatePatchInput(BaseModel):
+    old_date: str
+    new_date: str
+
+@app.patch("/api/checkins/date")
+def patch_checkin_date(body: CheckinDatePatchInput):
+    try:
+        old = datetime.date.fromisoformat(body.old_date)
+        new = datetime.date.fromisoformat(body.new_date)
+    except ValueError:
+        raise HTTPException(400, "Datas inválidas")
+    with get_db() as db:
+        rows = db.query(Checkin).filter(Checkin.date == old).all()
+        if not rows:
+            raise HTTPException(404, "Nenhum check-in encontrado para essa data")
+        existing_new = db.query(Checkin).filter(Checkin.date == new).first()
+        if existing_new:
+            raise HTTPException(409, "Já existe um check-in para a data de destino")
+        for row in rows:
+            row.date = new
+        db.commit()
+    return {"ok": True, "updated": len(rows)}
+
+
 class ExercicioInput(BaseModel):
     date:         str
     hora:         str
@@ -226,6 +250,24 @@ def post_exercicio(body: ExercicioInput):
             duracao      = body.duracao,
             esforco      = body.esforco,
         ))
+        db.commit()
+    return {"ok": True}
+
+
+class ExercicioDatePatchInput(BaseModel):
+    data: str
+
+@app.patch("/api/exercicios/{id}")
+def patch_exercicio_date(id: int, body: ExercicioDatePatchInput):
+    try:
+        nova_data = datetime.date.fromisoformat(body.data)
+    except ValueError:
+        raise HTTPException(400, "Data inválida")
+    with get_db() as db:
+        row = db.query(EntradaExercicio).filter(EntradaExercicio.id == id).first()
+        if not row:
+            raise HTTPException(404, "Exercício não encontrado")
+        row.data = nova_data
         db.commit()
     return {"ok": True}
 
@@ -312,6 +354,24 @@ def post_goal_entrada(body: EntradaGoalInput):
                 cd_goal          = body.cd_goal,
                 realizado_no_dia = realizado,
             ))
+        db.commit()
+    return {"ok": True}
+
+
+class GoalDatePatchInput(BaseModel):
+    data: str
+
+@app.patch("/api/goals/entradas/{id}")
+def patch_goal_entrada_date(id: int, body: GoalDatePatchInput):
+    try:
+        nova_data = datetime.date.fromisoformat(body.data)
+    except ValueError:
+        raise HTTPException(400, "Data inválida")
+    with get_db() as db:
+        row = db.query(EntradaGoal).filter(EntradaGoal.id == id).first()
+        if not row:
+            raise HTTPException(404, "Entrada de goal não encontrada")
+        row.data = nova_data
         db.commit()
     return {"ok": True}
 
@@ -439,6 +499,23 @@ def post_lancamento(body: LancamentoInput):
 def delete_lancamento(id: int):
     with get_db() as db:
         db.query(LancamentoFinanceiro).filter(LancamentoFinanceiro.id == id).delete()
+        db.commit()
+    return {"ok": True}
+
+class LancamentoDatePatchInput(BaseModel):
+    data: str
+
+@app.patch("/api/financas/lancamentos/{id}")
+def patch_lancamento_date(id: int, body: LancamentoDatePatchInput):
+    try:
+        nova_data = datetime.date.fromisoformat(body.data)
+    except ValueError:
+        raise HTTPException(400, "Data inválida")
+    with get_db() as db:
+        row = db.query(LancamentoFinanceiro).filter(LancamentoFinanceiro.id == id).first()
+        if not row:
+            raise HTTPException(404, "Lançamento não encontrado")
+        row.data = nova_data
         db.commit()
     return {"ok": True}
 

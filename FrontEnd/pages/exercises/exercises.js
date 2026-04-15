@@ -661,7 +661,10 @@ function renderExHistory(filtrados) {
     const esf       = e.esforco != null ? `${e.esforco}/10` : '—'
     const esf_class = e.esforco >= 8 ? 'delta-neg' : e.esforco >= 5 ? 'delta-neu' : 'delta-pos'
     return `<tr>
-      <td>${formatExDate(e.data)}</td>
+      <td>
+        <span class="date-text">${formatExDate(e.data)}</span>
+        <button class="btn-edit-date" title="Corrigir data" onclick="openEditDateExercicio(${e.id}, '${e.data}')">✎</button>
+      </td>
       <td>${hora}</td>
       <td>${e.exercicio_nome||'—'}</td>
       <td class="ex-history-muted">${e.grupo_nome||'—'}</td>
@@ -669,4 +672,19 @@ function renderExHistory(filtrados) {
       <td><span class="${esf_class}">${esf}</span></td>
     </tr>`
   }).join('')
+}
+
+function openEditDateExercicio(id, oldDate) {
+  const novaData = prompt(`Corrigir data do exercício\nData atual: ${oldDate}\n\nNova data (AAAA-MM-DD):`, oldDate)
+  if (!novaData || novaData === oldDate) return
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(novaData)) { alert('Formato inválido. Use AAAA-MM-DD.'); return }
+  fetch(`/api/exercicios/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ data: novaData })
+  }).then(async r => {
+    if (!r.ok) { const e = await r.json(); alert('Erro: ' + (e.detail || r.status)); return }
+    window.exercicios = await fetchExercicios()
+    renderExDash()
+  }).catch(() => alert('Erro de conexão'))
 }

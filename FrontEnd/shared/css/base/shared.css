@@ -29,6 +29,20 @@
 .section-title { font-family: 'DM Serif Display', serif; font-size: 2.4rem; letter-spacing: -0.03em; line-height: 1.1; }
 .section-title em { color: var(--accent); font-style: italic; }
 header { display: none; } /* não usado com sidebar */
+/* Botão de edição de data nas tabelas de histórico */
+.btn-edit-date {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  opacity: 0;
+  padding: 1px 4px;
+  transition: opacity .15s, color .15s;
+  vertical-align: middle;
+}
+tr:hover .btn-edit-date { opacity: .55; }
+.btn-edit-date:hover { color: var(--accent); opacity: 1 !important; }
 .btn-add,
 .btn-primary {
   display: flex;

@@ -72,7 +72,10 @@ function renderLancamentos() {
       ? `<span style="color:var(--text-muted);font-size:.76em;margin-right:2px">${l.grupo_nome} ›</span>${l.categoria_nome}`
       : l.categoria_nome
     return `<tr>
-      <td>${_fmtDate(l.data)}</td>
+      <td>
+        <span class="date-text">${_fmtDate(l.data)}</span>
+        <button class="btn-edit-date" title="Corrigir data" onclick="editDateLancamentoFin(${l.id}, '${l.data}')">✎</button>
+      </td>
       <td>${catCell}</td>
       <td class="${cls}">${tipo}</td>
       <td>${_finPagBadge(l.forma_pagamento)}</td>
@@ -105,6 +108,23 @@ async function deleteLancamentoFin(id) {
   renderLancamentos()
   if (_finActiveTab === 'overview') renderFinOverview()
   _showFinToast('Lançamento removido')
+}
+
+async function editDateLancamentoFin(id, oldDate) {
+  const novaData = prompt(`Corrigir data do lançamento\nData atual: ${oldDate}\n\nNova data (AAAA-MM-DD):`, oldDate)
+  if (!novaData || novaData === oldDate) return
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(novaData)) { alert('Formato inválido. Use AAAA-MM-DD.'); return }
+  const r = await fetch(`/api/financas/lancamentos/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ data: novaData })
+  })
+  if (!r.ok) { const e = await r.json(); alert('Erro: ' + (e.detail || r.status)); return }
+  const entry = window.finLancamentos.find(l => l.id === id)
+  if (entry) entry.data = novaData
+  renderLancamentos()
+  if (_finActiveTab === 'overview') renderFinOverview()
+  _showFinToast('Data corrigida')
 }
 
 

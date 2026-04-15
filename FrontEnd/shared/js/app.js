@@ -1,5 +1,5 @@
 
-const APP_VERSION = '23'
+const APP_VERSION = '24'
 
 async function loadHTML(file, targetId) {
   const response = await fetch(`${file}?v=${APP_VERSION}`, { cache: 'default' })
@@ -40,23 +40,23 @@ const SECTIONS = {
 
 const SECTION_SCRIPTS = {
   home: [
-    'pages/goals/goals.js?v=23',
+    'pages/goals/goals.js?v=24',
     'pages/home/home.js?v=5',
   ],
   body: [
     'pages/body/checkin.js?v=2',
-    'pages/body/body.js?v=19',
+    'pages/body/body.js?v=20',
   ],
   exercises: [
-    'pages/exercises/exercises.js?v=20',
+    'pages/exercises/exercises.js?v=21',
   ],
   goals: [
-    'pages/goals/goals.js?v=23',
+    'pages/goals/goals.js?v=24',
   ],
   finances: [
     'pages/finances/fin-core.js?v=5',
     'pages/finances/fin-overview.js?v=3',
-    'pages/finances/fin-lancamentos.js?v=4',
+    'pages/finances/fin-lancamentos.js?v=5',
     'pages/finances/fin-investimentos.js?v=27',
     'pages/finances/fin-viagens.js?v=5',
     'pages/finances/fin-modals.js?v=4',
