@@ -3,11 +3,13 @@
 // Tabelas consumidas (via API):
 //   codigo_goals  → cadastro de metas (árvore: grupos + metas folha)
 //   pontuacao_goal→ regras de pontuação:
-//                     tp_metrica  = 'diario' | 'semanal' | 'mensal'
-//                     valor       = frequência alvo (diario=1, semanal=Nxsemana, mensal=1)
-//                     pts         = pontos que vale se cumprir
-//                     data        = NULL para sempre | 'YYYY-MM-01' para meta mensal de peso
-//                     cd_medida   = FK para codigo_medida (medição automática, ex: peso)
+//                     tp_metrica   = 'diario' | 'semanal' | 'mensal'
+//                     valor        = frequência alvo (diario=1, semanal=Nxsemana, mensal=1)
+//                     pts          = pontos que vale se cumprir
+//                     data         = legacy: mês da meta ou data de início antiga
+//                     data_inicio  = início da validade da meta
+//                     data_fim     = fim da validade da meta (NULL = sem fim)
+//                     cd_medida    = FK para codigo_medida (medição automática, ex: peso)
 //   entrada_goals → check diário: data, cd_goal, realizado_no_dia (Boolean)
 //
 // Algoritmo de score mensal:
@@ -20,7 +22,7 @@
 
 
 window.goalsCodigos  = []   // árvore [{id, nome, filhos:[...]}]
-window.goalsMetas    = []   // [{id, data, tp_metrica, cd_goal, goal_nome, valor_alvo, pts}]
+window.goalsMetas    = []   // [{id, data, data_inicio, data_fim, tp_metrica, cd_goal, goal_nome, valor_alvo, pts, cd_medida}]
 window.goalsEntradas = []   // [{id, data, cd_goal, progresso}]
 
 let _goalsMesDetalhe  = null   // 'YYYY-MM' — mês aberto no detalhe
@@ -49,6 +51,54 @@ function _gFmtMes(mk, long = true) {
   return long
     ? d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
     : d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
+}
+
+function _gGetMonthBoundary(mesKey) {
+  const [y, m] = mesKey.split('-').map(Number)
+  const start = `${mesKey}-01`
+  const end   = new Date(y, m, 0).toISOString().slice(0, 10)
+  return { start, end }
+}
+
+function _gIsGoalActiveForMonth(meta, mesKey) {
+  const { start: monthStart, end: monthEnd } = _gGetMonthBoundary(mesKey)
+  const startDate = meta.data_inicio || meta.data || null
+  const endDate   = meta.data_fim || null
+
+  if (startDate) {
+    if (endDate) {
+      return startDate <= monthEnd && endDate >= monthStart
+    }
+
+    if (meta.data_inicio || meta.data_fim) {
+      return startDate <= monthStart
+    }
+
+    return meta.tp_metrica === 'mensal'
+      ? startDate.startsWith(mesKey)
+      : startDate <= monthStart
+  }
+
+  return true
+}
+
+function _gGetActiveGoalsMetas(mesKey) {
+  const metasAtivas = {}
+
+  for (const m of window.goalsMetas) {
+    if (!_gIsGoalActiveForMonth(m, mesKey)) continue
+
+    const key = `${m.cd_goal}|${m.tp_metrica}`
+    const existing = metasAtivas[key]
+    const existingStart = existing ? (existing.data_inicio || existing.data || '0000-00-00') : '0000-00-00'
+    const currentStart = m.data_inicio || m.data || '0000-00-00'
+
+    if (!existing || currentStart >= existingStart) {
+      metasAtivas[key] = m
+    }
+  }
+
+  return Object.values(metasAtivas)
 }
 
 function _gGrade(pct) {
@@ -81,11 +131,8 @@ function _gMonthScore(mesKey) {
 
   // Metas aplicáveis ao mês:
   //   data=null  → sempre válida
-  //   data set   → só vale se data.startsWith(mesKey)
-  const metas = window.goalsMetas.filter(mm =>
-    mm.data === null || mm.data === undefined || mm.data.startsWith(mesKey)
-  )
-
+//   data set   → regra vigente a partir do mês data (para diario/semanal)
+const metas = _gGetActiveGoalsMetas(mesKey)
   if (metas.length === 0 && entradasMes.length === 0) return null
 
   let totalPossivel = 0
@@ -212,7 +259,9 @@ function goalsRenderOverview() {
   document.getElementById('goals-kpi-avg').innerHTML       = `${avg}<span class="kpi-unit">%</span>`
   document.getElementById('goals-kpi-avg-sub').textContent = `${scores.length} meses`
 
-  const semanais = window.goalsMetas.filter(m => m.tp_metrica === 'semanal')
+  const now = new Date()
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  const semanais = _gGetActiveGoalsMetas(currentMonthKey).filter(m => m.tp_metrica === 'semanal')
   const indMedia = semanais.map(meta => {
     const pcts = scores.map(({ data }) => {
       const ms = data.metaScores.find(x => x.meta.cd_goal === meta.cd_goal)
@@ -231,7 +280,7 @@ function goalsRenderOverview() {
     document.getElementById('goals-kpi-worst-ind-sub').textContent = worst.nome
   }
 
-  const mensaisNaoAtingidas = window.goalsMetas
+  const mensaisNaoAtingidas = _gGetActiveGoalsMetas(currentMonthKey)
     .filter(m => m.tp_metrica === 'mensal' && m.cd_medida)
     .filter(m => m.valor_medido === null || m.valor_medido === undefined || m.valor_medido > m.valor_alvo)
     .sort((a, b) => {
@@ -448,10 +497,7 @@ function _gRenderCalendar(mk, data) {
   const isCurMonth  = y === today.getFullYear() && m === today.getMonth() + 1
   const headers     = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
 
-  const metasSemanal = window.goalsMetas.filter(mm =>
-    mm.tp_metrica === 'semanal' &&
-    (mm.data === null || mm.data === undefined || mm.data.startsWith(mk))
-  )
+  const metasSemanal = _gGetActiveGoalsMetas(mk).filter(mm => mm.tp_metrica === 'semanal')
 
   const doneOn = (cd, ds) =>
     (window.goalsEntradas || []).some(e => e.data === ds && e.cd_goal === cd && e.progresso >= 1)
@@ -644,7 +690,8 @@ function goalsModalOnDateChange() {
 }
 
 function _goalsModalPopulate(dateStr) {
-  const metas = window.goalsMetas.filter(m => m.tp_metrica === 'semanal')
+  const mesKey = dateStr.slice(0, 7)
+  const metas = _gGetActiveGoalsMetas(mesKey).filter(m => m.tp_metrica === 'semanal')
   const list  = document.getElementById('goals-modal-list')
 
   if (metas.length === 0) {
@@ -683,7 +730,8 @@ async function saveGoalEntradas() {
   saveBtn.disabled    = true
   saveBtn.textContent = 'Salvando…'
 
-  const metas = window.goalsMetas.filter(m => m.tp_metrica === 'semanal')
+  const mesKey  = dateStr.slice(0, 7)
+  const metas   = _gGetActiveGoalsMetas(mesKey).filter(m => m.tp_metrica === 'semanal')
 
   try {
     await Promise.all(metas.map(m => {

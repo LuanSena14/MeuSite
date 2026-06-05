@@ -304,28 +304,38 @@ def get_goals_metas():
         for m in metas:
             valor_medido = None
             data_medido  = None
-            if m.cd_medida and m.data:
-                checkin = (
-                    db.query(Checkin)
-                    .filter(Checkin.cd_medida == m.cd_medida, Checkin.date >= m.data)
-                    .order_by(Checkin.date.asc())
-                    .first()
-                )
+            if m.cd_medida:
+                query = db.query(Checkin).filter(Checkin.cd_medida == m.cd_medida)
+
+                if m.data_inicio:
+                    query = query.filter(Checkin.date >= m.data_inicio)
+                elif m.data:
+                    query = query.filter(Checkin.date >= m.data)
+
+                if m.data_fim:
+                    query = query.filter(Checkin.date <= m.data_fim)
+                elif m.tp_metrica == 'mensal' and m.data:
+                    next_month = (m.data.replace(day=1) + datetime.timedelta(days=32)).replace(day=1)
+                    query = query.filter(Checkin.date < next_month)
+
+                checkin = query.order_by(Checkin.date.asc()).first()
                 if checkin:
                     valor_medido = checkin.valor
                     data_medido  = str(checkin.date)
 
             resultado.append({
-                "id":           m.id,
-                "data":         str(m.data) if m.data else None,
-                "tp_metrica":   m.tp_metrica,
-                "cd_goal":      m.cd_goal,
-                "goal_nome":    todos_goals.get(m.cd_goal, ""),
-                "valor_alvo":   m.valor_alvo,
-                "pts":          m.pts,
-                "cd_medida":    m.cd_medida,
-                "valor_medido": valor_medido,
-                "data_medido":  data_medido,
+                "id":            m.id,
+                "data":          str(m.data) if m.data else None,
+                "data_inicio":   str(m.data_inicio) if m.data_inicio else None,
+                "data_fim":      str(m.data_fim) if m.data_fim else None,
+                "tp_metrica":    m.tp_metrica,
+                "cd_goal":       m.cd_goal,
+                "goal_nome":     todos_goals.get(m.cd_goal, ""),
+                "valor_alvo":    m.valor_alvo,
+                "pts":           m.pts,
+                "cd_medida":     m.cd_medida,
+                "valor_medido":  valor_medido,
+                "data_medido":   data_medido,
             })
     return resultado
 

@@ -79,13 +79,15 @@ class EntradaGoal(Base):
 class Meta(Base):
     __tablename__ = "pontuacao_goal"
 
-    id         = Column(Integer, primary_key=True, autoincrement=True)
-    data       = Column(Date, nullable=True)
-    tp_metrica = Column(String, nullable=False)
-    cd_goal    = Column(Integer, ForeignKey("codigo_goals.id"), nullable=False)
-    valor_alvo = Column('valor', Float, nullable=True)
-    pts        = Column(Integer, nullable=True)
-    cd_medida  = Column(Integer, ForeignKey("codigo_medida.id"), nullable=True)
+    id          = Column(Integer, primary_key=True, autoincrement=True)
+    data        = Column(Date, nullable=True)  # legacy: mês da meta ou data de início antiga
+    data_inicio = Column(Date, nullable=True)
+    data_fim    = Column(Date, nullable=True)
+    tp_metrica  = Column(String, nullable=False)
+    cd_goal     = Column(Integer, ForeignKey("codigo_goals.id"), nullable=False)
+    valor_alvo  = Column('valor', Float, nullable=True)
+    pts         = Column(Integer, nullable=True)
+    cd_medida   = Column(Integer, ForeignKey("codigo_medida.id"), nullable=True)
 
 
 class CodigoFinanca(Base):

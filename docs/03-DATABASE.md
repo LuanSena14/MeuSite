@@ -253,13 +253,15 @@ Define metas mensais com valores alvo e pontuação.
 
 ```sql
 CREATE TABLE pontuacao_goal (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  data       DATE,                          -- mês da meta
-  tp_metrica VARCHAR NOT NULL,              -- "aderencia", "valor", etc
-  cd_goal    INTEGER NOT NULL FOREIGN KEY,
-  valor      FLOAT,                         -- valor alvo
-  pts        INTEGER,                       -- pontos se atingir
-  cd_medida  INTEGER FOREIGN KEY            -- métrica associada (opt)
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  data         DATE,                         -- legacy: mês da meta ou data de início antiga
+  data_inicio  DATE,                         -- início da validade da meta
+  data_fim     DATE,                         -- fim da validade da meta (NULL = sem fim)
+  tp_metrica   VARCHAR NOT NULL,             -- "aderencia", "valor", etc
+  cd_goal      INTEGER NOT NULL FOREIGN KEY,
+  valor        FLOAT,                        -- valor alvo
+  pts          INTEGER,                      -- pontos se atingir
+  cd_medida    INTEGER FOREIGN KEY           -- métrica associada (opt)
 );
 ```
 
