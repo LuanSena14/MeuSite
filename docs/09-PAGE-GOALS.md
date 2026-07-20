@@ -1,144 +1,66 @@
 # 09. PAGE-GOALS.md - Página Goals
 
-## 1. Objetivo da página
+## 1. O que é hoje
 
-A página Goals calcula e exibe o desempenho mensal de metas diárias, semanais e mensais, com visão executiva e detalhamento por mês.
+Goals **não é mais uma página própria do BodyLog** — é uma "máscara": um `<iframe>` que embute um app externo chamado **MakeIt** (`https://make-it-nine-delta.vercel.app/app.html`), um goal-tracker separado com seu próprio front-end e seu próprio projeto Supabase.
+
+> O sistema antigo de metas (score mensal, calendário heatmap, pontuação diário/semanal/mensal)
+> foi descontinuado junto com a migração pro Supabase — as tabelas `codigo_goals`,
+> `entrada_goals` e `pontuacao_goal` não existem mais no banco. O código antigo
+> (`goals.js`) ainda está no repositório, mas está inerte (ver seção 4).
 
 ## 2. Arquivos envolvidos
 
-- `FrontEnd/pages/goals/goals.html`
-- `FrontEnd/pages/goals/goals.js`
-- `FrontEnd/pages/goals/goals-modal.html`
-- `FrontEnd/pages/goals/goals.css`
-- `FrontEnd/shared/js/app.js`
-- `FrontEnd/shared/js/api.js`
+- `FrontEnd/pages/goals/goals.html` — hoje é só o `<iframe>`
+- `FrontEnd/pages/goals/goals.css` — CSS pro iframe ocupar a área toda + CSS morto do dashboard antigo
+- `FrontEnd/pages/goals/goals.js` — código do dashboard antigo, hoje inerte (ver seção 4)
+- `FrontEnd/shared/js/nav.js` — meta da seção (sem botão de ação rápida)
 
-## 3. Estrutura de interface
+## 3. `goals.html`
 
-`goals.html` possui dois estados de tela:
+```html
+<div id="goals-mask">
+  <iframe
+    id="goals-mask-frame"
+    src="https://make-it-nine-delta.vercel.app/app.html"
+    title="MakeIt"
+    loading="lazy"
+  ></iframe>
+</div>
+```
 
-- Overview (`goals-overview`): KPIs gerais e grid de meses.
-- Detail (`goals-detail`): score detalhado de um mês.
+E o CSS correspondente em `goals.css` remove o padding/max-width padrão de `.section` só para essa seção, pra o iframe ocupar toda a área de conteúdo:
 
-No detalhe, a tela mostra:
+```css
+#section-goals { padding: 0; max-width: none; height: 100%; }
+#goals-mask { height: 100%; min-height: 600px; }
+#goals-mask-frame { display: block; width: 100%; height: 100%; border: 0; }
+```
 
-- nota e score mensal
-- card de metas mensais
-- breakdown por meta
-- calendário com heatmap diário
+O MakeIt não tem `X-Frame-Options`/CSP que bloqueie ser embutido em iframe, então isso funciona sem nenhuma configuração adicional do lado deles.
 
-## 4. Fontes de dados
+## 4. Por que `goals.js` não foi deletado
 
-A seção consome três coleções:
+`goals.js` (o dashboard antigo: score mensal, calendário, modal de registro diário) continua no repositório porque:
+- `pages/home/home.js` ainda referencia `initGoalsSection()` e `openGoalsModal()` num atalho antigo de "registrar dia" que existia no card de Goals da Home.
+- `initGoalsSection()` tem uma guarda no topo que faz ela não fazer nada quando o dashboard antigo não existe mais no DOM:
+  ```javascript
+  async function initGoalsSection(forceRefresh = false) {
+    if (!document.getElementById('goals-overview')) return
+    ...
+  }
+  ```
+  Isso evita um erro de `Cannot set properties of null` quando essa função é chamada (ela tentaria manipular elementos como `#goals-overview` que só existiam no HTML antigo).
+- `openGoalsModal()`/`goals-modal.html` (modal de "+ registrar dia") ainda tecnicamente funcionam, mas mostram uma lista vazia de metas (porque `fetchGoalsCodigos()` sempre retorna `[]` — ver [04-BACKEND.md](04-BACKEND.md)). Não é usado por nenhum botão visível hoje (o atalho na sidebar/topbar foi removido), mas o card "+ dia" na Home ainda existe.
 
-- `goalsCodigos` (estrutura de goals)
-- `goalsMetas` (regras, alvo e pontos)
-- `goalsEntradas` (progresso diário)
+Se um dia decidir remover esse código morto de vez, os pontos de entrada a limpar são: `home.js` (`_homeOpenGoalsAdd`, referências a `goalsMetas`/`goalsEntradas`), `pages/home/home.html` (botão "+ dia" do card de Goals), e então `goals.js`/`goals.css`/`goals-modal.html` inteiros.
 
-Endpoints:
+## 5. Dados
 
-- `GET /api/goals/codigos`
-- `GET /api/goals/metas`
-- `GET /api/goals/entradas`
-- `POST /api/goals/entradas`
+Nenhum. A seção não faz nenhuma chamada ao Supabase do BodyLog — todo o estado (login, metas, indicadores, histórico) vive dentro do iframe, que fala com o Supabase **do MakeIt** (projeto diferente, credenciais diferentes).
 
-## 5. Inicialização resiliente
+## 6. Manutenção
 
-`initGoalsSection(forceRefresh)` implementa:
-
-- cache local com TTL de 45s
-- tentativa de carregamento com retry (até 5 tentativas)
-- espera de 15s entre tentativas
-- feedback de carregamento/erro na própria seção
-
-Esse comportamento protege contra latência de cold start do backend.
-
-## 6. Algoritmo de score mensal
-
-Função principal: `_gMonthScore(mesKey)`.
-
-## 6.1 Regras por tipo de meta
-
-- `diario`:
-  - conta dias concluídos no mês
-  - ganho proporcional ao total de dias
-- `semanal`:
-  - calcula esperado no mês com base em frequência semanal
-  - aplica crédito parcial (rate limitado a 100%)
-- `mensal`:
-  - score binário (cumpriu ou não)
-  - pode usar valor medido automático (`valor_medido`) ou entrada manual
-
-## 6.2 Nota (grade)
-
-Faixas:
-
-- A: >= 80%
-- B: >= 65%
-- C: >= 50%
-- D: < 50%
-
-## 7. Overview mensal
-
-`goalsRenderOverview()` monta:
-
-- score médio de meses com dados
-- melhor e pior indicador semanal
-- próxima meta de peso pendente
-- cards de meses com nota, percentual e pontos
-
-Ao clicar em um card mensal, abre detalhe com `goalsShowDetail(mk)`.
-
-## 8. Tela de detalhe
-
-`_gRenderDetail(mk)` renderiza:
-
-1. Cabeçalho do mês e nota.
-2. Ring de score mensal.
-3. Card de metas mensais (`_gRenderWeightCard`).
-4. Breakdown por tipo de meta (`_gRenderBreakdown`).
-5. Calendário (`_gRenderCalendar`).
-
-## 9. Calendário e filtros
-
-O calendário permite:
-
-- visão geral com intensidade por dia
-- filtro por meta semanal específica (`_goalsCalFilter`)
-- legenda dinâmica conforme modo atual
-
-Também destaca dia atual e dias futuros no mês corrente.
-
-## 10. Modal de registro diário
-
-`goals-modal.html` exibe lista de metas semanais com toggle feito/não feito.
-
-Fluxo:
-
-1. `openGoalsModal()` define data e popula lista de metas.
-2. `goalsModalToggle()` alterna estado local do botão.
-3. `saveGoalEntradas()` persiste todas metas semanais da data selecionada.
-4. Recarrega entradas e atualiza overview ou detalhe aberto.
-
-## 11. Funções-chave para manutenção
-
-- `_gMonthScore`: regra de negócio principal.
-- `_gRenderCalendar`: visualização de progresso diário.
-- `goalsRenderOverview`: resumo executivo.
-- `saveGoalEntradas`: persistência de progresso semanal.
-
-## 12. Checklist de manutenção
-
-1. Alterou regra de pontuação? Atualize `_gMonthScore` e documentação.
-2. Alterou tipos de meta? Validar normalização `meta -> mensal`.
-3. Alterou layout de detalhe? Revalidar `goalsShowDetail/goalsShowOverview`.
-4. Alterou modal? Garantir coerência entre toggles e payload final.
-5. Revalidar retries para cenários de backend lento.
-
-## 13. Testes manuais recomendados
-
-1. Criar entradas em 3 dias e validar score diário.
-2. Verificar meta semanal com crédito parcial.
-3. Validar meta mensal com valor medido e sem valor medido.
-4. Abrir detalhe de mês e alternar filtro do calendário.
-5. Simular erro de API e validar mensagens de feedback.
+- Trocar a URL do app embutido: editar o `src` do iframe em `goals.html`.
+- Se o MakeIt um dia adicionar `X-Frame-Options`/CSP restritiva, o iframe para de carregar — não há workaround do lado do BodyLog além de pedir pra tirar essa restrição no MakeIt.
+- Se quiser voltar a ter um sistema de metas nativo no BodyLog, o caminho é: desenhar tabelas novas no Supabase (schema antigo em `docs/03-DATABASE.md` de versões anteriores do repo pode servir de referência), reimplementar `fetchGoalsCodigos`/`fetchGoalsMetas`/`fetchGoalsEntradas`/`postGoalEntrada` em `api.js`, e decidir se reaproveita ou reescreve `goals.js`.

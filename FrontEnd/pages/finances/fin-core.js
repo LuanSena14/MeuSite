@@ -232,6 +232,18 @@ function _effectiveOrcamento(ano, mes) {
   return Object.values(byCode)
 }
 
+// Como _effectiveOrcamento, mas só considera orçamentos anuais (mes=null) — usado
+// no resumo do ano pra não inflar o total repetindo um orçamento mensal x12.
+function _effectiveOrcamentoAnual(ano) {
+  const byCode = {}
+  window.finOrcamento.forEach(o => {
+    if (o.mes !== null || o.ano > ano) return
+    const prev = byCode[o.cd_financa]
+    if (!prev || o.ano > prev.ano) byCode[o.cd_financa] = o
+  })
+  return Object.values(byCode)
+}
+
 // Sobe a árvore até o filho direto da raiz (cd_pai=null) — esse é o "grupo"
 function _findGrupoId(id) {
   const cod = window.finCodigos.find(c => c.id === id)
@@ -382,6 +394,121 @@ function toggleOrcGroup(uid) {
   if (arrow) arrow.textContent = open ? '▶' : '▼'
 }
 
+
+// ── Validador orçado × realizado (compartilhado entre visão mensal e anual) ─────
+
+// Constrói a árvore hierárquica de um tipo (receita|despesa|investimento) a partir de
+// lançamentos já filtrados pro período e um mapa {cd_financa: valor_orcado} já resolvido.
+function _buildFinValidadorTree(tipo, lancsPeriodo, orcMap) {
+  const isTypeRoot = id => window.finCodigos.find(c => c.id === id)?.cd_pai == null
+
+  const lancsTipo = lancsPeriodo.filter(l => window.finCodigos.find(c => c.id === l.cd_financa)?.tipo === tipo)
+  const activeIds = new Set([...Object.keys(orcMap).map(Number), ...lancsTipo.map(l => l.cd_financa)])
+  if (!activeIds.size) return { roots: [], totalOrc: 0, totalReal: 0 }
+
+  const realById = {}
+  lancsTipo.forEach(l => { realById[l.cd_financa] = (realById[l.cd_financa] || 0) + Number(l.valor) })
+
+  const nodes = {}
+  const getNode = id => {
+    if (!nodes[id]) {
+      const cod = window.finCodigos.find(c => c.id === id)
+      nodes[id] = { id, nome: cod?.nome || String(id), cd_pai: cod?.cd_pai,
+                    dirOrc: 0, dirReal: 0, totalOrc: 0, totalReal: 0, children: {} }
+    }
+    return nodes[id]
+  }
+
+  activeIds.forEach(id => {
+    getNode(id).dirOrc  = orcMap[id]   || 0
+    getNode(id).dirReal = realById[id] || 0
+    let cur = id
+    while (true) {
+      const cod = window.finCodigos.find(c => c.id === cur)
+      if (!cod || cod.cd_pai == null || isTypeRoot(cod.cd_pai)) break
+      getNode(cod.cd_pai)
+      cur = cod.cd_pai
+    }
+  })
+
+  Object.values(nodes).forEach(n => {
+    if (n.cd_pai != null && !isTypeRoot(n.cd_pai) && nodes[n.cd_pai])
+      nodes[n.cd_pai].children[n.id] = n
+  })
+
+  const computeTotals = n => {
+    n.totalOrc  = n.dirOrc
+    n.totalReal = n.dirReal
+    Object.values(n.children).forEach(c => {
+      computeTotals(c)
+      n.totalOrc  += c.totalOrc
+      n.totalReal += c.totalReal
+    })
+  }
+  const roots = Object.values(nodes).filter(n => n.cd_pai != null && isTypeRoot(n.cd_pai))
+  roots.forEach(computeTotals)
+  roots.sort((a, b) => b.totalOrc - a.totalOrc)
+  return { roots, totalOrc: roots.reduce((s, n) => s + n.totalOrc, 0), totalReal: roots.reduce((s, n) => s + n.totalReal, 0) }
+}
+
+// Renderer recursivo de nós da árvore do validador
+function _renderFinValidadorTree(nodes, netGoodPos, depth, pfx) {
+  return nodes.map(node => {
+    const uid   = `${pfx}-${node.id}`
+    const net   = node.totalReal - node.totalOrc
+    const kids  = Object.values(node.children).sort((a, b) => b.totalOrc - a.totalOrc)
+    const pad   = `${(depth + 1) * 14}px`
+    const netClr = net === 0 ? 'var(--text-muted)'
+                 : (net > 0) === netGoodPos ? 'var(--accent)' : 'var(--danger)'
+    const orcTd  = `<td class="fin-val-tbl-num">${node.totalOrc > 0 ? _fmtBRL(node.totalOrc) : '—'}</td>`
+    const realTd = `<td class="fin-val-tbl-num">${_fmtBRL(node.totalReal)}</td>`
+    const netTd  = `<td class="fin-val-tbl-num" style="color:${netClr}">${net !== 0 ? _fmtBRL(net) : '—'}</td>`
+
+    if (!kids.length) {
+      return `<tr class="fin-val-tbl-child">
+        <td class="fin-val-tbl-name" style="padding-left:${pad}">${node.nome}</td>
+        ${orcTd}${realTd}${netTd}
+      </tr>`
+    }
+    const childHtml = _renderFinValidadorTree(kids, netGoodPos, depth + 1, pfx)
+    const innerCols = `<colgroup><col style="width:100%"><col style="width:110px"><col style="width:110px"><col style="width:110px"></colgroup>`
+    return `
+      <tr class="fin-val-tbl-hd" onclick="toggleFinValAcc('${uid}')">
+        <td class="fin-val-tbl-label-cell" style="padding-left:${pad}">
+          <span class="fin-val-acc-arrow" id="fin-val-acc-arrow-${uid}">▶</span>
+          <span style="margin-left:6px">${node.nome}</span>
+        </td>
+        ${orcTd}${realTd}${netTd}
+      </tr>
+      <tr id="fin-val-acc-${uid}" style="display:none">
+        <td colspan="4" class="fin-val-tbl-children-wrap">
+          <table class="fin-val-tbl-children">${innerCols}<tbody>${childHtml}</tbody></table>
+        </td>
+      </tr>`
+  }).join('')
+}
+
+// Linha de nível 1 (Entradas / Saídas / Investimentos) do validador
+function _finValidadorTopRow(id, lbl, cls, totalOrc, totalReal, childHtml, netGoodPos) {
+  const net    = totalReal - totalOrc
+  const netClr = net === 0 ? 'var(--text-muted)'
+               : (net > 0) === netGoodPos ? 'var(--accent)' : 'var(--danger)'
+  return `
+    <tr class="fin-val-tbl-hd" onclick="toggleFinValAcc('${id}')">
+      <td class="fin-val-tbl-label-cell">
+        <span class="fin-val-acc-arrow" id="fin-val-acc-arrow-${id}">▶</span>
+        <span class="${cls}" style="margin-left:6px">${lbl}</span>
+      </td>
+      <td class="fin-val-tbl-num">${totalOrc > 0 ? _fmtBRL(totalOrc) : '—'}</td>
+      <td class="fin-val-tbl-num">${_fmtBRL(totalReal)}</td>
+      <td class="fin-val-tbl-num" style="color:${netClr}">${net !== 0 ? _fmtBRL(net) : '—'}</td>
+    </tr>
+    <tr id="fin-val-acc-${id}" style="display:none">
+      <td colspan="4" class="fin-val-tbl-children-wrap">
+        <table class="fin-val-tbl-children"><colgroup><col style="width:100%"><col style="width:110px"><col style="width:110px"><col style="width:110px"></colgroup><tbody>${childHtml}</tbody></table>
+      </td>
+    </tr>`
+}
 
 function _destroyChart(id) {
   if (_finChartsInstances[id]) {

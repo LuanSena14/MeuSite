@@ -2,7 +2,7 @@
 
 ## 🏗️ Visão Geral da Arquitetura
 
-BodyLog é uma aplicação **web moderna** que segue a arquitetura **cliente-servidor** clássica:
+BodyLog é uma aplicação **front-end only**: não existe mais um servidor de aplicação (backend) próprio. O navegador fala **diretamente** com o Supabase (banco Postgres + API REST autogerada), usando a biblioteca `supabase-js`.
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
@@ -13,60 +13,48 @@ BodyLog é uma aplicação **web moderna** que segue a arquitetura **cliente-ser
 │  │  ├── index.html (estrutura base)                            │  │
 │  │  ├── pages/* (Body, Exercises, Goals, Finances, Home)       │  │
 │  │  └── shared/* (CSS, JS helpers, componentes)                │  │
+│  │      ├── supabase-client.js → cria o cliente supabase-js    │  │
+│  │      └── api.js              → todas as queries ao Supabase │  │
 │  └────────────────┬──────────────────────────────────────────┘  │
-│                   │ HTTP/HTTPS (REST)                            │
-│                   │ Requisições JSON                             │
+│                   │ HTTPS (REST autogerado pelo PostgREST)       │
+│                   │ supabase-js / fetch                          │
 └───────────────────┼────────────────────────────────────────────┘
                     │ ☁ INTERNET ☁
 ┌───────────────────┼────────────────────────────────────────────┐
 │                   ↓                                              │
 │  ┌─────────────────────────────────────────────────────────────┐  │
-│  │              SERVIDOR (Render.com - Cloud)                  │  │
-│  │  FastAPI (Python web framework)                             │  │
-│  │  ├── main.py - Definição de rotas HTTP                      │  │
-│  │  ├── models.py - Estrutura de dados (SQLAlchemy ORM)        │  │
-│  │  └── database.py - Pool de conexões PostgreSQL              │  │
-│  │                                                             │  │
-│  │  Endpoints:                                                │  │
-│  │  /api/checkins, /api/exercicios, /api/goals, /api/financas │  │
-│  └────────────────┬──────────────────────────────────────────┘  │
-│                   │ TCP 5432 (psycopg2)                         │
-└───────────────────┼────────────────────────────────────────────┘
-                    │ ☁ INTERNET ☁
-┌───────────────────┼────────────────────────────────────────────┐
-│                   ↓                                              │
-│  ┌─────────────────────────────────────────────────────────────┐  │
-│  │              DATABASE (PostgreSQL)                          │  │
-│  │  Tabelas: checkins, entrada_exercicio, entrada_goals,      │  │
-│  │           lancamento_financeiro, etc                        │  │
+│  │                    SUPABASE (Cloud)                          │  │
+│  │  ├── Postgres (tabelas + Row Level Security)                │  │
+│  │  ├── PostgREST (API REST autogerada a partir do schema)     │  │
+│  │  └── Auth / chaves de API (anon/publishable, service_role)  │  │
 │  └─────────────────────────────────────────────────────────────┘  │
 │                                                                   │
 └──────────────────────────────────────────────────────────────────┘
+
+Exceção: a seção Goals não usa Supabase — é um <iframe> que embute um
+app externo (MakeIt, hospedado separadamente). Veja 09-PAGE-GOALS.md.
 ```
 
 ---
 
-## 🌐 Componentes de Rede
+## 🌐 Componentes
 
 ### Frontend (Browser)
-- **Localização:** Máquina do usuário (navegador)
-- **Tecnologia:** HTML, CSS, JavaScript (vanilla, sem frameworks)
-- **Quando carrega:** Quando usuário acessa https://meusite-3.onrender.com
-- **Arquivo raiz:** index.html (único arquivo HTML)
-- **Responsabilidade:** Interface, validação local, chamadas de API
+- **Localização:** máquina do usuário (navegador)
+- **Tecnologia:** HTML, CSS, JavaScript vanilla (sem frameworks, sem build step)
+- **Arquivo raiz:** `index.html`
+- **Responsabilidade:** interface, validação local, todas as queries de dados (via `supabase-js`), renderização
 
-### Backend (FastAPI)
-- **Localização:** Render.com (cloud)
-- **Tecnologia:** Python 3 + FastAPI
-- **Quando executa:** Sempre online, aguardando requisições
-- **Arquivo raiz:** main.py
-- **Responsabilidade:** Validação de dados, lógica de negócio, acesso ao banco
+### Supabase (Postgres + API REST)
+- **Localização:** projeto hospedado na nuvem da Supabase
+- **O que é:** Postgres gerenciado + PostgREST, que expõe cada tabela como um endpoint REST automaticamente (não existe código de rota escrito à mão)
+- **Segurança:** Row Level Security (RLS) — cada tabela tem uma policy que decide o que a chave `anon`/`publishable` pode ler/gravar
+- **Responsabilidade:** armazenamento persistente + controle de acesso (RLS) + validações de schema (constraints, FKs)
 
-### Database (PostgreSQL)
-- **Localização:** Render.com (cloud)
-- **Tecnologia:** PostgreSQL 12+
-- **Quando executa:** Sempre online
-- **Responsabilidade:** Armazenamento persistente de dados
+### Não existe mais
+- ❌ Servidor Python/FastAPI (`backend/` foi removido do projeto)
+- ❌ ORM (SQLAlchemy) — as queries são feitas via `supabase-js` (`sb.from('tabela').select(...)`)
+- ❌ Camada de validação server-side própria — quem valida é o Postgres (constraints/FKs) e, superficialmente, o próprio `api.js` antes de enviar
 
 ---
 
@@ -76,11 +64,11 @@ BodyLog é uma aplicação **web moderna** que segue a arquitetura **cliente-ser
 
 **PASSO 1: Página carrega**
 ```
-URL no Browser: https://meusite-3.onrender.com
+URL no Browser: index.html (hospedado como site estático)
                          ↓
-Render entrega: index.html + CSS + JavaScript
-                         ↓
-index.html carrega: <script src="shared/js/nav.js">
+index.html carrega: <script src=".../supabase-js@2">  (CDN)
+                    <script src="shared/js/supabase-client.js">  (cria `sb`)
+                    <script src="shared/js/nav.js">
                     <script src="shared/js/api.js">
                     <script src="shared/js/app.js">
                          ↓
@@ -100,366 +88,216 @@ Dispara evento: window.dispatchEvent(new CustomEvent('sectionchange', {detail: {
 app.js escuta o evento sectionchange
                          ↓
 Se body não carregou ainda:
-  app.loadHTML('pages/body/body.html', 'section-body')
+  loadHTML('pages/body/body.html', 'section-body')
+  ensureSectionScripts('body')   → injeta body.js, checkin.js, etc.
                          ↓
-Após carregar HTML:
-  executa initBodySection() (função em body.js)
-                         ↓
-body.js faz: fetchCheckins().then(entries => {...render(entries)...})
+initBodySection() é chamada (função em body.js)
 ```
 
-**PASSO 3: Chamada de API para carregar dados**
+**PASSO 3: Consulta ao Supabase**
 ```
 body.js chama: fetchCheckins()
                          ↓
-api.js executa: _apiFetch('/api/checkins')
+api.js executa:
+  sb.from('checkins')
+    .select('date, valor, codigo_medida!inner(descricao, cd_pai)')
+    .not('codigo_medida.cd_pai', 'is', null)
+    .order('date', { ascending: true })
                          ↓
-JavaScript: fetch('https://meusite-3.onrender.com/api/checkins')
-                         ↓
-║ ─ ─ ─ ─ ─ ─ │ INTERNET │ ─ ─ ─ ─ ─ ─
-║
-FastAPI recebe: GET /api/checkins
-                         ↓
-main.py: @app.get("/api/checkins")
-async def get_checkins():
-  with get_db() as db:
-    checkins = db.query(Checkin).all()
-    # Converte para JSON
-    return [{"id": ..., "date": ..., "valor": ...}]
+supabase-js monta a requisição HTTPS (GET com querystring PostgREST)
                          ↓
 ║ ─ ─ ─ ─ ─ ─ │ INTERNET │ ─ ─ ─ ─ ─ ─
 ║
-Frontend recebe: Response com JSON
+PostgREST recebe o GET, valida a policy RLS da tabela `checkins`,
+executa o SELECT no Postgres e devolve JSON
+║
+║ ─ ─ ─ ─ ─ ─ │ INTERNET │ ─ ─ ─ ─ ─ ─
                          ↓
-api.js: return response.json()
+api.js recebe { data, error }, agrupa por data em memória (JS)
                          ↓
-body.js: fetchCheckins().then(entries => {
-  entries = [...dados do servidor...]
-  renderBodyCharts(entries)
-  renderHistoricoCheckins(entries)
-})
+body.js: entries = await fetchCheckins()
+         renderBodyCharts(entries)
+         renderHistoricoCheckins(entries)
 ```
 
-**PASSO 4: Usuário abre modal e preenche formulário**
-```
-Usuário clica: "Nova Medida"
-                         ↓
-checkin.js: showCheckinModal()
-                         ↓
-Modal abre (checkin-modal.html injetado no DOM)
-                         ↓
-Usuário preenche:
-  Data: 2026-03-15
-  Peso: 78.5 kg
-  Gordura: 18.2 kg
-  Altura: 1.78 m
-```
+> Nota: o Supabase (PostgREST) limita cada SELECT a 1000 linhas por padrão.
+> Tabelas que podem ultrapassar isso (`entrada_exercicio`, `lancamento_financeiro`)
+> usam `_fetchAllPaginated()` em `api.js`, que faz `.range()` em loop até
+> esgotar os dados. Qualquer nova query sobre uma tabela grande deve considerar isso.
 
-**PASSO 5: Usuário clica Salvar**
+**PASSO 4-5: Modal e salvar**
 ```
-Usuário clica: "Salvar"
+Usuário preenche o modal de check-in e clica "Salvar"
                          ↓
-checkin.js: document.getElementById('btn-salvar').addEventListener('click', async () => {
-  const formData = {
-    date: '2026-03-15',
-    medidas: {
-      'peso': 78.5,
-      'gordura': 18.2,
-      'altura': 1.78
-    }
-  }
-  
-  await postCheckin(formData.date, formData.medidas)
-})
+checkin.js chama: postCheckin(date, medidas)
                          ↓
-api.js: _apiFetch('/api/checkins', {
-  method: 'POST',
-  headers: {'Content-Type': 'application/json'},
-  body: JSON.stringify({date: '2026-03-15', medidas: {...}})
-})
+api.js:
+  1. busca o mapa {descricao → id} em codigo_medida (só folhas, cd_pai != null)
+  2. monta um array de linhas { date, cd_medida, valor }
+  3. sb.from('checkins').insert(rows)
                          ↓
 ║ ─ ─ ─ ─ ─ ─ │ INTERNET │ ─ ─ ─ ─ ─ ─
 ║
-FastAPI recebe: POST /api/checkins
-  Body.: {"date": "2026-03-15", "medidas": {"peso": 78.5, ...}}
-                         ↓
-main.py: @app.post("/api/checkins")
-async def create_checkin(request: dict):
-  # Valida
-  if not request.get('date'): raise HTTPException(400, "Data inválida")
-  
-  with get_db() as db:
-    for codigo_medida, valor in request['medidas'].items():
-      medida = db.query(CodigoMedida).filter(
-        CodigoMedida.descricao == codigo_medida
-      ).first()
-      
-      if medida:
-        checkin = Checkin(
-          date=request['date'],
-          cd_medida=medida.id,
-          valor=valor
-        )
-        db.add(checkin)
-    
-    db.commit()  # INSERT no PostgreSQL
-  
-  return {"status": "success"}
-                         ↓
-║ ─ ─ ─ ─ ─ ─ │ INTERNET │ ─ ─ ─ ─ ─ ─
+PostgREST valida a policy RLS de INSERT, Postgres executa o INSERT
 ║
-Frontend recebe: {"status": "success"}
+║ ─ ─ ─ ─ ─ ─ │ INTERNET │ ─ ─ ─ ─ ─ ─
                          ↓
 checkin.js:
   showAppToast('✓ Check-in salvo com sucesso!')
   closeModal()
-  
-  // Recarrega dados
-  const dadosAtualizados = await fetchCheckins()
-  renderBodyCharts(dadosAtualizados)
-  renderHistoricoCheckins(dadosAtualizados)
-```
-
----
-
-## 📊 Diagrama de Fluxo de Dados
-
-```
-                  CLIENTE (Frontend)
-                        │
-                        │ Ação do usuário
-                        ↓
-                  JavaScript captura
-                  Validação local
-                        │
-                        │ Chama api.js
-                        ↓
-                  fetch() → HTTP POST
-                        │
-         ┌──────────────┼──────────────┐
-         │              │              │
-      ✓ Success      ⚠ Warning     ✗ Error
-         │              │              │
-         ↓              ↓              ↓
-      200 OK        299 Redirect   400+ Error
-         │              │              │
-         ↓              ↓              ↓
-    Parse JSON    Handle case    Show error toast
-    Update DOM      or Retry       Log to console
-  Show success      Re-fetch
-      message
+  entries = await fetchCheckins()   // recarrega
+  renderBodyCharts(entries)
 ```
 
 ---
 
 ## 🎯 Padrões Arquiteturais Utilizados
 
-### 1. **Single Page Application (SPA)**
-- Um único arquivo HTML (index.html)
-- HTML dinâmico carregado via JavaScript
-- Sem page reloads (experiência fluida)
-- Melhor performance que multi-page apps
+### 1. Single Page Application (SPA)
+Igual antes: um único `index.html`, seções carregadas dinamicamente via `loadHTML()`/`ensureSectionScripts()` em `shared/js/app.js`. Nada mudou aqui.
 
-**Como funciona:**
+### 2. Backend-as-a-Service (BaaS) via Supabase
+Em vez de escrever rotas HTTP e um ORM, o schema do Postgres (`supabase/schema.sql`) já *é* a API: toda tabela vira automaticamente um endpoint REST (PostgREST), e o controle de acesso é feito com **Row Level Security** (policies SQL), não com código de validação em uma camada de aplicação.
+
+```sql
+-- supabase/schema.sql (trecho)
+create table checkins (
+  id        integer generated always as identity primary key,
+  date      date not null,
+  cd_medida integer not null references codigo_medida(id),
+  valor     float not null
+);
+
+alter table checkins enable row level security;
+create policy "public_full_access" on checkins
+  for all to anon, authenticated using (true) with check (true);
+```
+
+Isso é aceitável aqui porque é um app **pessoal**, sem login — a chave `anon`/`publishable` fica exposta no frontend por design (é assim que o Supabase funciona no client-side), e a policy libera tudo. Se algum dia precisar de multiusuário, a policy precisa mudar para checar `auth.uid()`.
+
+### 3. Client-side query layer (`shared/js/api.js`)
+`api.js` concentra **toda** a lógica que antes vivia no backend Python: junção de tabelas (via `select` aninhado do PostgREST), agregações (somas, hierarquia de categorias), e regras de negócio como o cálculo de rendimento de investimentos. Isso é só JavaScript rodando no navegador — não há mais "servidor" nenhum aplicando essas regras.
+
+```javascript
+// Exemplo real de shared/js/api.js
+async function fetchLancamentos() {
+  const lookup = await _fetchAllCodigoFinanca()
+  const data = await _fetchAllPaginated(() => sb
+    .from('lancamento_financeiro')
+    .select('id, data, cd_financa, valor, descricao, forma_pagamento')
+    .order('data', { ascending: false })
+  )
+  return data.map(l => {
+    const cat = lookup.get(l.cd_financa)
+    const pai = cat && cat.cd_pai != null ? lookup.get(cat.cd_pai) : null
+    return {
+      id: l.id, data: l.data, cd_financa: l.cd_financa,
+      categoria_nome: cat ? cat.nome : '',
+      grupo_nome: pai ? pai.nome : (cat ? cat.nome : ''),
+      tipo: _deriveTipo(l.cd_financa, lookup),
+      valor: l.valor, descricao: l.descricao, forma_pagamento: l.forma_pagamento,
+    }
+  })
+}
+```
+
+### 4. Iframe mask (Goals)
+A seção Goals não segue o padrão acima: ela não tem dados próprios no Supabase (as tabelas de goals foram removidas de propósito). Em vez disso, `pages/goals/goals.html` é só:
+
 ```html
-<!-- index.html (único) -->
-<section id="section-home"></section>
-<section id="section-body"></section>
-<section id="section-exercises"></section>
-
-<!-- JavaScript dinamicamente injeta: -->
-<!-- em #section-home → pages/home/home.html -->
-<!-- em #section-body → pages/body/body.html -->
-<!-- etc -->
+<div id="goals-mask">
+  <iframe id="goals-mask-frame" src="https://make-it-nine-delta.vercel.app/app.html"></iframe>
+</div>
 ```
 
-### 2. **REST API (Representational State Transfer)**
-- Backend expõe endpoints HTTP
-- Frontend acessa via fetch()
-- Comunicação stateless (cada request é independente)
-- Formato: JSON
+O app externo (MakeIt) tem seu **próprio** projeto Supabase, independente do BodyLog. Do ponto de vista do BodyLog, é uma "máscara" — a sidebar/navegação são do BodyLog, o conteúdo é 100% do outro app.
 
-**Exemplos de endpoints:**
-```
-GET  /api/checkins                   → Listar todos
-POST /api/checkins                   → Criar novo
-GET  /api/exercicios                 → Listar exercícios
-POST /api/exercicios                 → Registrar treino
-```
-
-### 3. **ORM (Object-Relational Mapping)**
-- SQLAlchemy mapeia tabelas SQL para classes Python
-- Models.py define estrutura sem escrever SQL raw
-
-**Exemplo:**
-```python
-# models.py - Define classe Python
-class Checkin(Base):
-    __tablename__ = "checkins"
-    id = Column(Integer, primary_key=True)
-    date = Column(Date, nullable=False)
-
-# main.py - Usa ORM (sem SQL raw)
-db.query(Checkin).filter(Checkin.date == '2026-03-15').all()
-
-# Equivale a SQL:
-# SELECT * FROM checkins WHERE date = '2026-03-15'
-```
-
-### 4. **Component-Based CSS**
-- BEM (Block Element Modifier) naming
-- Reutilização de estilos
-- Escalável e fácil de manter
-
-**Exemplo:**
-```css
-/* Block */
-.button { ... }
-
-/* Element */
-.button__label { ... }
-
-/* Modifier */
-.button--primary { ... }
-.button--large { ... }
-```
+### 5. Component-Based CSS
+Sem mudanças: BEM, tokens em `tokens.css`, arquivos por página.
 
 ---
 
 ## 🗂️ Estrutura de Pastas Detalhada
 
-### Backend
 ```
-backend/
-├── main.py              ← Rotas HTTP (FastAPI)
-├── database.py          ← Conexão PostgreSQL
-├── models.py            ← Estrutura de dados (ORM)
-└── requirements.txt     ← Dependências Python
-```
-
-**Responsabilidades:**
-- `main.py`: Recebe requisições HTTP, valida, acesa DB, retorna JSON
-- `models.py`: Define tabelas como classes Python
-- `database.py`: Cria conexão reutilizável com banco
-- `requirements.txt`: Lista de pacotes (`pip install -r`)
-
-### Frontend - Estrutura Principal
-```
-FrontEnd/
-├── index.html           ← Arquivo HTML único (SPA)
-├── style.css            ← Importa app.css + polish.css
+MeuSite/
+├── supabase/
+│   └── schema.sql          ← DDL das tabelas + policies RLS (fonte da verdade do schema)
 │
-├── shared/              ← Recursos compartilhados
-│   ├── js/
-│   │   ├── nav.js       ← Navegação (switchSection)
-│   │   ├── api.js       ← Chamadas HTTP (fetch)
-│   │   └── app.js       ← Inicialização (loadHTML, init)
+├── FrontEnd/
+│   ├── index.html           ← Arquivo HTML único (SPA)
+│   ├── style.css
 │   │
-│   └── css/
-│       ├── app.css      ← Estilos principais (importa base/)
-│       ├── polish.css   ← Refinamentos e responsividade
-│       └── base/
-│           ├── shared.css   ← Classes utilities
-│           ├── shell.css    ← Layout sidebar/topbar
-│           └── tokens.css   ← Variáveis CSS (cores, spacing, etc)
+│   ├── shared/
+│   │   ├── js/
+│   │   │   ├── supabase-client.js  ← cria `sb` (cliente supabase-js), URL + chave anon
+│   │   │   ├── nav.js              ← Navegação (switchSection)
+│   │   │   ├── api.js              ← TODA a lógica de dados (era o backend)
+│   │   │   └── app.js              ← Inicialização, loadHTML, cache por seção
+│   │   │
+│   │   └── css/
+│   │       ├── app.css
+│   │       ├── polish.css
+│   │       └── base/
+│   │           ├── shared.css
+│   │           ├── shell.css
+│   │           └── tokens.css
+│   │
+│   └── pages/
+│       ├── home/            ← Overview
+│       ├── body/            ← Métricas corporais
+│       ├── exercises/       ← Treinos
+│       ├── goals/           ← iframe mask (MakeIt)
+│       └── finances/        ← Financeiro (maior módulo)
 │
-└── pages/               ← Código específico por página
-    ├── home/            ← Home/Overview
-    │   ├── home.html
-    │   ├── home.js
-    │   └── home.css
-    │
-    ├── body/            ← Body/Métricas
-    │   ├── body.html
-    │   ├── body.js
-    │   ├── body.css
-    │   ├── checkin.js
-    │   └── checkin-modal.html
-    │
-    ├── exercises/       ← Exercises/Treinos
-    │   ├── exercises.html
-    │   ├── exercises.js
-    │   ├── exercises.css
-    │   └── exercise-modal.html
-    │
-    ├── goals/           ← Goals/Metas
-    │   ├── goals.html
-    │   ├── goals.js
-    │   ├── goals.css
-    │   └── goals-modal.html
-    │
-    └── finances/        ← Finances/Financeiro
-        ├── finances.html
-        ├── finances.css
-        ├── fin-core.js
-        ├── fin-overview.js
-        ├── fin-lancamentos.js
-        ├── fin-investimentos.js
-        ├── fin-viagens.js
-        └── fin-modals.js
+├── docs/                    ← esta documentação
+└── start-local.ps1          ← sobe um servidor estático (python -m http.server) pro FrontEnd/
 ```
+
+> `backend/`, `migrate_db.py` e `bodylog.sql` existiram no passado e foram removidos —
+> não há mais nenhum código de servidor no repositório.
 
 ---
 
 ## 🔗 Relacionamentos entre Camadas
 
-### Como Frontend Chama Backend
+### Como Frontend consulta o Supabase
 
 ```javascript
-// FRONTEND CODE (JavaScript)
-const resposta = await fetch('https://meusite-3.onrender.com/api/exercicios', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    data: '2026-03-15',
-    cd_exercicio: 5,
-    duracao: 60,
-    esforco: 8
+// FRONTEND CODE (JavaScript) — shared/js/supabase-client.js
+const sb = supabase.createClient(
+  'https://jgqzclewwxmgjlqpxejc.supabase.co',
+  'sb_publishable_...'   // chave anon/publishable, ok expor no client
+)
+
+// shared/js/api.js
+async function postExercise(entry) {
+  const { error } = await sb.from('entrada_exercicio').insert({
+    data: entry.date,
+    hora: entry.hora,
+    cd_exercicio: entry.cd_exercicio,
+    duracao: entry.duracao ?? null,
+    esforco: entry.esforco ?? null,
   })
-})
-
-const json = await resposta.json()
-console.log(json)  // {id: 123, status: 'success'}
+  _throwIfError(error)
+  return { ok: true }
+}
 ```
 
-### Como Backend Acessa Database
-
-```python
-# BACKEND CODE (Python/FastAPI)
-from models import EntradaExercicio
-
-@app.post("/api/exercicios")
-async def create_exercicio(request: dict):
-    with get_db() as db:
-        # Cria objeto Python
-        entrada = EntradaExercicio(
-            data=request['data'],
-            cd_exercicio=request['cd_exercicio'],
-            duracao=request['duracao'],
-            esforco=request['esforco']
-        )
-        
-        # SQLAlchemy traduz para SQL e executa
-        db.add(entrada)
-        db.commit()
-        
-        # Retorna JSON para frontend
-        return {
-            'id': entrada.id,
-            'status': 'success'
-        }
-```
-
-### Como Database Armazena
+### Como o Postgres garante integridade
 
 ```sql
--- PostgreSQL executa INSERT gerado por SQLAlchemy
-INSERT INTO entrada_exercicio (data, hora, cd_exercicio, duracao, esforco)
-VALUES ('2026-03-15', '14:30:00'::time, 5, 60, 8);
-
--- Resultado: Registro inserido e persistido
--- (mesmo após desligar backend, dados continuam lá)
+-- supabase/schema.sql
+create table entrada_exercicio (
+  id           integer generated always as identity primary key,
+  data         date not null,
+  hora         time not null,
+  cd_exercicio integer not null references codigo_exercicio(id),
+  duracao      integer,
+  esforco      integer
+);
 ```
+Não existe mais "modelo Python" — o schema SQL é a única definição de estrutura de dados. Alterações de schema são feitas rodando SQL diretamente no projeto Supabase (via SQL Editor ou psql), e o arquivo `supabase/schema.sql` deve ser mantido em sincronia manualmente como registro histórico.
 
 ---
 
@@ -468,113 +306,52 @@ VALUES ('2026-03-15', '14:30:00'::time, 5, 60, 8);
 ### Frontend (Cliente/Browser)
 **Responsável por:**
 - ✅ Interface do usuário
-- ✅ Capturar eventos (cliques, submissão de forma)
-- ✅ Validação básica de dados
-- ✅ Chamadas HTTP via fetch
-- ✅ Atualização de DOM
+- ✅ Capturar eventos (cliques, submissão de formulário)
+- ✅ Todas as consultas e regras de agregação/negócio (em `api.js`)
 - ✅ Renderização de charts/gráficos
-- ✅ Cache local (TTL)
+- ✅ Cache local (TTL) por seção
 - ✅ Navegação entre seções (SPA)
 
 **NÃO é responsável por:**
-- ❌ Validação séria de dados (sempre validar no backend)
-- ❌ Lógica de negócio complexa
-- ❌ Acesso direto ao banco
+- ❌ Esconder segredos de verdade — a chave usada é pública por design (RLS é quem protege)
 
-### Backend (Servidor/Server)
-**Responsável por:**
-- ✅ Validação rigorosa de dados (Pydantic)
-- ✅ Lógica de negócio
-- ✅ Acesso ao banco de dados
-- ✅ Autenticação/Autorização
-- ✅ Cálculos complexos
-- ✅ Garantir integridade dos dados
-- ✅ Logging de operações
-- ✅ Tratamento de erros
-
-**NÃO é responsável por:**
-- ❌ Renderizar interface (responsabilidade do frontend)
-- ❌ Armazenar dados em cache (banco de dados faz isso)
-
-### Database (Permanência/Armazenamento)
+### Supabase (Postgres + PostgREST)
 **Responsável por:**
 - ✅ Armazenar dados persistentemente
-- ✅ Integridade referencial (foreign keys)
-- ✅ Índices para performance
-- ✅ Backup automático
-- ✅ Replicação (em produção)
+- ✅ Integridade referencial (foreign keys, constraints)
+- ✅ Controle de acesso via RLS (policies)
+- ✅ Expor cada tabela como endpoint REST automaticamente
 
 **NÃO é responsável por:**
-- ❌ Lógica de negócio
-- ❌ Formatação de resposta
+- ❌ Lógica de negócio específica do BodyLog (isso é tudo `api.js`)
+- ❌ Renderizar nada
 
 ---
 
 ## 🔐 Fluxo de Segurança
 
-### PIN Protection (Finances)
+### RLS (Row Level Security) — substitui a validação de backend
+```sql
+alter table lancamento_financeiro enable row level security;
+create policy "public_full_access" on lancamento_financeiro
+  for all to anon, authenticated using (true) with check (true);
+```
+Como é um app pessoal sem login, a policy libera tudo pra chave anon. Isso é intencional — não é uma falha de configuração.
+
+### PIN Protection (Finances) — inalterado
 ```
 Usuário acessa Finances
              ↓
-Sem PIN autenticado?
+Sem PIN autenticado (sessionStorage.finances_ok)?
              ↓
-Mostrar modal PIN
+Mostrar modal PIN (constante FINANCES_PIN em nav.js)
              ↓
-Usuário digita PIN
-             ↓
-Frontend valida no localStorage
-             ↓
-Correto? → Desbloqueado
-Errado?  → Mensagem erro
+Correto? → Desbloqueado para a sessão do navegador
 ```
+Isso é só uma cortina de privacidade de UI — não é segurança de verdade (o PIN vive no código-fonte do frontend). A proteção real de dados é a RLS lá no Supabase.
 
-### CORS (Cross-Origin Resource Sharing)
-```python
-# main.py
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Permite qualquer origem
-    allow_methods=["*"],  # Permite GET, POST, DELETE, etc
-    allow_headers=["*"]   # Permite qualquer header
-)
-
-# Nota: Em produção, isso puede ser mais restritivo
-```
-
----
-
-## 📈 Padrão de Escalabilidade
-
-### Horizontal
-```
-Um servidor FastAPI não é suficiente?
-             ↓
-Adicione mais servidores FastAPI atrás de um Load Balancer
-             ↓
-Cada servidor tem sua conexão ao PostgreSQL
-             ↓
-Bank gerencia tráfego entre servidores
-```
-
-### Vertical
-```
-Um servidor FastAPI não é rápido suficiente?
-             ↓
-Aumente RAM e CPU (upgrade do plano Render)
-             ↓
-FastAPI é muito eficiente, aguenta bastante
-```
-
-### Database
-```
-Muito dados? PostgreSQL fica lento?
-             ↓
-Adicione índices nas colunas frequentemente consultadas
-             ↓
-Implemente cache com Redis
-             ↓
-Considere particionamento (sharding) de dados
-```
+### CORS
+Não existe mais CORS para configurar — não há servidor próprio. O Supabase já responde com os headers corretos para chamadas vindas de qualquer origem (controlado pelas configurações do projeto Supabase, não pelo código do BodyLog).
 
 ---
 
@@ -582,84 +359,28 @@ Considere particionamento (sharding) de dados
 
 ```
 DESENVOLVIMENTO LOCAL
-│ (seu laptop)
-│ python main.py (rodando na 8000)
+│ start-local.ps1 → python -m http.server 8080 servindo FrontEnd/
+│ (sem nada pra "rodar" além do servidor estático — sem venv, sem uvicorn)
 │
         ↓
-│ Teste tudo localmente
+│ Teste tudo localmente (aponta pro Supabase de produção, não tem "local DB")
 │
         ↓
-│ git commit + git push (GitHub)
+│ git commit + git push
 │
         ↓
-│ Render webhook detecta push
+HOSPEDAGEM DO FRONTEND (estático)
+│  Qualquer host de arquivos estáticos serve — GitHub Pages, Vercel,
+│  Netlify, Render (static site), etc. Não precisa de runtime de servidor.
 │
-        ↓
-RENDER.COM (Cloud)
-│
-├── Frontend
-│   └── Arquivo estático HTML/CSS/JS
-│       (servidos como arquivos estáticos)
-│
-└── Backend (Restart automático)
-    └── Python FastAPI
-        (rodando em container)
-        (conecta ao PostgreSQL via DATABASE_URL)
+SUPABASE (já está sempre no ar, não tem deploy nem cold start)
+│  Postgres + PostgREST gerenciados
 ```
 
----
-
-## 🔄 Ciclo de Requisição-Resposta
-
-```
-╔════════════════════════════════════════════════════╗
-║           CLIENTE (Browser)                        ║
-║  1. JavaScript cria objeto JavaScript             ║
-║  2. JSON.stringify() → JSON text                   ║
-║  3. fetch() com body=JSON text                     ║
-║  4. HTTP POST headers                             ║
-╚═════════════────────╤══════════════════════════════╝
-                      │ HTTPS (encrypted)
-                      │
-╔═════════════════════╧══════════════════════════════╗
-║           SERVIDOR (FastAPI)                       ║
-║  1. Recebe HTTP POST request                      ║
-║  2. Extrai JSON do body                           ║
-║  3. Pydantic valida tipos                         ║
-║  4. Executa lógica                                 ║
-║  5. SQLAlchemy gera SQL                           ║
-╚═════════════════════╤══════════════════════════════╝
-                      │ TCP 5432
-                      │
-╔═════════════════════╧══════════════════════════════╗
-║           DATABASE (PostgreSQL)                    ║
-║  1. Recebe SQL                                    ║
-║  2. Executa INSERT/UPDATE/SELECT                  ║
-║  3. Retorna resultados                            ║
-╚═════════════════════╤══════════════════════════════╝
-                      │ TCP 5432
-                      │
-╔═════════════════════╧══════════════════════════════╗
-║           SERVIDOR (FastAPI)                       ║
-║  1. Cria dict Python com resultado                ║
-║  2. json.dumps() → JSON text                       ║
-║  3. HTTP 200 OK headers                           ║
-║  4. Response body = JSON text                     ║
-╚═════════════════════╤══════════════════════════════╝
-                      │ HTTPS (encrypted)
-                      │
-╔═════════════════════╧══════════════════════════════╗
-║           CLIENTE (Browser)                        ║
-║  1. Recebe HTTP 200 response                      ║
-║  2. JSON.parse() → JavaScript object              ║
-║  3. JavaScript processa resposta                  ║
-║  4. document.getElementById().innerHTML = ...    ║
-║  5. Usuário vê mudança na tela                    ║
-╚════════════════════════════════════════════════════╝
-```
+Veja [13-DEPLOYMENT.md](13-DEPLOYMENT.md) para o passo a passo completo.
 
 ---
 
 ✅ **Próximo:** Veja [03-DATABASE.md](03-DATABASE.md) para entender o banco de dados em profundidade.
 
-✅ **Depois:** Explore [04-BACKEND.md](04-BACKEND.md) para entender o FastAPI.
+✅ **Depois:** Explore [04-BACKEND.md](04-BACKEND.md) para entender a camada de dados (`api.js`) que substituiu o backend.

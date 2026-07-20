@@ -630,6 +630,18 @@ select.fin-col-filter {
   display: block;
 }
 
+.fin-overview-annual-split {
+  grid-template-columns: 1fr 1fr;
+  margin-top: 12px;
+}
+.fin-annual-summary-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+.fin-annual-summary-strip .fin-inv-card { flex: 1 1 200px; }
+
 .fin-overview-top-row {
   display: grid;
   gap: 40px;

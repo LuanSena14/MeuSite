@@ -2,413 +2,114 @@
 
 ## 📚 Visão Geral do Stack
 
-BodyLog utiliza um stack moderno e minimalista:
-
 ```
 ┌──────────────────────┐
 │   FRONTEND           │
 │ HTML / CSS / JS      │
 │ Vanilla (no libs)    │
-│ Chart.js para gráf   │
+│ Chart.js + supabase-js│
 └──────────────────────┘
          ↕
-    [HTTPS/REST]
+   [HTTPS/REST via PostgREST]
          ↕
 ┌──────────────────────┐
-│   BACKEND            │
-│ Python + FastAPI     │
-│ SQLAlchemy ORM       │
-│ Pydantic validation  │
-└──────────────────────┘
-         ↕
-     [TCP 5432]
-         ↕
-┌──────────────────────┐
-│   DATABASE           │
-│ PostgreSQL 12+       │
-│ Hosted: Render.com   │
+│   SUPABASE           │
+│ Postgres             │
+│ PostgREST (API auto) │
+│ Row Level Security   │
 └──────────────────────┘
 ```
+
+Não existe camada de backend própria. O que antes era Python/FastAPI/SQLAlchemy virou: schema SQL + policies de RLS (do lado do banco) e funções JavaScript em `api.js` (do lado do cliente).
 
 ---
 
 ## 🎨 FRONTEND Stack
 
-### HTML5
+### HTML5 / CSS3
+Sem mudanças: markup semântico, CSS puro (sem preprocessador), BEM, Flexbox + Grid. Arquivos em `shared/css/base/` (tokens, shell, shared) + um CSS por página, todos importados via `app.css`.
+
+### JavaScript (ES6+, vanilla)
+Sem framework, sem bundler, sem transpiler. `fetch()` continua existindo (usado por `loadHTML()` pra buscar fragmentos HTML das páginas), mas todo acesso a **dados** agora é via `supabase-js`, não `fetch()` direto pra uma API própria.
+
+### supabase-js
 | Aspecto | Descrição |
 |---------|-----------|
-| **Versão** | HTML5 (standard moderno) |
-| **Objetivo** | Markup estrutural |
-| **Caraterísticas** | Semântico, acessível, responsive |
-| **Arquivo** | index.html (único arquivo) |
-| **Tamanho** | ~3KB minificado |
+| **Versão** | 2.x (via CDN, `@supabase/supabase-js@2`) |
+| **Objetivo** | Cliente JS que fala com o Postgres via PostgREST |
+| **Carregamento** | `<script>` clássico no `index.html`, antes de `api.js` |
+| **Uso** | `sb.from('tabela').select()/.insert()/.update()/.delete()` |
 
-**Por que HTML5?**
-- Standard web moderno
-- Suporte nativo para `<form>`, `<input>`, etc
-- Validação nativa de inputs (`required`, `type="date"`, etc)
-- Acessibilidade com ARIA attributes
-
-### CSS3
-| Aspecto | Descrição |
-|---------|-----------|
-| **Versão** | CSS3 (padrão moderno) |
-| **Objetivo** | Estilos, layout, animações |
-| **Layout** | Flexbox + CSS Grid |
-| **Preprocessador** | Nenhum (CSS puro) |
-| **Arquitetura** | BEM (Block Element Modifier) |
-
-**Arquivos CSS:**
-- `tokens.css` - Design tokens (cores, spacing, tipografia)
-- `shell.css` - Layout principal (sidebar, topbar)
-- `shared.css` - Classes utilities
-- `app.css` - Componentes (buttons, cards, modals)
-- `polish.css` - Refinamentos e responsividade
-
-**Vantagens do CSS Puro:**
-- ✅ Sem build step (SCSS → CSS)
-- ✅ Sem dependências
-- ✅ CSS moderno (variables, grid, flexbox) é poderoso
-- ✅ Fácil fazer override e customização
-
-### JavaScript (ES6+)
-| Aspecto | Descrição |
-|---------|-----------|
-| **Versão** | ES6+ (JavaScript moderno) |
-| **Tipo** | Vanilla (sem React, Vue, Angular) |
-| **Objetivo** | Lógica, DOM manipulation, requisições |
-| **Bundler** | Nenhum (arquivos carregados direto) |
-| **Transpiler** | Nenhum (browser nativo ES6) |
-
-**Vantagens JS Vanilla:**
-- ✅ Sem overhead de framework
-- ✅ Sem build step
-- ✅ Fácil fazer debugging (código é legível)
-- ✅ Performance excelente
-- ✅ Sem dependency fatigue
-
-**Funcionalidades Modernas:**
-- `fetch()` - Requisições HTTP nativa
-- `async/await` - Código assíncrono legível
-- `const/let` - Variáveis com escopo adequado
-- `arrow functions` - Sintaxe concisa
-- `template literals` - Strings interpoladas
-- `Spread operator` - Operações em arrays/objects
-- `Classes` - Programação orientada a objetos
-- `Modules` - Importar/exportar (via `<script>` tags)
+```javascript
+// shared/js/supabase-client.js
+const sb = supabase.createClient(
+  'https://jgqzclewwxmgjlqpxejc.supabase.co',
+  'sb_publishable_...'
+)
+```
 
 ### Chart.js
-| Aspecto | Descrição |
-|---------|-----------|
-| **Versão** | 4.4.1 |
-| **Objetivo** | Criar gráficos interativos |
-| **Tipos** | Line, Bar, Pie, Doughnut, Radar, etc |
-| **Tamanho** | ~60KB |
-| **Licença** | MIT (open source) |
-
-**Uso no BodyLog:**
-```javascript
-// Exemplo: Gráfico de peso
-const ctx = document.getElementById('chart-peso').getContext('2d')
-const chart = new Chart(ctx, {
-  type: 'line',
-  data: {
-    labels: ['2026-03-01', '2026-03-02', ...],
-    datasets: [{
-      label: 'Peso (kg)',
-      data: [78.5, 78.3, 78.1, ...],
-      borderColor: '#2F7AFF'
-    }]
-  }
-})
-```
+Sem mudanças: versão 4.4.1, usado em Body/Exercises/Finances.
 
 ### Google Fonts
-| Aspecto | Descrição |
-|---------|-----------|
-| **Fontes Usadas** | DM Sans, DM Serif Display, DM Mono |
-| **Carregamento** | CDN externo |
-| **Fallbacks** | sans-serif, serif, monospace |
-
-**CSS:**
-```css
-@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap');
-
-:root {
-  --font-display: 'DM Serif Display', serif;
-  --font-body: 'DM Sans', sans-serif;
-  --font-mono: 'DM Mono', monospace;
-}
-```
+Sem mudanças: DM Sans, DM Serif Display, DM Mono.
 
 ---
 
-## 🐍 BACKEND Stack
+## 🟢 SUPABASE Stack (o que substituiu o backend + database)
 
-### Python 3.x
+### Postgres
 | Aspecto | Descrição |
 |---------|-----------|
-| **Versão** | 3.9+ (moderno) |
-| **Objetivo** | Linguagem de programação |
-| **Características** | Simples, legível, poderema |
-| **Runtime** | CPython (padrão) |
+| **Tipo** | Banco relacional, gerenciado pelo Supabase |
+| **Schema** | Definido em [`supabase/schema.sql`](../supabase/schema.sql) |
+| **Migração de schema** | Manual (SQL Editor do Supabase ou conexão Postgres direta) — não há Alembic/migration tool |
 
-**Por que Python?**
-- ✅ Fácil aprender (sintaxe clara)
-- ✅ Ecossistema rich (libs para tudo)
-- ✅ Ótima para análise de dados
-- ✅ fastAPI é muito moderno
-- ✅ SQLAlchemy é padrão industria
-
-### FastAPI
+### PostgREST
 | Aspecto | Descrição |
 |---------|-----------|
-| **Versão** | 0.135.1 |
-| **Tipo** | Web framework |
-| **Paradigma** | REST API |
-| **Speed** | Muito rápido (async/await nativo) |
-| **Auto-docs** | Swagger, ReDoc grátis |
+| **O que é** | Servidor que expõe automaticamente cada tabela/view do Postgres como um endpoint REST, baseado no schema (incluindo joins via foreign keys) |
+| **Por que isso substitui o backend** | Não é preciso escrever rota nenhuma — criar uma tabela já cria a "API" dela |
+| **Limite importante** | Cada `select` retorna no máximo 1000 linhas por padrão; paginar com `.range()` quando a tabela pode crescer além disso |
 
-**FastAPI vs Outros:**
-| Framework | Prós | Contras |
-|-----------|------|---------|
-| **FastAPI** | Rápido, moderno, async, auto-docs | Menos maduro que Django |
-| **Django** | Maduro, ORM poderoso, batteries-included | Heavy, lento para APIs |
-| **Flask** | Minimalista, simples | Pouca validação, asyncio ruim |
-
-**FastAPI Escolhido porque:**
-- ✅ Performance excelente (async/await)
-- ✅ Validação automática (Pydantic)
-- ✅ Auto-geração de docs (Swagger)
-- ✅ Type hints modernos
-- ✅ Perfect para REST API
-
-### Uvicorn
+### Row Level Security (RLS)
 | Aspecto | Descrição |
 |---------|-----------|
-| **Versão** | 0.41.0 |
-| **Tipo** | ASGI Server |
-| **Objetivo** | Executar aplicação FastAPI |
-| **Concorrência** | Async nativo (uvloop) |
+| **O que é** | Policies SQL que decidem, por tabela e por operação, o que uma chave de API pode fazer |
+| **Configuração atual** | Todas as tabelas do BodyLog têm uma policy única liberando tudo pra `anon`/`authenticated` (app pessoal, sem login) |
+| **Por que não é uma falha de segurança** | A chave anon é pública por design em qualquer app Supabase client-side — quem protege é a RLS, não o sigilo da chave |
 
-**ASGI vs WSGI:**
-- **WSGI** (Django, Flask)  → Síncrono, thread por requisição
-- **ASGI** (FastAPI) → Assíncrono, event loop, milhares de requisições
-
-```bash
-# Rodar FastAPI com Uvicorn
-uvicorn main:app --port 8001 --reload
-# INFO:     Application startup complete
-```
-
-### SQLAlchemy
-| Aspecto | Descrição |
-|---------|-----------|
-| **Versão** | 2.0.48 |
-| **Tipo** | ORM (Object-Relational Mapping) |
-| **Objetivo** | Acesso ao banco de dados via objetos Python |
-| **Databases** | PostgreSQL, MySQL, SQLite, etc |
-
-**SQLAlchemy vs Raw SQL:**
-
-**Raw SQL (evitar):**
-```python
-db.execute("INSERT INTO checkins (date, cd_medida, valor) VALUES (%s, %s, %s)", 
-           ('2026-03-15', 1, 78.5))
-# Vulnerável a SQL injection
-# Código quebrado se mudar tabela
-# Difícil manter
-```
-
-**SQLAlchemy ORM (fazer assim):**
-```python
-checkin = Checkin(date='2026-03-15', cd_medida=1, valor=78.5)
-db.add(checkin)
-db.commit()
-# Seguro contra SQL injection
-# Type-safe
-# Fácil refatorar
-```
-
-### Pydantic
-| Aspecto | Descrição |
-|---------|-----------|
-| **Versão** | 2.12.5 |
-| **Tipo** | Data validation & serialization |
-| **Objetivo** | Validar dados de entrada (request body) |
-
-**Exemplo:**
-```python
-from pydantic import BaseModel
-
-class CheckinRequest(BaseModel):
-    date: str  # Obrigatório
-    medidas: dict
-    # Pydantic valida tipos automaticamente
-    
-# Se frontend enviar:
-# {"date": "2026-03-15", "medidas": {...}}  → Válido ✓
-# {"date": None, "medidas": {...}}          → Invalid ✗ TypeError
-# {"date": "invalid", "medidas": {...}}     → Invalid ✗ DateError
-```
-
-### python-dotenv
-| Aspecto | Descrição |
-|---------|-----------|
-| **Versão** | Latest |
-| **Tipo** | Variáveis de ambiente |
-| **Objetivo** | Carregar `.env` file |
-
-**Uso:**
-```python
-from dotenv import load_dotenv
-import os
-
-load_dotenv()  # Lê .env
-
-DATABASE_URL = os.getenv("DATABASE_URL")
-API_PORT = os.getenv("API_PORT", "8001")  # Com default
-```
-
-**Arquivo .env (não fazer commit):**
-```
-DATABASE_URL=postgresql://user:pass@localhost/bodylog
-API_PORT=8001
-FINANCE_PIN=1234
-```
+### Chaves de API
+| Chave | Uso |
+|-------|-----|
+| **`sb_publishable_...` (anon)** | Usada no frontend (`supabase-client.js`), pública por design |
+| **`sb_secret_...` (service_role)** | Ignora RLS — nunca deve ir pro frontend; só usada manualmente (ex.: scripts de migração de dados) |
+| **Connection string do Postgres** | Usada só pra tarefas administrativas (criar tabelas, rodar migrações de dados) — não é usada pelo app em produção |
 
 ---
 
-## 🛢️ DATABASE Stack
+## 🚫 O que saiu do projeto
 
-### PostgreSQL
-| Aspecto | Descrição |
-|---------|-----------|
-| **Versão** | 12+ |
-| **Tipo** | Relational Database |
-| **Objetivo** | Armazenar dados persistentemente |
-| **Licença** | Open Source (PostgreSQL License) |
-
-**Características PostgreSQL:**
-- ✅ ACID compliant (transações seguras)
-- ✅ Foreign keys e constraints
-- ✅ Índices para performance
-- ✅ JSON support nativo
-- ✅ Full-text search
-- ✅ Escalável
-
-**Por que PostgreSQL vs Outras?**
-| Database | Prós | Contras |
-|----------|------|---------|
-| **PostgreSQL** | Robusto, ACID, open-source | Mais pesado que SQLite |
-| **MySQL** | Popular, rápido | ACID fraco (MyISAM), menos features |
-| **SQLite** | Leve, fácil | Sem concorrência, não escalável |
-| **MongoDB** | Flexível, escalável | Sem ACID, sem JOINs |
-
-**Escolhido PostgreSQL porque:**
-- ✅ Robusto para produção
-- ✅ ACID garantido
-- ✅ Suporta constraints complexos
-- ✅ Relacional (BOD)
-- ✅ Free & open-source
-
-### psycopg2
-| Aspecto | Descrição |
-|---------|-----------|
-| **Versão** | 2.9.11 |
-| **Tipo** | Database adapter |
-| **Objetivo** | Driver Python ↔ PostgreSQL |
-| **Pool** | Suportado via SQLAlchemy |
+| Tecnologia | Papel antigo | Por quê saiu |
+|---|---|---|
+| Python 3.x | Linguagem do backend | Não há mais backend |
+| FastAPI | Framework REST | Substituído pelo PostgREST (autogerado) |
+| Uvicorn | ASGI server | Não há servidor pra rodar |
+| SQLAlchemy | ORM | Substituído por `supabase-js` (queries diretas) |
+| Pydantic | Validação de request | Validação agora é: constraints do Postgres + checagens simples em `api.js` |
+| psycopg2 | Driver Postgres em Python | Não há mais código Python no projeto |
+| python-dotenv | Carregar `.env` do backend | Não há `.env` de servidor — a config do Supabase fica direto em `supabase-client.js` |
 
 ---
 
 ## 🚀 DEPLOYMENT Stack
 
-### Render.com
-| Aspecto | Descrição |
-|---------|-----------|
-| **Tipo** | Cloud platform (PaaS) |
-| **Host** | Backend + Frontend + Database |
-| **Scaling** | Automático |
-| **Plano** | Free tier para experimental |
+| Componente | Onde roda | Observação |
+|------------|-----------|------------|
+| **Frontend** | Qualquer host de arquivos estáticos (Render static site, Vercel, Netlify, GitHub Pages) | Sem runtime de servidor — é só HTML/CSS/JS |
+| **Supabase** | Projeto na nuvem da Supabase | Sempre online, sem cold start (diferente do antigo backend no Render free tier) |
 
-**Render hospeda:**
-- **Frontend:** Arquivos estáticos (HTML/CSS/JS)
-- **Backend:** Python/FastAPI (container)
-- **Database:** PostgreSQL managed
-
-**Alternativas:**
-| Plataforma | Backend | Frontend | DB | Custo |
-|-----------|---------|----------|-------|-------|
-| **Render** | ✓ | ✓ | ✓ | Grátis + pago |
-| **Heroku** | ✓ | ✓ | ✓ | Pago (descontinuado) |
-| **AWS** | ✓ | ✓ | ✓ | Complexo, caro |
-| **Vercel** | Serverless | ✓ | ✗ | Grátis para frontend |
-| **Railway** | ✓ | ✓ | ✓ | Simples, pago |
-
-**Escolhido Render porque:**
-- ✅ Simples para começar
-- ✓ Suporta Python nativo
-- ✓ Free tier generoso
-- ✓ Postgres included
-- ✓ Auto-deploy via GitHub
-
----
-
-## 🔄 Fluxo Integrado
-
-```
-┌─────────────────────────────────────┐
-│  Usuário no Browser (Frontend)      │
-│  HTML + CSS + JS Vanilla            │
-│  Chart.js para gráficos            │
-└────────────────┬────────────────────┘
-                 │ fetch() HTTPS
-                 │
-┌────────────────┴────────────────────┐
-│  Render.com - Backend Container     │
-│  Python 3.x + FastAPI              │
-│  Uvicorn (ASGI server)             │
-│  SQLAlchemy (ORM)                  │
-│  Pydantic (validation)             │
-└────────────────┬────────────────────┘
-                 │ psycopg2 TCP:5432
-                 │
-┌────────────────┴────────────────────┐
-│  Render.com - PostgreSQL Database  │
-│  Tabelas relacionais               │
-│  Índices para performance          │
-└─────────────────────────────────────┘
-```
-
----
-
-## 📦 Dependências Completas
-
-### Frontend (Bundle tamanho)
-```
-HTML + CSS + JS Vanilla:    ~50 KB
-Chart.js:                   ~60 KB
-Google Fonts:               ~30 KB (cache)
-─────────────────────
-Total:                      ~140 KB
-```
-
-**Vantagem:** Carregamento muito rápido!
-
-### Backend (requirements.txt)
-```
-fastapi==0.135.1                  Web framework
-uvicorn==0.41.0                   ASGI server
-SQLAlchemy==2.0.48                ORM
-psycopg2-binary==2.9.11           PostgreSQL driver
-pydantic==2.12.5                  Data validation
-python-dotenv==latest             .env loading
-starlette==0.52.1                 (depended by FastAPI)
-anyio==4.12.1                     (depended by FastAPI)
-```
-
-**Total dependências:** 8 pacotes principais
+Ver [13-DEPLOYMENT.md](13-DEPLOYMENT.md) para o passo a passo.
 
 ---
 
@@ -417,16 +118,10 @@ anyio==4.12.1                     (depended by FastAPI)
 - ✅ Frontend: HTML5 + CSS3 + ES6+ JS (vanilla)
 - ✅ Gráficos: Chart.js 4.4.1
 - ✅ Tipografia: Google Fonts (DM Sans/Serif/Mono)
-- ✅ Backend: Python 3.x + FastAPI 0.135.1
-- ✅ Server: Uvicorn 0.41.0
-- ✅ ORM: SQLAlchemy 2.0.48
-- ✅ Validation: Pydantic 2.12.5
-- ✅ Database: PostgreSQL 12+
-- ✅ Driver: psycopg2 2.9.11
-- ✅ Env: python-dotenv
-- ✅ Deploy: Render.com (Cloud)
-- ✅ Protocol: HTTPS (seguro)
-- ✅ API: REST JSON
+- ✅ Dados: supabase-js 2.x → Supabase (Postgres + PostgREST + RLS)
+- ✅ Deploy: hospedagem estática (frontend) + Supabase (dados), sem servidor de aplicação
+- ✅ Protocol: HTTPS
+- ✅ API: REST autogerada (PostgREST), sem rota escrita à mão
 
 ---
 

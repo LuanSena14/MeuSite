@@ -114,12 +114,9 @@ async function editDateLancamentoFin(id, oldDate) {
   const novaData = prompt(`Corrigir data do lançamento\nData atual: ${oldDate}\n\nNova data (AAAA-MM-DD):`, oldDate)
   if (!novaData || novaData === oldDate) return
   if (!/^\d{4}-\d{2}-\d{2}$/.test(novaData)) { alert('Formato inválido. Use AAAA-MM-DD.'); return }
-  const r = await fetch(`/api/financas/lancamentos/${id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ data: novaData })
-  })
-  if (!r.ok) { const e = await r.json(); alert('Erro: ' + (e.detail || r.status)); return }
+  try {
+    await patchLancamentoDate(id, novaData)
+  } catch (_) { alert('Erro de conexão'); return }
   const entry = window.finLancamentos.find(l => l.id === id)
   if (entry) entry.data = novaData
   renderLancamentos()

@@ -1,20 +1,26 @@
 # 3. Documentação do Banco de Dados - BodyLog
 
-## 📊 Visão Geral do PostgreSQL
+## 📊 Visão Geral
 
-O BodyLog utiliza **PostgreSQL 12+** como banco de dados relacional para armazenar:
-- Métricas corporais (peso, gordura, músculo, etc)
+O BodyLog usa **PostgreSQL**, hospedado como um projeto **Supabase** (não mais Render/Neon com backend próprio). O Supabase expõe automaticamente cada tabela como um endpoint REST via **PostgREST** — o frontend fala com o banco através do cliente `supabase-js`, sem nenhum servidor de aplicação no meio.
+
+Armazena:
+- Métricas corporais (peso, gordura, músculo, etc.)
 - Registro de exercícios e treinos
-- Metas e progresso diário
-- Transações financeiras e orçamentos
-- Snapshots de investimentos
+- Transações, orçamento e investimentos financeiros
+
+> **Goals não tem mais tabelas no Supabase.** As tabelas `codigo_goals`, `entrada_goals`
+> e `pontuacao_goal` existiam no schema antigo (Render/Neon) mas foram deixadas de fora
+> de propósito na migração — a seção Goals hoje é um iframe que embute um app externo
+> (veja [09-PAGE-GOALS.md](09-PAGE-GOALS.md)). Se um dia quiser um sistema de metas nativo
+> de novo, terá que desenhar o schema do zero.
 
 ### Características Principais
-- ✅ **Open Source** e gratuito
-- ✅ **ACID Compliant** (Atomicity, Consistency, Isolation, Durability)
-- ✅ **Relacional** (suporta Foreign Keys, Constraints)
-- ✅ **Estruturado** via SQLAlchemy ORM no Python
-- ✅ **Hospedado no Render.com** (managed service)
+- ✅ **Fonte da verdade do schema:** [`supabase/schema.sql`](../supabase/schema.sql) na raiz do repo
+- ✅ **ACID Compliant** (Postgres)
+- ✅ **Relacional** (Foreign Keys, Constraints)
+- ✅ **Row Level Security (RLS)** faz o papel que a validação de backend fazia antes
+- ✅ **Sem ORM** — todo acesso é via `supabase-js` em `FrontEnd/shared/js/api.js`
 
 ---
 
@@ -26,10 +32,26 @@ O BodyLog utiliza **PostgreSQL 12+** como banco de dados relacional para armazen
 |--------|---------|
 | **Body (Métricas)** | `unidade_medida`, `codigo_medida`, `checkins` |
 | **Exercises (Treinos)** | `codigo_exercicio`, `entrada_exercicio` |
-| **Goals (Metas)** | `codigo_goals`, `entrada_goals`, `pontuacao_goal` (Meta) |
-| **Finances (Finanças)** | `codigo_financa`, `lancamento_financeiro`, `orcamento_financeiro`, `snapshot_investimento`, `relacionamento_lancamento_viagem` |
+| **Finances (Finanças)** | `codigo_financa`, `lancamento_financeiro`, `orcamento_financeiro`, `snapshot_investimento`, `relacionamento_debito_investimento`, `relacionamento_lancamento_viagem` |
 
-**Total:** 11 tabelas principais
+**Total:** 11 tabelas (Goals fica de fora, ver acima).
+
+---
+
+## 🔐 Row Level Security (RLS)
+
+Toda tabela tem RLS habilitado com uma única policy aberta, já que é um app pessoal sem login:
+
+```sql
+alter table checkins enable row level security;
+
+create policy "public_full_access" on checkins
+  for all to anon, authenticated
+  using (true)
+  with check (true);
+```
+
+Isso libera `select`/`insert`/`update`/`delete` pra qualquer requisição autenticada com a chave `anon`/`publishable` — que é a mesma chave exposta no frontend (`FrontEnd/shared/js/supabase-client.js`). Não há verificação de usuário porque não existe conceito de usuário/login no app. Se algum dia precisar de multiusuário, as policies precisam ser reescritas para checar `auth.uid()`.
 
 ---
 
@@ -37,13 +59,11 @@ O BodyLog utiliza **PostgreSQL 12+** como banco de dados relacional para armazen
 
 ### 1️⃣ UNIDADE_MEDIDA (Unidades de Medição)
 
-Armazena unidades padrão usadas nas métricas.
-
 ```sql
-CREATE TABLE unidade_medida (
-  id    INTEGER PRIMARY KEY AUTOINCREMENT,
-  sigla VARCHAR NOT NULL,           -- "kg", "cm", "mm", "%"
-  nome  VARCHAR                     -- "quilograma", "centímetro"
+create table unidade_medida (
+  id    integer generated always as identity primary key,
+  sigla varchar not null,           -- "kg", "cm", "mm", "%"
+  nome  varchar                     -- "quilograma", "centímetro"
 );
 ```
 
@@ -56,733 +76,247 @@ CREATE TABLE unidade_medida (
 | 5 | hrs | horas |
 | 6 | min | minutos |
 
-**Propósito:** Reutilizar definições de unidade em vez de duplicar strings.
+**Propósito:** reutilizar definições de unidade em vez de duplicar strings.
 
 ---
 
 ### 2️⃣ CODIGO_MEDIDA (Hierarquia de Métricas)
 
-Estrutura hierárquica (árvore) de medidas corporais.
-
 ```sql
-CREATE TABLE codigo_medida (
-  id            INTEGER PRIMARY KEY AUTOINCREMENT,
-  descricao     VARCHAR NOT NULL,        -- "Peso", "Gordura", "Altura"
-  cd_pai        INTEGER FOREIGN KEY,     -- null se é categoria raiz
-  id_unidade    INTEGER FOREIGN KEY,     -- referencia unidade_medida
-  nome_exibicao VARCHAR                  -- nome amigável para UI
+create table codigo_medida (
+  id            integer generated always as identity primary key,
+  descricao     varchar not null,        -- "Peso", "Gordura", "Altura"
+  cd_pai        integer references codigo_medida(id),     -- null se é categoria raiz
+  id_unidade    integer references unidade_medida(id),
+  nome_exibicao varchar
 );
 ```
 
 **Exemplo de Hierarquia:**
 ```
 ├── Bioimpedância (cd_pai=NULL)
-│   ├── peso (cd_pai=1)           → unidade: kg
-│   ├── gordura (cd_pai=1)        → unidade: kg
-│   ├── massa_muscular (cd_pai=1) → unidade: kg
-│   └── altura (cd_pai=1)         → unidade: cm
-│
+│   ├── peso, gordura, massa_muscular, altura, agua, gordura_visceral
 ├── Dobras Cutâneas (cd_pai=NULL)
-│   ├── dobra_triceps (cd_pai=2)      → unidade: mm
-│   ├── dobra_supra (cd_pai=2)        → unidade: mm
-│   └── ... (mais dobras)
-│
+│   └── dobra_triceps, dobra_supra, dobra_panturrilha, ...
+├── Circunferências (cd_pai=NULL)
+│   └── circ_punho, circ_coxa, cintura, quadril, ...
 └── Bem-estar (cd_pai=NULL)
-    ├── sono (cd_pai=7)          → unidade: hrs
-    ├── movimento (cd_pai=7)     → unidade: kcal
-    └── exercicio (cd_pai=7)     → unidade: min
+    └── sono, movimento, exercicio, rmr, vo2
 ```
 
-**Propósito:** Permitir organização em grupos e fácil agregação.
+**Propósito:** permitir organização em grupos. Em `api.js`, `fetchMedidas()` só retorna as folhas (`cd_pai != null`) agrupadas pelo pai.
 
 ---
 
 ### 3️⃣ CHECKINS (Histórico de Métricas)
 
-Registra cada medição feita pelo usuário (cada check-in).
-
 ```sql
-CREATE TABLE checkins (
-  id        INTEGER PRIMARY KEY AUTOINCREMENT,
-  date      DATE NOT NULL,                    -- "2026-03-15"
-  cd_medida INTEGER NOT NULL FOREIGN KEY,    -- qual métrica
-  valor     FLOAT NOT NULL                   -- valor da métrica
+create table checkins (
+  id        integer generated always as identity primary key,
+  date      date not null,
+  cd_medida integer not null references codigo_medida(id),
+  valor     float not null
 );
+
+create index idx_checkins_date   on checkins(date);
+create index idx_checkins_medida on checkins(cd_medida);
 ```
 
-**Exemplo de Dados:**
-```
-| id | date | cd_medida | valor |
-|----|----- |-----------|-------|
-| 1 | 2026-03-15 | 1 (peso) | 78.5 |
-| 2 | 2026-03-15 | 3 (gordura) | 18.2 |
-| 3 | 2026-03-15 | 5 (altura) | 1.78 |
-| 4 | 2026-03-14 | 1 (peso) | 78.8 |
-```
-
-**Queries Típicas:**
+**Query equivalente ao que `fetchCheckins()` faz** (o agrupamento por data acontece em JS, não em SQL):
 ```sql
--- Últimas 10 medições de peso
-SELECT * FROM checkins
-WHERE cd_medida = 1  -- peso
-ORDER BY date DESC
-LIMIT 10;
-
--- Tendência de peso no mês
-SELECT DATE, valor FROM checkins
-WHERE cd_medida = 1 AND date >= '2026-03-01'
-ORDER BY date;
+select date, valor, cd_medida
+from checkins c
+join codigo_medida m on m.id = c.cd_medida
+where m.cd_pai is not null
+order by date;
 ```
 
 ---
 
 ### 4️⃣ CODIGO_EXERCICIO (Hierarquia de Exercícios)
 
-Estrutura de grupos musculares e exercícios.
-
 ```sql
-CREATE TABLE codigo_exercicio (
-  id        INTEGER PRIMARY KEY AUTOINCREMENT,
-  descricao VARCHAR NOT NULL,
-  cd_pai    INTEGER FOREIGN KEY            -- null para grupos raiz
+create table codigo_exercicio (
+  id        integer generated always as identity primary key,
+  descricao varchar not null,
+  cd_pai    integer references codigo_exercicio(id)
 );
 ```
 
-**Exemplo de Hierarquia:**
-```
-├── Peito (cd_pai=NULL)
-│   ├── Supino (cd_pai=1)
-│   ├── Supino Inclinado (cd_pai=1)
-│   └── Pec Fly (cd_pai=1)
-│
-├── Costas (cd_pai=NULL)
-│   ├── Puxada Frontal (cd_pai=2)
-│   ├── Puxada Lateral (cd_pai=2)
-│   └── Remada (cd_pai=2)
-│
-├── Pernas (cd_pai=NULL)
-│   ├── Agachamento (cd_pai=3)
-│   ├── Leg Press (cd_pai=3)
-│   └── Extensora (cd_pai=3)
-```
-
-**Propósito:** Organizar exercícios em categorias para filtros.
+**Exemplo:** Legs, Upper, Full Body, Core, Push, Pull, Back (filhos de "Gym"); Running, Bike, Walking (filhos de "Aerobics"); etc.
 
 ---
 
 ### 5️⃣ ENTRADA_EXERCICIO (Histórico de Treinos)
 
-Registra cada treino executado.
+```sql
+create table entrada_exercicio (
+  id           integer generated always as identity primary key,
+  data         date not null,
+  hora         time not null,
+  cd_exercicio integer not null references codigo_exercicio(id),
+  duracao      integer,      -- minutos
+  esforco      integer       -- 1-10
+);
+
+create index idx_entrada_exercicio_data      on entrada_exercicio(data);
+create index idx_entrada_exercicio_exercicio on entrada_exercicio(cd_exercicio);
+```
+
+> ⚠️ Essa tabela já passou de 1000 linhas em produção. O Supabase/PostgREST
+> limita cada `select` a 1000 linhas por padrão — `fetchExercicios()` em `api.js`
+> usa `_fetchAllPaginated()` (loop com `.range()`) pra não perder dados. Qualquer
+> nova query direta sobre essa tabela precisa considerar isso.
+
+---
+
+### 6️⃣ CODIGO_FINANCA (Hierarquia de Categorias Financeiras)
 
 ```sql
-CREATE TABLE entrada_exercicio (
-  id           INTEGER PRIMARY KEY AUTOINCREMENT,
-  data         DATE NOT NULL,
-  hora         TIME NOT NULL,                     -- "14:30:00"
-  cd_exercicio INTEGER NOT NULL FOREIGN KEY,
-  duracao      INTEGER,                           -- em minutos
-  esforco      INTEGER                            -- 1-10 escala
+create table codigo_financa (
+  id     integer generated always as identity primary key,
+  nome   varchar not null,
+  cd_pai integer references codigo_financa(id)   -- null para raízes (Receita/Despesa/Investimento)
 );
 ```
 
-**Exemplo de Dados:**
+**Hierarquia (estado atual em produção):**
 ```
-| id | data | hora | cd_exercicio | duracao | esforco |
-|----|------|------|--------------|---------|---------|
-| 1 | 2026-03-15 | 14:30:00 | 2 (Supino) | 45 | 8 |
-| 2 | 2026-03-15 | 15:20:00 | 5 (Puxada) | 40 | 7 |
-| 3 | 2026-03-14 | 14:00:00 | 15 (Agachamento) | 50 | 9 |
+├── Receita (cd_pai=NULL)
+│   ├── Salario
+│   └── Bonus → PLR 1, PLR 2, 13o 1, 13o 2, Vocation, IR, Invest, Unforeseen
+├── Despesa (cd_pai=NULL)
+│   ├── Recorrente → Obrigatória (Energy, Internet, Gym, ...), Luxo (Fut, Date, Subscription, ...)
+│   ├── Variavel  (hoje sem filhos diretos — legado)
+│   ├── Pontual   → Home (Compras Casa, Amortizacao, ...), Travel (Food, Hotel, Transport, ...), Wanted, IPVA, ...
+│   └── Caixinha  → Unforeseen, Emergency
+└── Investimento (cd_pai=NULL)
+    └── Patrimonio → Emergency CDB, Nu Invest, Year Bills, Changing, FGTS, Caminhos
+
+└── Não Financeiros (cd_pai=NULL, raiz separada — usado só pelos "Indicadores": Livelo, Vivo Easy, Serasa, credito_celular)
 ```
+
+**Regra de derivação de "tipo":** não existe uma coluna `tipo`. `_deriveTipo(id, lookup)` em `api.js` sobe a árvore recursivamente até achar o nó raiz (`cd_pai == null`) e usa o nome dele em minúsculo (`receita`/`despesa`/`investimento`/`não financeiros`).
 
 ---
 
-### 6️⃣ CODIGO_GOALS (Hierarquia de Metas)
-
-Define metas disponíveis para rastreamento diário.
+### 7️⃣ LANCAMENTO_FINANCEIRO (Transações Diárias)
 
 ```sql
-CREATE TABLE codigo_goals (
-  id        INTEGER PRIMARY KEY AUTOINCREMENT,
-  nome      VARCHAR NOT NULL,          -- "Beber 3L água", "10k passos"
-  cd_pai    INTEGER FOREIGN KEY,       -- null para categoria raiz
-  descricao VARCHAR                    -- descricação opcional
+create table lancamento_financeiro (
+  id              integer generated always as identity primary key,
+  data            date not null,
+  cd_financa      integer not null references codigo_financa(id),
+  valor           float not null,
+  descricao       varchar,
+  forma_pagamento varchar default 'debito'
+);
+
+create index idx_lancamento_data           on lancamento_financeiro(data);
+create index idx_lancamento_financa        on lancamento_financeiro(cd_financa);
+create index idx_lancamento_data_categoria on lancamento_financeiro(data, cd_financa);
+```
+
+> ⚠️ Mesma observação de paginação da tabela `entrada_exercicio` — já passa de 1000
+> linhas. `fetchLancamentos()` e o cálculo de investimentos em `api.js` usam
+> `_fetchAllPaginated()`.
+
+---
+
+### 8️⃣ ORCAMENTO_FINANCEIRO (Orçamentos)
+
+```sql
+create table orcamento_financeiro (
+  id              integer generated always as identity primary key,
+  ano             integer not null,
+  mes             integer,          -- NULL = orçamento anual
+  cd_financa      integer not null references codigo_financa(id),
+  valor_orcado    float not null,
+  forma_pagamento varchar
 );
 ```
 
-**Exemplo:**
-```
-├── Saúde (cd_pai=NULL)
-│   ├── Beber 3L de água (cd_pai=1)
-│   ├── Dormir 8h (cd_pai=1)
-│   └── 10k passos (cd_pai=1)
-│
-├── Produtividade (cd_pai=NULL)
-│   ├── Estudar 2h (cd_pai=2)
-│   └── Completar tarefa X (cd_pai=2)
-```
+**Duas semânticas coexistem** (ver `_effectiveOrcamento` vs `_effectiveOrcamentoAnual` em `fin-core.js`):
+- `mes` preenchido → orçamento daquele mês específico; "carrega pra frente" se não houver um mais recente (útil pra orçamento recorrente).
+- `mes = NULL` → orçamento anual "de verdade", usado isoladamente pelo resumo anual do Overview (não é somado/multiplicado com os orçamentos mensais).
 
 ---
 
-### 7️⃣ ENTRADA_GOALS (Histórico de Metas Diárias)
-
-Registra se cada meta foi atingida a cada dia.
+### 9️⃣ SNAPSHOT_INVESTIMENTO (Saldo Periódico)
 
 ```sql
-CREATE TABLE entrada_goals (
-  id               INTEGER PRIMARY KEY AUTOINCREMENT,
-  data             DATE NOT NULL,
-  cd_goal          INTEGER NOT NULL FOREIGN KEY,
-  realizado_no_dia BOOLEAN NOT NULL                -- true/false
+create table snapshot_investimento (
+  id         integer generated always as identity primary key,
+  data       date not null,
+  cd_financa integer not null references codigo_financa(id),
+  saldo      float not null
 );
 ```
 
-**Exemplo:**
-```
-| id | data | cd_goal | realizado_no_dia |
-|----|------|---------|------------------|
-| 1 | 2026-03-15 | 2 (Beber água) | true |
-| 2 | 2026-03-15 | 3 (Dormir 8h) | false |
-| 3 | 2026-03-14 | 2 (Beber água) | true |
-```
+**Uso duplo:** guarda tanto saldos de investimento de verdade (categorias sob `Investimento`) quanto valores de "indicadores" não financeiros (categorias sob `Não Financeiros`, id 78 — Livelo, Serasa, etc). O código filtra por `_getDescendantIds(78)` pra separar os dois usos.
 
 ---
 
-### 8️⃣ PONTUACAO_GOAL (Meta - Metas Mensais)
-
-Define metas mensais com valores alvo e pontuação.
+### 🔟 RELACIONAMENTO_DEBITO_INVESTIMENTO
 
 ```sql
-CREATE TABLE pontuacao_goal (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  data         DATE,                         -- legacy: mês da meta ou data de início antiga
-  data_inicio  DATE,                         -- início da validade da meta
-  data_fim     DATE,                         -- fim da validade da meta (NULL = sem fim)
-  tp_metrica   VARCHAR NOT NULL,             -- "aderencia", "valor", etc
-  cd_goal      INTEGER NOT NULL FOREIGN KEY,
-  valor        FLOAT,                        -- valor alvo
-  pts          INTEGER,                      -- pontos se atingir
-  cd_medida    INTEGER FOREIGN KEY           -- métrica associada (opt)
+create table relacionamento_debito_investimento (
+  cd_financa_origem       integer primary key references codigo_financa(id),
+  cd_financa_investimento integer not null references codigo_financa(id)
 );
 ```
 
-**Exemplo:**
-```
-| id | data | tp_metrica | cd_goal | valor | pts | cd_medida |
-|----|------|-----------|---------|-------|-----|-----------|
-| 1 | 2026-03 | aderencia | 2 | 95 | 50 | NULL |
-| 2 | 2026-03 | aderencia | 3 | 80 | 30 | NULL |
-```
+Define de qual caixinha de investimento uma despesa não recorrente deve ser debitada (usado no cálculo de rendimento, pra separar aporte/resgate de rendimento real). Regras podem apontar tanto pra uma categoria-folha de despesa quanto pra um grupo inteiro (ex.: "Home" ou "Caixinha") — nesse caso a regra vale por herança pra qualquer filho sem regra própria. Se uma despesa elegível não tem regra (própria ou herdada), o sistema assume a caixinha "Year Bills" como fallback.
 
 ---
 
-### 9️⃣ CODIGO_FINANCA (Hierarquia de Categorias Financeiras)
-
-Estrutura em árvore de categorias de receita/despesa/investimento.
+### 1️⃣1️⃣ RELACIONAMENTO_LANCAMENTO_VIAGEM
 
 ```sql
-CREATE TABLE codigo_financa (
-  id     INTEGER PRIMARY KEY AUTOINCREMENT,
-  nome   VARCHAR NOT NULL,            -- "Salário", "Recorrente", etc
-  cd_pai INTEGER FOREIGN KEY          -- null para raízes
+create table relacionamento_lancamento_viagem (
+  cd_lancamento integer primary key references lancamento_financeiro(id),
+  nome_viagem   varchar not null
 );
 ```
 
-**Exemplo de Hierarquia Completa:**
-```
-├── Receita (id=1, cd_pai=NULL)
-│   ├── Salario (id=4, cd_pai=1)
-│   └── Bonus (id=5, cd_pai=1)
-│
-├── Despesa (id=2, cd_pai=NULL)
-│   ├── Recorrente (id=6, cd_pai=2)
-│   │   ├── Energy (id=11, cd_pai=6)
-│   │   ├── Internet (id=12, cd_pai=6)
-│   │   └── ...
-│   ├── Variavel (id=7, cd_pai=2)
-│   │   ├── Market (id=27, cd_pai=7)
-│   │   ├── Gas (id=29, cd_pai=7)
-│   │   └── Home (id=33, cd_pai=7)
-│   │       ├── Compras Casa (id=34, cd_pai=33)
-│   │       ├── Taxas Encargos (id=35, cd_pai=33)
-│   │       └── Amortizacao (id=36, cd_pai=33)
-│   ├── Pontual (id=8, cd_pai=2)
-│   │   ├── Wanted (id=37, cd_pai=8)
-│   │   └── ...
-│   └── Caixinha (id=9, cd_pai=2)
-│       ├── Unforeseen (id=45, cd_pai=9)
-│       └── Emergency (id=46, cd_pai=9)
-│
-└── Investimento (id=3, cd_pai=NULL)
-    ├── Emergency CDB (id=55, cd_pai=10)
-    ├── Nu Invest (id=56, cd_pai=10)
-    └── ...
-```
-
-**Propósito:** Permitir categorização em múltiplos níveis e análise por grupo.
+Associa um lançamento a uma viagem (1:1). Usado na aba Viagens pra agrupar gastos.
 
 ---
 
-### 🔟 LANCAMENTO_FINANCEIRO (Transações Diárias)
-
-Cada receita, despesa ou investimento registrado.
-
-```sql
-CREATE TABLE lancamento_financeiro (
-  id               INTEGER PRIMARY KEY AUTOINCREMENT,
-  data             DATE NOT NULL,
-  cd_financa       INTEGER NOT NULL FOREIGN KEY,   -- qual categoria
-  valor            FLOAT NOT NULL,
-  descricao        VARCHAR,
-  forma_pagamento  VARCHAR (default: 'debito')    -- "debito", "credito"
-);
-```
-
-**Exemplo:**
-```
-| id | data | cd_financa | valor | descricao | forma_pagamento |
-|----|------|-----------|-------|-----------|-----------------|
-| 1 | 2026-03-15 | 4 (Salário) | 5000.00 | Salário set/2026 | debito |
-| 2 | 2026-03-15 | 11 (Energy) | 250.00 | Energia março | debito |
-| 3 | 2026-03-15 | 27 (Market) | 450.50 | Compras | credito |
-| 4 | 2026-03-15 | 56 (Nu Invest) | 1000.00 | Aplicação CDB | debito |
-```
-
-**Queries Típicas:**
-```sql
--- Receita total no mês
-SELECT SUM(valor) FROM lancamento_financeiro
-WHERE cd_financa = 4 AND DATE_TRUNC('month', data) = '2026-03-01';
-
--- Despesas por categoría
-SELECT cd_financa, SUM(valor) as total FROM lancamento_financeiro
-WHERE cd_financa IN (SELECT id FROM codigo_financa WHERE cd_pai = 2)
-GROUP BY cd_financa;
-```
-
----
-
-### 1️⃣1️⃣ ORCAMENTO_FINANCEIRO (Orçamentos Mensais)
-
-Define orçamento esperado por categoria.
-
-```sql
-CREATE TABLE orcamento_financeiro (
-  id               INTEGER PRIMARY KEY AUTOINCREMENT,
-  ano              INTEGER NOT NULL,
-  mes              INTEGER,                         -- NULL = anual
-  cd_financa       INTEGER NOT NULL FOREIGN KEY,
-  valor_orcado     FLOAT NOT NULL,
-  forma_pagamento  VARCHAR
-);
-```
-
-**Exemplo:**
-```
-| id | ano | mes | cd_financa | valor_orcado |
-|----|-----|-----|-----------|--------------|
-| 1 | 2026 | 3 | 11 (Energy) | 250.00 |
-| 2 | 2026 | 3 | 27 (Market) | 500.00 |
-| 3 | 2026 | NULL | 6 (Recorrente) | 3500.00 |
-```
-
----
-
-### 1️⃣2️⃣ SNAPSHOT_INVESTIMENTO (Histórico de Investimentos)
-
-Saldo periódico de cada investimento.
-
-```sql
-CREATE TABLE snapshot_investimento (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  data       DATE NOT NULL,
-  cd_financa INTEGER NOT NULL FOREIGN KEY,    -- qual ativo
-  saldo      FLOAT NOT NULL                   -- saldo naquela data
-);
-```
-
-**Exemplo:**
-```
-| id | data | cd_financa | saldo |
-|----|------|-----------|-------|
-| 1 | 2026-03-01 | 55 (Emergency CDB) | 50000.00 |
-| 2 | 2026-03-15 | 55 (Emergency CDB) | 50250.00 |
-| 3 | 2026-03-01 | 56 (Nu Invest) | 150000.00 |
-| 4 | 2026-03-15 | 56 (Nu Invest) | 151500.00 |
-```
-
-**Propósito:** Rastrear evolução do patrimônio ao longo do tempo.
-
----
-
-### 1️⃣3️⃣ RELACIONAMENTO_LANCAMENTO_VIAGEM (Viagens)
-
-Associa lançamentos financeiros a uma viagem.
-
-```sql
-CREATE TABLE relacionamento_lancamento_viagem (
-  cd_lancamento INTEGER PRIMARY KEY FOREIGN KEY,  -- PK = 1:1
-  nome_viagem   VARCHAR NOT NULL                  -- nome da viagem
-);
-```
-
-**Exemplo:**
-```
-| cd_lancamento | nome_viagem |
-|---------------|------------|
-| 100 | Praia 2026 |
-| 101 | Praia 2026 |
-| 102 | Praia 2026 |
-| 250 | Esqui Sul |
-```
-
-**Propósito:** Agrupar gastos por viagem para análise de custo total.
-
----
-
-## 🔗 Diagrama Entidade-Relacionamento (ER)
+## 🔗 Diagrama Entidade-Relacionamento (simplificado)
 
 ```
-┌──────────────────────┐
-│  unidade_medida      │
-│───────────────────── │
-│ id (PK)              │
-│ sigla                │
-│ nome                 │
-└──────────┬───────────┘
-           │ 1:N
-           │
-┌──────────┴───────────┐
-│  codigo_medida       │
-│───────────────────── │
-│ id (PK)              │
-│ descricao            │
-│ cd_pai (FK) ────┐    │
-│ id_unidade (FK) │    │
-└──────────┬──────┼────┘
-           │      │
-           └──────┘ (Auto-referenciada)
-           │ 1:N
-           │
-┌──────────┴───────────┐
-│  checkins            │
-│───────────────────── │
-│ id (PK)              │
-│ date                 │
-│ cd_medida (FK)       │
-│ valor                │
-└──────────────────────┘
+unidade_medida ──1:N──> codigo_medida ──1:N──> checkins
 
+codigo_exercicio (auto-ref, árvore) ──1:N──> entrada_exercicio
 
-┌──────────────────────┐
-│ codigo_exercicio     │
-│───────────────────── │
-│ id (PK)              │
-│ descricao            │
-│ cd_pai (FK) ────┐    │
-└──────────┬──────┼────┘
-           │      │
-           └──────┘ (Auto-referenciada)
-           │ 1:N
-           │
-┌──────────┴──────────────┐
-│ entrada_exercicio       │
-│────────────────────── │
-│ id (PK)                │
-│ data                   │
-│ hora                   │
-│ cd_exercicio (FK)      │
-│ duracao                │
-│ esforco                │
-└────────────────────────┘
-
-
-┌──────────────────────┐
-│ codigo_goals         │
-│───────────────────── │
-│ id (PK)              │
-│ nome                 │
-│ cd_pai (FK) ────┐    │
-│ descricao       │    │
-└──────────┬──────┼────┘
-           │      │
-           └──────┘ (Auto-referenciada)
-           │ 1:N
-           ├──────────────────────────┬────────────┐
-           │                          │            │
-    ┌──────┴──────────┐      ┌────────┴────────┐  │
-    │ entrada_goals   │      │ pontuacao_goal  │  │
-    │───────────────  │      │──────────────── │  │
-    │ id (PK)         │      │ id (PK)         │  │
-    │ data            │      │ data            │  │
-    │ cd_goal (FK) ───┼──┬───┼ cd_goal (FK) ───┼──┘
-    │ realizado_no_dia│  │   │ tp_metrica      │
-    └─────────────────┘  │   │ valor           │
-                         │   │ pts             │
-                         │   │ cd_medida (FK)  │
-                         │   └─┬──────────────┘
-                         │     │ (opcional FK)
-                         │   ┌─┴─────────────┐
-                         └───┼→ codigo_medida
-                             └───────────────
-
-
-┌──────────────────────┐
-│ codigo_financa       │
-│───────────────────── │
-│ id (PK)              │
-│ nome                 │
-│ cd_pai (FK) ────┐    │
-└──────────┬──────┼────┘
-           │      │
-           └──────┘ (Auto-referenciada, árvore)
-           │
-      ┌────┴─────────────────┬─────────────────┐
-      │ 1:N                   │ 1:N             │ 1:N
-      │                       │                 │
-┌─────┴──────────────────┐  ┌─┴────────────────┐ ┌────────────────┐
-│ lancamento_financeiro  │  │ orcamento_fin... │ │ snapshot_inv...│
-│───────────────────── │  │──────────────── │ │─────────────── │
-│ id (PK)                │  │ id (PK)         │ │ id (PK)        │
-│ data                   │  │ ano             │ │ data           │
-│ cd_financa (FK) ───────┼──┼ cd_financa (FK).├ │ cd_financa (FK)│
-│ valor                  │  │ valor_orcado    │ │ saldo          │
-│ descricao              │  │ forma_pagamento │ └────────────────┘
-│ forma_pagamento        │  └─────────────────┘
-└──────────┬─────────────┘
-           │ 1:1 (optional)
-           │
-    ┌──────┴──────────────────────────────┐
-    │ relacionamento_lancamento_viagem    │
-    │───────────────────────────────────── │
-    │ cd_lancamento (PK, FK)              │
-    │ nome_viagem                         │
-    └─────────────────────────────────────┘
+codigo_financa (auto-ref, árvore)
+   ├──1:N──> lancamento_financeiro ──1:1──> relacionamento_lancamento_viagem
+   ├──1:N──> orcamento_financeiro
+   ├──1:N──> snapshot_investimento
+   └──1:1──> relacionamento_debito_investimento (origem e destino são ambos codigo_financa)
 ```
-
----
-
-## 🔑 Relacionamentos Principais
-
-### Tabelas de Métricas (Body)
-```
-unidade_medida (1) ──→ (N) codigo_medida ──→ (N) checkins
-```
-- **1:N** Unidade → Medida (uma unidade pode ter várias medidas)
-- **N:N (via ForeignKey)** Medida → Checkin (uma medida tem muitos check-ins)
-
-### Tabelas de Exercícios
-```
-codigo_exercicio (auto-referenciada) ──→ entrada_exercicio
-```
-- **Auto-Join** Exercício pai e filho (hierarquia)
-- **1:N** Exercício → Entrada (um exercício tem muitos registros)
-
-### Tabelas de Metas (Goals)
-```
-codigo_goals (auto-ref) ──→ entrada_goals
-                        ──→ pontuacao_goal
-```
-- **Auto-Join** Goal pai e filho
-- **1:N** Goal → Entrada (cada dia tem um registro)
-- **1:N** Goal → Pontuação (cada mês tem um score)
-
-### Tabelas Financeiras
-```
-codigo_financa (auto-ref) ──→ lancamento_financeiro ──→ relacionamento_lancamento_viagem
-                         ──→ orcamento_financeiro
-                         ──→ snapshot_investimento
-```
-- **Auto-Join** Categoria pai e filho (árvore)
-- **1:N** Categoria → Lançamento
-- **1:1** Lançamento → Viagem (opcional)
 
 ---
 
 ## 📊 Constraints & Índices
 
-### Chaves Primárias (PK)
-Toda tabela tem um `id` INT como PK AUTOINCREMENT.
-
-### Chaves Estrangeiras (FK)
-Garantem integridade referencial:
-```sql
-ALTER TABLE checkins ADD CONSTRAINT fk_checkin_medida
-FOREIGN KEY (cd_medida) REFERENCES codigo_medida(id);
-
-ALTER TABLE entrada_exercicio ADD CONSTRAINT fk_entrada_exercicio
-FOREIGN KEY (cd_exercicio) REFERENCES codigo_exercicio(id);
-```
-
-### NOT NULL Constraints
-Campos obrigatórios:
-```sql
--- Body
-checkins.date NOT NULL
-checkins.cd_medida NOT NULL
-checkins.valor NOT NULL
-
--- Exercises
-entrada_exercicio.data NOT NULL
-entrada_exercicio.cd_exercicio NOT NULL
-
--- Goals
-entrada_goals.data NOT NULL
-entrada_goals.cd_goal NOT NULL
-entrada_goals.realizado_no_dia NOT NULL
-
--- Finances
-lancamento_financeiro.data NOT NULL
-lancamento_financeiro.cd_financa NOT NULL
-lancamento_financeiro.valor NOT NULL
-```
-
-### Índices para Performance
-```sql
--- Consultas frequentes de data
-CREATE INDEX idx_checkins_date ON checkins(date);
-CREATE INDEX idx_entrada_exercicio_data ON entrada_exercicio(data);
-CREATE INDEX idx_entrada_goals_data ON entrada_goals(data);
-CREATE INDEX idx_lancamento_data ON lancamento_financeiro(data);
-
--- Filtros por métrica/exercício/categoria
-CREATE INDEX idx_checkins_medida ON checkins(cd_medida);
-CREATE INDEX idx_entrada_exercicio_exercicio ON entrada_exercicio(cd_exercicio);
-CREATE INDEX idx_lancamento_financa ON lancamento_financeiro(cd_financa);
-
--- Buscas por período
-CREATE INDEX idx_lancamento_data_categoria ON lancamento_financeiro(data, cd_financa);
-```
+- Toda tabela tem `id integer generated always as identity primary key` (substitui o antigo `SERIAL`/autoincrement do SQLAlchemy).
+- Foreign keys garantem integridade referencial entre `codigo_*` e suas tabelas de entrada/lançamento.
+- Índices em colunas de data e nas FKs mais consultadas (ver cada tabela acima).
 
 ---
 
-## 💾 Fluxo de Dados no Banco
+## 🛠️ Como alterar o schema
 
-### Inserindo um Check-in de Peso
+Não existe migration tool (Alembic, etc). O processo manual é:
 
-**Frontend:**
-```javascript
-await postCheckin('2026-03-15', {
-  'peso': 78.5,
-  'gordura': 18.2
-})
-```
-
-**Backend (main.py):**
-```python
-@app.post("/api/checkins")
-async def create_checkin(request: dict):
-    with get_db() as db:
-        for nome_medida, valor in request['medidas'].items():
-            # Busca o ID da medida por nome
-            medida = db.query(CodigoMedida).filter(
-                CodigoMedida.descricao == nome_medida
-            ).first()
-            
-            if medida:
-                # Cria registro
-                checkin = Checkin(
-                    date=request['date'],
-                    cd_medida=medida.id,
-                    valor=valor
-                )
-                db.add(checkin)
-        
-        # Executa INSERT
-        db.commit()
-```
-
-**Database (PostgreSQL):**
-```sql
-INSERT INTO checkins (date, cd_medida, valor) 
-VALUES ('2026-03-15', 1, 78.5);  -- peso
-
-INSERT INTO checkins (date, cd_medida, valor) 
-VALUES ('2026-03-15', 3, 18.2);  -- gordura
-
--- Resultado: 2 novas linhas inseridas
-```
+1. Rodar o `ALTER TABLE`/`CREATE TABLE` direto no projeto Supabase (SQL Editor do dashboard, ou uma conexão Postgres direta com a connection string do projeto).
+2. Atualizar [`supabase/schema.sql`](../supabase/schema.sql) pra refletir a mudança (é só um registro histórico, não é aplicado automaticamente).
+3. Se a tabela ganhou/perdeu colunas usadas pelo frontend, atualizar as funções correspondentes em `FrontEnd/shared/js/api.js`.
 
 ---
 
-## 🔍 Queries Importantes
+✅ **Próximo:** Veja [04-BACKEND.md](04-BACKEND.md) para entender a camada `api.js` que fala com esse banco.
 
-### Body (Métricas)
-
-**Últimas medições:**
-```sql
-SELECT c.date, r.descricao, c.valor
-FROM checkins c
-JOIN codigo_medida r ON c.cd_medida = r.id
-ORDER BY c.date DESC, r.descricao
-LIMIT 30;
-```
-
-**Peso ao longo do tempo:**
-```sql
-SELECT date, valor FROM checkins
-WHERE cd_medida = 1  -- peso
-ORDER BY date;
-```
-
-### Exercises (Treinos)
-
-**Frequência de treinos no mês:**
-```sql
-SELECT EXTRACT(WEEK FROM data) as semana, COUNT(*) as total
-FROM entrada_exercicio
-WHERE data >= '2026-03-01' AND data < '2026-04-01'
-GROUP BY EXTRACT(WEEK FROM data);
-```
-
-**Distribuição por grupo muscular:**
-```sql
-SELECT e.descricao as grupo, COUNT(*) as total
-FROM entrada_exercicio ex
-JOIN codigo_exercicio e ON ex.cd_exercicio = e.id
-WHERE e.cd_pai IS NULL  -- grupos raiz
-GROUP BY e.descricao;
-```
-
-### Goals (Metas)
-
-**Taxa de aderência:**
-```sql
-SELECT 
-  cd_goal,
-  SUM(CASE WHEN realizado_no_dia THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as taxa
-FROM entrada_goals
-WHERE data >= '2026-03-01'
-GROUP BY cd_goal;
-```
-
-### Finances (Finanças)
-
-**Receita vs Despesa no mês:**
-```sql
-SELECT
-  (SELECT SUM(valor) FROM lancamento_financeiro 
-   WHERE cd_financa < 5 AND date >= '2026-03-01') as receita,
-  (SELECT SUM(valor) FROM lancamento_financeiro 
-   WHERE cd_financa IN (6,7,8,9) AND date >= '2026-03-01') as despesa;
-```
-
-**Comparar orçado vs realizado:**
-```sql
-SELECT
-  o.cd_financa,
-  c.nome as categoria,
-  COALESCE(o.valor_orcado, 0) as orcado,
-  COALESCE(SUM(l.valor), 0) as realizado,
-  COALESCE(SUM(l.valor), 0) - COALESCE(o.valor_orcado, 0) as diferenca
-FROM orcamento_financeiro o
-FULL OUTER JOIN lancamento_financeiro l ON o.cd_financa = l.cd_financa
-JOIN codigo_financa c ON o.cd_financa = c.id
-WHERE o.ano = 2026 AND o.mes = 3
-GROUP BY o.cd_financa, c.nome;
-```
-
----
-
-✅ **Próximo:** Veja [04-BACKEND.md](04-BACKEND.md) para entender o FastAPI.
-
-✅ **Depois:** Explore [05-FRONTEND.md](05-FRONTEND.md) para entender JavaScript/HTML/CSS.
+✅ **Depois:** Explore [05-FRONTEND.md](05-FRONTEND.md) para entender o restante do frontend.

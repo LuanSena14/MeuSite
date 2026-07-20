@@ -109,8 +109,13 @@ No mês selecionado:
 
 ## 6.4 Card Goals (`_homeGoalsCard`)
 
+> ⚠️ Desde que a seção Goals virou um iframe mask (ver [09-PAGE-GOALS.md](09-PAGE-GOALS.md))
+> e as tabelas de goals foram removidas do Supabase, `fetchGoalsEntradas()`/`fetchGoalsMetas()`
+> sempre retornam `[]`. Esse card na prática sempre renderiza estado vazio — o código
+> (`_gMonthScore` de `goals.js`) continua ali mas nunca tem dado real pra mostrar.
+
 - Normaliza `tp_metrica` (`meta` -> `mensal`).
-- Usa `_gMonthScore(mesKey)` da página Goals.
+- Usa `_gMonthScore(mesKey)` da página Goals (hoje sempre com arrays vazios).
 - Exibe:
   - nota (grade)
   - score percentual

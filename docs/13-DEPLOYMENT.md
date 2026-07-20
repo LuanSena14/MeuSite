@@ -2,473 +2,132 @@
 
 ## 🚀 Objetivo
 
-Publicar BodyLog em produção (cloud) para que qualquer pessoa acesse via URL pública.
+Publicar o BodyLog em produção. Como o app é **front-end only**, isso significa hospedar arquivos estáticos + garantir que o projeto Supabase esteja configurado corretamente — não existe mais deploy de backend.
 
 ---
 
-## 🌐 Plataforma: Render.com
+## 🌐 Duas partes independentes
 
-BodyLog está hospedado em **Render.com**, serviço gratuito que oferece:
-- ✅ Backend (Python/FastAPI)
-- ✅ Frontend (Static files)
-- ✅ PostgreSQL managed
-- ✅ Auto-deploy via GitHub
-- ✅ SSL/HTTPS automático
-- ✅ Free tier generoso
+### 1. Frontend (arquivos estáticos)
+Qualquer host de arquivos estáticos serve: Render (static site), Vercel, Netlify, GitHub Pages, Cloudflare Pages. Não precisa runtime de servidor, não precisa build step — é publicar a pasta `FrontEnd/` como está.
 
-### URLs em Produção
-- **Frontend:** https://meusite-3.onrender.com
-- **Backend API:** https://meusite-3.onrender.com/api/*
-- **Database:** Hosted em Render (não público)
+### 2. Supabase (banco + API)
+Já está hospedado e sempre online (não tem "deploy" no sentido tradicional) — o trabalho aqui é de configuração, não de deploy:
+- Schema (`supabase/schema.sql`) já aplicado
+- RLS habilitado com as policies corretas
+- Chave anon/publishable é a que fica em `supabase-client.js`
 
 ---
 
-## 🔐 Variáveis de Ambiente em Produção
+## 📦 Deploy do Frontend
 
-As variáveis de ambiente **NÃO** devem estar no código, mas sim como secrets no Render:
+### Exemplo: Render (static site)
+1. **New → Static Site**
+2. Conecte o repositório GitHub
+3. **Build command:** (vazio — não há build)
+4. **Publish directory:** `FrontEnd`
+5. Deploy automático a cada `git push`
 
-### No Render Dashboard
-
-Vá para **Settings → Environment** do seu serviço:
-
-```
-DATABASE_URL = postgresql://user:pass@render-host:5432/bodylog_prod
-API_PORT = 8001
-FINANCE_PIN = 1234
-```
-
-**Importante:**
-- `DATABASE_URL` → URL do PostgreSQL no Render
-- Nunca colocar `.env` em Git (adicionar ao `.gitignore`)
-- Never hardcode secrets no código
-
-### .gitignore
-
-```
-.env
-__pycache__/
-*.pyc
-venv/
-node_modules/
-.DS_Store
-```
-
----
-
-## 📦 Deploy via GitHub
-
-### Pré-requisito: Código no GitHub
-
-```bash
-# No seu repo local:
-git remote add origin https://github.com/seuusername/bodylog.git
-
-git add .
-git commit -m "Initial commit"
-git push -u origin main
-```
-
-### Conectar Render com GitHub
-
-1. Log in no **Render.com**
-2. Clique em **New → Web Service**
-3. Selecione **Deploy from GitHub**
-4. Conecte sua conta GitHub (authorize)
-5. Selecione repositório `bodylog`
-6. Preencha:
-   - **Name:** `bodylog-backend`
-   - **Runtime:** Python 3
-   - **Build command:** `pip install -r backend/requirements.txt`
-   - **Start command:** `cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT`
-
-### Auto-deploy
-
-Agora, sempre que fizer `git push`:
-1. GitHub notifica Render
-2. Render puxa código novo
-3. Render roda **Build command**
-4. Render inicia serviço
-5. Site atualizado em ~2 minutos
-
----
-
-## 🗄️ Database Setup em Produção
-
-### Criar PostgreSQL no Render
-
-1. No **Render Dashboard**
-2. Clique **New → PostgreSQL**
-3. Preencha:
-   - **Name:** `bodylog-db`
-   - **Database:** `bodylog`
-   - **User:** `postgres` (padrão)
-4. Copie **Internal Database URL** e **External Database URL**
-
-### Rodار Script SQL em Produção
-
-```bash
-# Localmente, usar External URL:
-psql "postgresql://user:pass@EXTERNAL-HOST:5432/bodylog" < bodylog.sql
-
-# Ou via Render CLI:
-# (mais seguro, conecta via Internal)
-```
-
----
-
-## 📤 Deploy Frontend (Static Files)
-
-Se frontend está separado:
-
-### Option 1: Servir via FastAPI
-
-Backend já serve static files:
-```python
-# main.py
-from fastapi.staticfiles import StaticFiles
-
-app.mount("/", StaticFiles(directory="FrontEnd", html=True), name="frontend")
-```
-
-### Option 2: Deploy separado (Vercel, Netlify)
-
-Se quiser frontend em CDN separado:
-
-**Vercel:**
+### Exemplo: Vercel
 ```bash
 npm install -g vercel
-
 cd FrontEnd
-vercel
+vercel --prod
 ```
 
-**Netlify:**
+### Exemplo: Netlify
 ```bash
 npm install -g netlify-cli
-
 cd FrontEnd
 netlify deploy --prod --dir .
 ```
 
+### Exemplo: GitHub Pages
+Configurar o Pages do repositório pra servir a pasta `FrontEnd/` (ou publicar via GitHub Action que copia `FrontEnd/` pra branch `gh-pages`).
+
+Em todos os casos, o resultado é o mesmo: um servidor HTTP simples devolvendo `index.html`, `*.css`, `*.js` como estão. Nenhuma variável de ambiente de servidor é necessária — as credenciais do Supabase usadas pelo app já estão em `FrontEnd/shared/js/supabase-client.js` (é a chave pública, ok estar no código).
+
 ---
 
-## 🔄 CI/CD Pipeline
+## 🗄️ Configuração do Supabase (uma vez só, não é "deploy" recorrente)
 
-### GitHub Actions (Automático)
+### Criar o projeto
+1. [supabase.com](https://supabase.com) → New Project
+2. Anotar a **URL do projeto** e a **chave publishable/anon** (Project Settings → API)
 
-Crie `.github/workflows/deploy.yml`:
+### Aplicar o schema
+Rodar `supabase/schema.sql` uma vez, direto no **SQL Editor** do Supabase (ou via `psql` usando a connection string do banco, em Project Settings → Database).
 
-```yaml
-name: Deploy to Render
+### Popular dados iniciais
+Se estiver migrando de um banco anterior, usar um script pontual (`psycopg2` + `INSERT ... OVERRIDING SYSTEM VALUE` pra preservar IDs) apontando a origem antiga e o destino Supabase. Isso não faz parte do fluxo de deploy normal — é uma tarefa única de migração.
 
-on:
-  push:
-    branches: [main, master]
+### Conferir RLS
+Toda tabela deve ter RLS habilitado e uma policy que permita o uso esperado (ver [03-DATABASE.md](03-DATABASE.md)). Sem RLS habilitado, o Supabase bloqueia todo acesso por padrão a partir da chave anon — o app simplesmente não vai conseguir ler nem gravar nada.
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    
-    steps:
-      - uses: actions/checkout@v2
-      
-      - name: Deploy to Render
-        run: |
-          curl -X POST \
-            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d '{"serviceId": "${{ secrets.RENDER_SERVICE_ID }}"}' \
-            https://api.render.com/v1/services/redeploy
+---
+
+## 🔐 Segurança em Produção
+
+### Chaves do Supabase
+| Chave | Onde usar | Cuidado |
+|-------|-----------|---------|
+| `sb_publishable_...` (anon) | `FrontEnd/shared/js/supabase-client.js` | Ok estar pública — é assim que funciona |
+| `sb_secret_...` (service_role) | **Nunca** no frontend | Ignora RLS por completo; só usar manualmente (scripts locais) |
+
+### PIN de Finances
+```javascript
+// shared/js/nav.js
+const FINANCES_PIN = '1234'
 ```
+É uma cortina de privacidade de UI, guardada em texto puro no código-fonte público — **não é controle de acesso real**. Quem realmente protege os dados financeiros é a policy de RLS da tabela no Supabase. Se algum dia precisar de proteção de verdade, o caminho é Supabase Auth (login) + policies que checam `auth.uid()`, não um PIN no JS.
 
-### Sem CI/CD (Manual)
-
-A cada mudança, fazer:
-```bash
-git add .
-git commit -m "Fix: description"
-git push origin main
-
-# Render auto-redeploy via webhook
-# Esperar ~2 minutos
-```
+### HTTPS
+Qualquer host de estático moderno (Render, Vercel, Netlify, GitHub Pages) já serve com HTTPS automático.
 
 ---
 
 ## 🧪 Testar em Produção
 
 ```bash
-# Testar API
-curl https://meusite-3.onrender.com/api/checkins
-
-# Testar Frontend
-# Abrir https://meusite-3.onrender.com no navegador
+# Abrir o site publicado no navegador e checar:
+# 1. Console sem erros
+# 2. Aba Network: chamadas a https://<projeto>.supabase.co/rest/v1/... retornando 200
 ```
 
 ---
 
-## 🔐 PIN Finance em Produção
+## 💾 Backup do Supabase
 
-### Setando PIN
-
-1. Render Dashboard → Environment
-2. Adicionar: `FINANCE_PIN=4567`
-3. No código:
-
-```python
-# main.py
-import os
-
-FINANCE_PIN = os.getenv("FINANCE_PIN", "1234")
-
-@app.post("/api/finances/validate-pin")
-async def validate_pin(pin: str):
-    if pin == FINANCE_PIN:
-        return {"status": "success"}
-    else:
-        raise HTTPException(status_code=401, detail="Invalid PIN")
-```
-
-### No Frontend
-
-```javascript
-// fin-core.js
-const PIN_STORED = localStorage.getItem('finance_pin')
-
-async function validatePin(pin) {
-    const resp = await fetch('/api/finances/validate-pin', {
-        method: 'POST',
-        body: JSON.stringify({pin})
-    })
-    
-    if (resp.ok) {
-        localStorage.setItem('finance_pin', pin)
-        return true
-    }
-    return false
-}
-```
-
----
-
-## 🚨 Monitoramento & Alerts
-
-### Metrics no Render
-
-- **CPU usage**
-- **Memory usage**
-- **Request count**
-- **Response time**
-- **Error rate**
-
-Acessar em **Render Dashboard → Logs & Metrics**
-
-### Alertas Recomendados
-
-- CPU > 80%
-- Memory > 90%
-- 5xx errors > 1%
-- Uptime < 99%
-
----
-
-## 💾 Backup & Recovery
-
-### Backup Automático (PostgreSQL)
-
-Render faz backup automático daily. Para acessar:
-
-1. **Render Dashboard**
-2. **PostgreSQL service → Backups**
-3. Download`.sql` file
-
-### Restaurar de Backup
-
+O dashboard do Supabase já oferece backup automático (frequência depende do plano). Backup manual:
 ```bash
-psql "$(your-database-url)" < backup.sql
-```
-
-### Manual Backup
-
-```bash
-# Usar pg_dump:
-pg_dump "$(your-database-url)" > backup.sql
-
-# Ou via Render external connection:
-pg_dump postgresql://user:pass@host:5432/bodylog > backup.sql
+pg_dump "postgresql://postgres:SENHA@db.<projeto>.supabase.co:5432/postgres" > backup.sql
 ```
 
 ---
 
-## 🔄 Rollback (Desfazer Mudança)
+## 🔄 Rollback
 
-Se deployment quebrou:
+### Frontend
+Como é só arquivo estático versionado no Git, reverter é `git revert`/redeploy — igual qualquer site estático.
 
-### Opção 1: Revert Git
-
-```bash
-git log  # Ver commits
-
-git revert <commit-hash>  # Desfaz um commit
-
-git push  # Auto-redeploy no Render
-```
-
-### Opção 2: Redeploy Versão Anterior
-
-```bash
-git checkout <previous-tag>
-git push --force
-
-# Render redeployará versão anterior
-```
-
-### Opção 3: Manual no Render Dashboard
-
-1. **Service → Environment**
-2. Reverter variáveis de ambiente
-3. Ou deletar container e re-build
-
----
-
-## 📊 Performance em Produção
-
-### Otimizações Recomendadas
-
-**Backend (FastAPI):**
-```python
-# main.py
-
-# 1. Adicionar caching
-from fastapi_cache2 import FastAPICache2
-from fastapi_cache2.backends.redis import RedisBackend
-
-# 2. Adicionar compression
-from fastapi.middleware.gzip import GZIPMiddleware
-app.add_middleware(GZIPMiddleware, minimum_size=1000)
-
-# 3. Connection pooling (SQLAlchemy já faz)
-# 4. Índices no database (verificar)
-```
-
-**Frontend:**
-```javascript
-// api.js
-
-// 1. Cache com TTL
-let cachedData = null
-let cachedAt = 0
-
-async function fetchWithCache(endpoint, ttl = 60000) {
-  const now = Date.now()
-  if (cachedData && (now - cachedAt) < ttl) {
-    return cachedData
-  }
-  
-  cachedData = await _apiFetch(endpoint)
-  cachedAt = now
-  return cachedData
-}
-
-// 2. Lazy loading
-// 3. Code splitting por página
-```
-
----
-
-## 🛡️ Segurança em Produção
-
-### HTTPS
-- ✅ Render fornece SSL automático
-- ✅ Todos requests são encrypted
-
-### CORS
-```python
-# main.py (permitir apenas produção)
-
-allowed_origins = [
-    "https://meusite-3.onrender.com",
-    "https://bodylog.com",  # Se tiver domain
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    allow_credentials=True
-)
-```
-
-### Rate Limiting
-```python
-from slowapi import Limiter
-from slowapi.util import get_remote_address
-
-limiter = Limiter(key_func=get_remote_address)
-app = FastAPI()
-app.state.limiter = limiter
-
-@app.get("/api/checkins")
-@limiter.limit("100/minute")
-async def get_checkins(request: Request):
-    ...
-```
-
-### SQL Injection Protection
-```python
-# SQLAlchemy ORM já previne (não use queries raw!)
-
-# ✓ SEGURO:
-checkin = db.query(Checkin).filter(Checkin.id == id).first()
-
-# ✗ PERIGOSO:
-db.execute(f"SELECT * FROM checkins WHERE id = {id}")
-```
-
----
-
-## 📈 Escalabilidade Futura
-
-Se tráfego crescer muito:
-
-### Horizontal Scaling
-```
-1 Backend → 2 Backends → Behind Load Balancer
-```
-
-No Render:
-1. Aumentar **Replica count** (múltiplas instâncias)
-2. Render automaticamente load balança
-
-### Database Scaling
-```
-1 Database → Read replicas + Primary
-```
-
-### Cache Layer
-```
-Backend → Redis Cache → Database
-```
+### Dados (Supabase)
+Não há "rollback" automático de dados — restaurar a partir de um backup (`pg_dump`) é a única via, então backups regulares importam mais agora do que quando havia um Postgres gerenciado pelo Render com snapshots diários prontos.
 
 ---
 
 ## 📋 Checklist de Deploy
 
 - ✅ Código no GitHub
-- ✅ `.env` adicionado ao `.gitignore`
-- ✅ Variáveis de ambiente no Render
-- ✅ DATABASE_URL correto
-- ✅ Backend rodando e tests passando
-- ✅ Frontend carregando
-- ✅ HTTPS funcionando
-- ✅ API endpoints respondendo (200 OK)
-- ✅ Gráficos carregando dados
-- ✅ Backup configurado
-- ✅ Monitoramento ativado
+- ✅ `FrontEnd/` publicado num host estático (build command vazio)
+- ✅ Projeto Supabase criado, schema aplicado (`supabase/schema.sql`)
+- ✅ RLS habilitado em todas as tabelas, com as policies corretas
+- ✅ `supabase-client.js` apontando pro projeto/chave certos
+- ✅ HTTPS funcionando (automático na maioria dos hosts)
+- ✅ Testado: Console sem erro, requisições ao Supabase retornando 200
+- ✅ Backup do banco configurado/testado
 
 ---
 
-✅ **Próximo:** Veja [14-CREATING-NEW-PAGE.md](14-CREATING-NEW-PAGE.md) para adicionar novas features.
+✅ **Próximo:** Veja [14-QUICK-GUIDES.md](14-QUICK-GUIDES.md) para adicionar novas features.
 
-✅ **Depois:** Explore [16-MAINTENANCE.md](16-MAINTENANCE.md) para operações rotineiras.
+✅ **Depois:** Explore [15-MAINTENANCE.md](15-MAINTENANCE.md) para operações rotineiras.

@@ -118,11 +118,12 @@ Payload esperado:
 }
 ```
 
-## 9. Endpoint usados
+## 9. Fonte de dados (Supabase via `api.js`)
 
-- `GET /api/exercicios/codigos`
-- `GET /api/exercicios`
-- `POST /api/exercicios`
+- `fetchCodigosExercicio()` — árvore de `codigo_exercicio`
+- `fetchExercicios()` — `entrada_exercicio` + join com `codigo_exercicio` (paginado, ver [04-BACKEND.md](04-BACKEND.md) — essa tabela já passa de 1000 linhas)
+- `postExercise(entry)` — insere em `entrada_exercicio`
+- `patchExercicioDate(id, novaData)` — corrige data de um registro
 
 ## 10. Performance e limpeza
 

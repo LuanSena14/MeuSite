@@ -678,12 +678,7 @@ function openEditDateExercicio(id, oldDate) {
   const novaData = prompt(`Corrigir data do exercício\nData atual: ${oldDate}\n\nNova data (AAAA-MM-DD):`, oldDate)
   if (!novaData || novaData === oldDate) return
   if (!/^\d{4}-\d{2}-\d{2}$/.test(novaData)) { alert('Formato inválido. Use AAAA-MM-DD.'); return }
-  fetch(`/api/exercicios/${id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ data: novaData })
-  }).then(async r => {
-    if (!r.ok) { const e = await r.json(); alert('Erro: ' + (e.detail || r.status)); return }
+  patchExercicioDate(id, novaData).then(async () => {
     window.exercicios = await fetchExercicios()
     renderExDash()
   }).catch(() => alert('Erro de conexão'))

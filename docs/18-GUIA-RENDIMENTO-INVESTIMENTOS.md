@@ -105,9 +105,9 @@ Esse bloco muda automaticamente quando você aplica filtros por card.
 
 Ao abrir a aba de Investimentos, o filtro de mês passa a iniciar no **último mês com snapshot disponível** (em vez do mês atual sem dados).
 
-### Nos Dados da API
+### Nos Dados
 
-O endpoint `/api/financas/investimentos` retorna:
+`fetchInvestimentos()` em `FrontEnd/shared/js/api.js` (não é mais um endpoint HTTP próprio — é uma função que consulta o Supabase e calcula tudo em JavaScript) retorna:
 
 ```json
 {
@@ -231,8 +231,8 @@ Senão, soma todos os lançamentos da categoria.
 
 A consulta é eficiente pois:
 - Agrupa snapshots por categoria
-- Faz uma única query de lançamentos por mês
-- Cálculos feitos em memória (Python)
+- Busca todos os lançamentos relevantes de uma vez (paginado, ver [04-BACKEND.md](04-BACKEND.md))
+- Cálculos feitos em memória, em JavaScript, no navegador (não há mais backend Python)
 
 ---
 

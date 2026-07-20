@@ -607,6 +607,9 @@ function _gSetOverviewFeedback(icon, title, sub = '', details = '', isError = fa
 }
 
 async function initGoalsSection(forceRefresh = false) {
+  // Goals agora é uma máscara pro app externo (MakeIt) — nada do dashboard antigo pra renderizar.
+  if (!document.getElementById('goals-overview')) return
+
   if (!forceRefresh && _goalsHasFreshCache()) {
     goalsShowOverview()
     goalsRenderOverview()

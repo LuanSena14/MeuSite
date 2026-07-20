@@ -91,20 +91,34 @@ Se o cache estiver fresco e houver dados, a seção não refaz fetch completo.
 
 ## 7. Módulo Overview (fin-overview.js)
 
-Entregas principais:
+Entregas principais, de cima pra baixo na tela:
 
 - KPIs: saldo do mês, total investido, cartão de crédito, saldo acumulado no ano
-- donut de despesas por grupo
-- gráfico de evolução mensal (receitas, despesas, net)
-- validador orçado vs realizado
-- painel de cartão de crédito
-- drill de lançamentos por categoria selecionada
+- **Validador (mês)**: orçado × realizado do mês selecionado, em árvore expansível (Entradas/Saídas/Investimentos → grupo → categoria)
+- gráfico de evolução mensal (receitas, despesas, net) + donut de despesas por grupo
+- painel de cartão de crédito (orçado × realizado por categoria, forma de pagamento crédito)
+- **Resumo do ano** (`_renderValidadorAnual` + `_renderAnnualSummaryStrip`), no rodapé — ver seção 7.1
 
 Interações:
 
 - clique na linha mensal filtra a tela por mês
 - clique no donut filtra por categoria
 - filtros ativos aparecem em barras dedicadas com botão de limpar
+
+### 7.1 Resumo do ano
+
+Pensado pra dar uma visão direta e enxuta do ano inteiro, sem o ruído do detalhe mensal. Fica em duas partes:
+
+**Entradas / Saídas lado a lado** (`#fin-validador-anual-entradas` / `#fin-validador-anual-saidas`)
+- Cada uma é uma tabela orçado × realizado, mas **achatada**: mostra os itens (categorias-folha) direto, sem os grupos intermediários (ex.: não mostra "Bonus" ou "Pontual" como uma linha própria — os filhos aparecem soltos).
+- Ordenação: realizado desc primeiro; empate (ou realizado zerado) desempata por orçado desc — `_flatFinRowsHtml`.
+- Exceção hard-coded: o grupo **"Travel"** não é achatado — fica consolidado numa linha só (soma de Food/Hotel/Transport/etc.), porque tem orçamento próprio. A lista de grupos que ficam "não achatados" é `_ANNUAL_KEEP_GROUPED` no topo de `fin-overview.js` — pra manter mais algum grupo assim, é só adicionar o nome ali.
+- **Categoria "Salario" (Entradas) e "Recorrente" (Saídas) são excluídas por completo** da tabela e do total — é ruído previsível que a pessoa não queria ver nesse resumo. Os totais de "Entradas"/"Saídas" mostrados já refletem só o que fica visível (não incluem o que foi escondido).
+- Orçado anual usa **só** orçamentos cadastrados como anuais (`orcamento_financeiro.mes = null`) válidos pra aquele ano — **não** projeta orçamento mensal recorrente × 12 (isso inflava o número quando um orçamento mensal antigo de anos anteriores era "carregado pra frente" indefinidamente). Ver `_effectiveOrcamentoAnual(ano)` em `fin-core.js`.
+
+**Saldo do ano + Year Bills** (`#fin-annual-summary-strip`)
+- Investimentos foi removido inteiramente dessa visão (a aba Investimentos já cobre isso em detalhe) — o único número de investimento que sobra aqui é o saldo atual da caixinha **Year Bills**, mostrado como um card simples (`_renderAnnualSummaryStrip`).
+- Ao lado, um card com o saldo do ano (receita − despesa, já refletindo as exclusões acima).
 
 ## 8. Módulo Lançamentos (fin-lancamentos.js)
 
@@ -182,35 +196,35 @@ Após cada sucesso:
 2. recarrega dados da seção (`initFinancesSection`)
 3. exibe toast de confirmação
 
-## 12. Endpoints usados
+### 11.1 Dropdowns de categoria — só folhas, com caminho completo
+
+`populateFinCatSelect()` (lançamento/orçamento/investimento) e `_populateDebitoInvestSelect()` (regras de débito) só listam categorias **folha** (que não são pai de nenhuma outra), rotuladas com o caminho todo (`_finCatPathLabelRel` / `_finCatPathLabel`) — ex.: "Patrimonio › Year Bills" em vez de só "Year Bills" perdido entre nós de grupo como "Investimento"/"Patrimonio". Isso existe porque antes dava pra selecionar sem querer um nó de agrupamento em vez da conta/categoria real.
+
+A **exceção** é `_populateDebitoOrigemSelect()` (despesa de origem, no modal de Regras de débito): ali grupos continuam aparecendo de propósito — uma regra num grupo (ex.: "Home") cobre qualquer despesa nova dentro dele por herança, então restringir a folhas quebraria esse uso.
+
+### 11.2 Transparência do fallback "Year Bills"
+
+O modal de Regras de débito (`_renderDebitoInvestimentoRules`) mostra, além das regras cadastradas, uma segunda lista: despesas não recorrentes que **não têm regra própria nem herdada** de nenhum grupo pai — essas caem automaticamente na caixinha "Year Bills" (ou equivalente) no cálculo de rendimento. Antes disso era preciso abrir o banco pra descobrir por que um valor foi parar lá; agora fica visível na própria tela.
+
+## 12. Fonte de dados (Supabase via `api.js`)
 
 Leitura:
 
-- `GET /api/financas/codigos`
-- `GET /api/financas/lancamentos`
-- `GET /api/financas/orcamento`
-- `GET /api/financas/investimentos`
-- `GET /api/financas/viagens`
+- `fetchFinancasCodigos()`, `fetchLancamentos()`, `fetchOrcamento()`, `fetchInvestimentos()`, `fetchViagens()`, `fetchDebitoInvestimento()`
 
 Escrita:
 
-- `POST /api/financas/codigos`
-- `POST /api/financas/lancamentos`
-- `POST /api/financas/orcamento`
-- `POST /api/financas/investimentos`
-- `POST /api/financas/indicadores`
+- `postFinancaCodigo()`, `postLancamento()`, `postOrcamento()`, `postInvestimento()`, `postIndicador()`, `postDebitoInvestimento()`
 
 Remoção:
 
-- `DELETE /api/financas/codigos/:id`
-- `DELETE /api/financas/lancamentos/:id`
-- `DELETE /api/financas/orcamento/:id`
-- `DELETE /api/financas/investimentos/:id`
-- `DELETE /api/financas/viagens/:cd_lancamento` (desvincular)
+- `deleteFinancaCodigo(id)`, `deleteLancamento(id)`, `deleteOrcamento(id)`, `deleteInvestimento(id)`, `deleteDebitoInvestimento(cdFinancaOrigem)`, `unlinkViagem(cdLancamento)`
 
 Atualização:
 
-- `PATCH /api/financas/viagens/:cd_lancamento` (renomear)
+- `patchLancamentoDate(id, novaData)`, `patchCheckinDate`/`patchExercicioDate` (outras páginas), `renameViagem(cdLancamento, novoNome)`
+
+Nenhuma dessas é um endpoint HTTP escrito à mão — são todas funções em `FrontEnd/shared/js/api.js` que chamam `supabase-js` direto (ver [04-BACKEND.md](04-BACKEND.md)).
 
 ## 13. Checklist de manutenção
 

@@ -67,17 +67,29 @@ document.addEventListener('keydown', e => {
 })
 
 
-// Popula um <select> com todas as categorias de um tipo; paiOnly = apenas raízes
+// Popula um <select> com as categorias de um tipo.
+// paiOnly = apenas raízes (usado ao criar categoria nova).
+// Por padrão mostra só "folhas" (contas/categorias reais, não os grupos que as agrupam,
+// ex.: "Patrimonio" ou "Recorrente") com o caminho completo, pra não confundir grupo com conta.
 function populateFinCatSelect(selectId, tipo, paiOnly = false) {
   const sel = document.getElementById(selectId)
   if (!sel) return
 
   let cats = window.finCodigos.filter(c => c.tipo === tipo)
-  if (paiOnly) cats = cats.filter(c => c.cd_pai === null || c.cd_pai === undefined)
-  cats.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+  if (paiOnly) {
+    cats = cats.filter(c => c.cd_pai === null || c.cd_pai === undefined)
+    cats.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+    sel.innerHTML = cats.length
+      ? cats.map(c => `<option value="${c.id}">${c.nome}</option>`).join('')
+      : '<option value="">— Nenhuma categoria —</option>'
+    return
+  }
+
+  cats = _finLeafOnly(cats)
+  cats.sort((a, b) => _finCatPathLabelRel(a.id).localeCompare(_finCatPathLabelRel(b.id), 'pt-BR'))
 
   sel.innerHTML = cats.length
-    ? cats.map(c => `<option value="${c.id}">${c.nome}</option>`).join('')
+    ? cats.map(c => `<option value="${c.id}">${_finCatPathLabelRel(c.id)}</option>`).join('')
     : '<option value="">— Nenhuma categoria —</option>'
 }
 
@@ -226,12 +238,28 @@ function _finCatPathLabel(id) {
   return parts.reverse().join(' › ')
 }
 
+// Igual a _finCatPathLabel, mas sem o primeiro segmento (o tipo-raiz: Receita/Despesa/Investimento),
+// útil quando o tipo já é escolhido em outro campo do formulário.
+function _finCatPathLabelRel(id) {
+  const partes = _finCatPathLabel(id).split(' › ')
+  return partes.length > 1 ? partes.slice(1).join(' › ') : partes[0]
+}
+
+// Só folhas: nós que agrupam outras categorias (ex.: "Home", "Pontual", "Patrimonio")
+// não são despesas/caixinhas de verdade e não devem aparecer pra escolha.
+function _finLeafOnly(cats) {
+  const idsComFilho = new Set(cats.map(c => c.cd_pai).filter(id => id != null))
+  return cats.filter(c => !idsComFilho.has(c.id))
+}
+
 function _populateDebitoOrigemSelect() {
   const sel = document.getElementById('fin-debito-origem')
   if (!sel) return
 
+  // Aqui grupos (ex.: "Home", "Caixinha") são válidos de propósito: uma regra num grupo
+  // cobre qualquer despesa nova dentro dele, a não ser que exista uma regra mais específica.
   const opts = (window.finCodigos || [])
-    .filter(c => c.tipo === 'despesa' && c.cd_pai !== null && !_isDescendantOfFin(c.id, 6))
+    .filter(c => c.tipo === 'despesa' && c.cd_pai !== null && !_isDescendantOfFin(c.id, ID_DESPESA_RECORRENTE))
     .sort((a, b) => _finCatPathLabel(a.id).localeCompare(_finCatPathLabel(b.id), 'pt-BR'))
 
   sel.innerHTML = opts.length
@@ -243,8 +271,8 @@ function _populateDebitoInvestSelect() {
   const sel = document.getElementById('fin-debito-invest')
   if (!sel) return
 
-  const opts = (window.finCodigos || [])
-    .filter(c => c.tipo === 'investimento' && c.cd_pai !== null)
+  const opts = _finLeafOnly((window.finCodigos || []).filter(c => c.tipo === 'investimento'))
+    .filter(c => c.cd_pai !== null)
     .sort((a, b) => _finCatPathLabel(a.id).localeCompare(_finCatPathLabel(b.id), 'pt-BR'))
 
   sel.innerHTML = opts.length
@@ -257,25 +285,59 @@ async function _renderDebitoInvestimentoRules() {
   if (!container) return
 
   const rows = await fetchDebitoInvestimento()
-  if (!rows?.length) {
-    container.innerHTML = '<p class="inline-empty-note-center">Nenhuma regra cadastrada.</p>'
-    return
+
+  const regrasHtml = rows.length
+    ? `<table class="fin-table fin-debito-table">
+        <thead><tr><th>Despesa</th><th>Debita em</th><th></th></tr></thead>
+        <tbody>${
+          rows
+            .sort((a, b) => (a.origem_nome || '').localeCompare((b.origem_nome || ''), 'pt-BR'))
+            .map(r => `<tr>
+              <td>${_finCatPathLabel(r.cd_financa_origem)}</td>
+              <td>${_finCatPathLabel(r.cd_financa_investimento)}</td>
+              <td><button class="fin-del-btn" onclick="deleteDebitoInvestimentoRule(${r.cd_financa_origem})">✕</button></td>
+            </tr>`)
+            .join('')
+        }</tbody>
+      </table>`
+    : '<p class="inline-empty-note-center">Nenhuma regra cadastrada.</p>'
+
+  // Despesas não recorrentes sem regra própria NEM herdada de um grupo pai:
+  // o cálculo de resgate as joga automaticamente na caixinha "Year Bills" (ou equivalente).
+  // Deixa isso visível pra não precisar descobrir o motivo só olhando o banco no fechamento do mês.
+  const lookup = new Map((window.finCodigos || []).map(c => [c.id, c]))
+  const relMap = new Map(rows.map(r => [r.cd_financa_origem, r.cd_financa_investimento]))
+  const yearBills = (window.finCodigos || [])
+    .find(c => c.tipo === 'investimento' && c.nome.trim().toLowerCase() === 'year bills')
+  const defaultLabel = yearBills ? _finCatPathLabel(yearBills.id) : '(nenhuma caixinha "Year Bills" encontrada)'
+
+  function _temRegraNaCadeia(id) {
+    let atual = lookup.get(id)
+    const visitados = new Set()
+    while (atual && !visitados.has(atual.id)) {
+      visitados.add(atual.id)
+      if (relMap.has(atual.id)) return true
+      if (atual.cd_pai == null) break
+      atual = lookup.get(atual.cd_pai)
+    }
+    return false
   }
 
-  const body = rows
-    .sort((a, b) => (a.origem_nome || '').localeCompare((b.origem_nome || ''), 'pt-BR'))
-    .map(r => `<tr>
-      <td>${_finCatPathLabel(r.cd_financa_origem)}</td>
-      <td>${_finCatPathLabel(r.cd_financa_investimento)}</td>
-      <td><button class="fin-del-btn" onclick="deleteDebitoInvestimentoRule(${r.cd_financa_origem})">✕</button></td>
-    </tr>`)
-    .join('')
+  const semRegra = _finLeafOnly((window.finCodigos || []).filter(c => c.tipo === 'despesa'))
+    .filter(c => c.cd_pai !== null && !_isDescendantOfFin(c.id, ID_DESPESA_RECORRENTE))
+    .filter(c => !_temRegraNaCadeia(c.id))
+    .sort((a, b) => _finCatPathLabel(a.id).localeCompare(_finCatPathLabel(b.id), 'pt-BR'))
 
-  container.innerHTML = `
-    <table class="fin-table fin-debito-table">
-      <thead><tr><th>Despesa</th><th>Debita em</th><th></th></tr></thead>
-      <tbody>${body}</tbody>
-    </table>`
+  const semRegraHtml = semRegra.length
+    ? `<div class="fin-orc-section-label-top" style="margin-top:18px">
+        Sem regra própria — caem automaticamente em <b>${defaultLabel}</b>
+      </div>
+      <table class="fin-table fin-debito-table">
+        <tbody>${semRegra.map(c => `<tr><td>${_finCatPathLabel(c.id)}</td></tr>`).join('')}</tbody>
+      </table>`
+    : ''
+
+  container.innerHTML = regrasHtml + semRegraHtml
 }
 
 async function _prepareDebitoInvestimentoModal() {

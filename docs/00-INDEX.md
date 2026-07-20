@@ -1,224 +1,99 @@
 # 📚 Documentação Técnica - BodyLog
 
-**Versão:** 1.0  
-**Data:** Março 2026  
-**Objetivo:** Documentação completa e detalhada do projeto BodyLog para permitir que qualquer desenvolvedor entenda, mantenha e evolua o sistema de forma autônoma.
+**Versão:** 2.0
+**Objetivo:** Documentação completa do projeto BodyLog para permitir que qualquer desenvolvedor entenda, mantenha e evolua o sistema de forma autônoma.
+
+> **Mudança de arquitetura importante:** o BodyLog não tem mais um backend próprio
+> (o antigo servidor Python/FastAPI foi removido). O frontend fala **direto** com um
+> projeto **Supabase** (Postgres + API REST autogerada + Row Level Security). A seção
+> Goals também mudou: virou um `<iframe>` que embute um app externo (MakeIt) em vez de
+> um sistema de metas próprio. Veja [02-ARCHITECTURE.md](02-ARCHITECTURE.md) e
+> [09-PAGE-GOALS.md](09-PAGE-GOALS.md) para os detalhes.
 
 ---
 
 ## 📖 Índice de Documentação
 
 ### 1. **Fundações**
-- **[01-PROJECT-OVERVIEW.md](01-PROJECT-OVERVIEW.md)** - Visão completa do projeto
-  - O que é BodyLog
-  - Problema que resolve
-  - Público-alvo
-  - Funcionalidades principais
-  - Arquitetura geral em alto nível
+- **[01-PROJECT-OVERVIEW.md](01-PROJECT-OVERVIEW.md)** — o que é BodyLog, funcionalidades, arquitetura em alto nível
 
 ### 2. **Arquitetura & Design**
-- **[02-ARCHITECTURE.md](02-ARCHITECTURE.md)** - Arquitetura técnica do sistema
-  - Arquitetura geral com diagramas
-  - Fluxo de dados ponta a ponta
-  - Fluxo de navegação
-  - Padrões arquiteturais utilizados
-  - Estrutura de pastas completa
+- **[02-ARCHITECTURE.md](02-ARCHITECTURE.md)** — frontend ↔ Supabase, fluxo de dados ponta a ponta, estrutura de pastas
 
 ### 3. **Camada de Dados**
-- **[03-DATABASE.md](03-DATABASE.md)** - Documentação completa do banco de dados
-  - Estrutura geral do PostgreSQL
-  - Diagrama ER (Entidade-Relacionamento)
-  - Todas as tabelas detalhadas
-  - Campos, tipos de dados, constraints
-  - Relacionamentos entre tabelas
-  - Índices e performance
-  - Fluxo de dados no banco
+- **[03-DATABASE.md](03-DATABASE.md)** — schema do Postgres (Supabase), RLS, tabelas, relacionamentos
 
-### 4. **Camada de Backend**
-- **[04-BACKEND.md](04-BACKEND.md)** - Servidor Python/FastAPI
-  - Arquitetura do backend
-  - Arquivos principais explicados
-  - Setup do database.py
-  - Modelos SQLAlchemy
-  - Rotas principais da API
-  - Padrões de código utilizados
-  - Como adicionar novas rotas
+### 4. **Camada que substituiu o Backend**
+- **[04-BACKEND.md](04-BACKEND.md)** — `shared/js/api.js`: toda a lógica que antes vivia num servidor Python, hoje rodando no navegador via `supabase-js`
 
 ### 5. **Camada de Frontend**
-- **[05-FRONTEND.md](05-FRONTEND.md)** - JavaScript/HTML/CSS vanilla
-  - Arquitetura do frontend
-  - Padrão de organização de páginas
-  - Como funciona o carregamento dinâmico
-  - Sistema de navegação
-  - Helpers e utilitários compartilhados
-  - Padrões JS utilizados
+- **[05-FRONTEND.md](05-FRONTEND.md)** — estrutura HTML/CSS/JS, navegação, cache, carregamento dinâmico
 
 ### 6. **Documentação por Página**
-- **[06-PAGE-HOME.md](06-PAGE-HOME.md)** - Seção Home/Overview
-  - Objetivo e funcionalidades
-  - Estrutura de arquivos
-  - Fluxo de execução completo
-  - Explicação linha por linha do código
-  
-- **[07-PAGE-BODY.md](07-PAGE-BODY.md)** - Seção Body (Métricas Corporais)
-  - Sistema de check-ins
-  - Cálculos biométricos
-  - Gráficos e visualizações
-  - Fluxo completo com explicações
-  
-- **[08-PAGE-EXERCISES.md](08-PAGE-EXERCISES.md)** - Seção Exercises (Treinos)
-  - Sistema de registro de exercícios
-  - Dashboards de frequência
-  - Filtros e buscas
-  - Explicação detalhada do código
-  
-- **[09-PAGE-GOALS.md](09-PAGE-GOALS.md)** - Seção Goals (Metas)
-  - Sistema de pontuação mensal
-  - Heatmap de progresso
-  - Cálculo de KPIs
-  - Código explicado linha a linha
-  
-- **[10-PAGE-FINANCES.md](10-PAGE-FINANCES.md)** - Seção Finances (Organizador Financeiro)
-  - Estrutura hierárquica de categorias
-  - Módulos de finanças
-  - Orçamentação
-  - Investimentos
-  - Viagens
-  - Toda a lógica explicada
+- **[06-PAGE-HOME.md](06-PAGE-HOME.md)** — Overview
+- **[07-PAGE-BODY.md](07-PAGE-BODY.md)** — Métricas corporais
+- **[08-PAGE-EXERCISES.md](08-PAGE-EXERCISES.md)** — Treinos
+- **[09-PAGE-GOALS.md](09-PAGE-GOALS.md)** — iframe mask do app externo MakeIt
+- **[10-PAGE-FINANCES.md](10-PAGE-FINANCES.md)** — Organizador financeiro (o módulo mais complexo)
 
 ### 7. **Stack Tecnológico**
-- **[11-TECH-STACK.md](11-TECH-STACK.md)** - Tecnologias utilizadas
-  - Cada ferramenta explicada
-  - Por que foi escolhida
-  - Como é integrada no projeto
-  - Dependências principais
-  - Versões utilizadas
+- **[11-TECH-STACK.md](11-TECH-STACK.md)** — HTML/CSS/JS vanilla + Chart.js + Supabase (Postgres/PostgREST/RLS)
 
 ### 8. **Guias de Implementação**
-- **[12-SETUP-LOCAL.md](12-SETUP-LOCAL.md)** - Como rodar localmente
-  - Pré-requisitos
-  - Setup passo a passo
-  - Configuração do banco de dados
-  - Rodando backend e frontend
-  - Debugging e troubleshooting
-  
-- **[13-DEPLOYMENT.md](13-DEPLOYMENT.md)** - Deployment em produção
-  - Hosting (Render.com)
-  - Variáveis de ambiente
-  - CI/CD
-  - Monitoramento
-  - Backup and recovery
-  
-- **[14-QUICK-GUIDES.md](14-QUICK-GUIDES.md)** - Guias rápidos de implementação
-  - Criar nova página
-  - Padrões de integração frontend/backend
-  - Referências rápidas de API e padrões
-  - Dicas de estrutura e consistência
-
-- **[17-LINE-BY-LINE-CODE.md](17-LINE-BY-LINE-CODE.md)** - Explicação linha a linha
-  - Mapa completo de todos os arquivos `.py` e `.js`
-  - Faixas de linha por função/classe
-  - Roteiro de estudo para iniciantes
+- **[12-SETUP-LOCAL.md](12-SETUP-LOCAL.md)** — rodar localmente (só um servidor estático, sem backend/DB local)
+- **[13-DEPLOYMENT.md](13-DEPLOYMENT.md)** — publicar frontend estático + configurar Supabase
+- **[14-QUICK-GUIDES.md](14-QUICK-GUIDES.md)** — como adicionar página nova, referência de funções de dados
+- **[17-LINE-BY-LINE-CODE.md](17-LINE-BY-LINE-CODE.md)** — mapa por faixa de linha (parcialmente desatualizado, ver aviso no próprio arquivo)
 
 ### 9. **Manutenção & Operações**
-- **[15-MAINTENANCE.md](15-MAINTENANCE.md)** - Guia de manutenção
-  - Monitoramento do sistema
-  - Atualização de dependências
-  - Correção de erros comuns
-  - Performance tuning
-  - Logging e debugging
-  - Limpeza de dados
-  
-- **[16-IMPROVEMENTS.md](16-IMPROVEMENTS.md)** - Melhorias futuras
-  - Refatorações recomendadas
-  - Melhorias arquiteturais
-  - Escalabilidade
-  - Performance
-  - Segurança
-  - UX/UI
-  - Novas funcionalidades sugeridas
+- **[15-MAINTENANCE.md](15-MAINTENANCE.md)** — monitoramento via dashboard Supabase, debugging, erros comuns
+- **[16-IMPROVEMENTS.md](16-IMPROVEMENTS.md)** — roadmap de evoluções e refatorações sugeridas
 
-### 10. **Referência Rápida**
-- **[14-QUICK-GUIDES.md](14-QUICK-GUIDES.md)** - Guias de referência consolidada
-  - Checklists de implementação
-  - Padrões recorrentes do projeto
-  - Atalhos para evolução de páginas
-
-- **[17-LINE-BY-LINE-CODE.md](17-LINE-BY-LINE-CODE.md)** - Mapa técnico por linhas
-  - Todos os blocos de backend e frontend
-  - Leitura orientada por faixa de linha
-  - Apoio para onboarding técnico
+### 10. **Guias específicos**
+- **[18-GUIA-RENDIMENTO-INVESTIMENTOS.md](18-GUIA-RENDIMENTO-INVESTIMENTOS.md)** — como o cálculo de rendimento de investimentos funciona
 
 ---
 
 ## 🚀 Como Usar Esta Documentação
 
 ### Para Iniciantes (Nunca viu o projeto antes)
-1. Comece com **[01-PROJECT-OVERVIEW.md](01-PROJECT-OVERVIEW.md)** para entender o que é BodyLog
-2. Leia **[02-ARCHITECTURE.md](02-ARCHITECTURE.md)** para ver como tudo funciona junto
-3. Explore as páginas específicas que interessa em **[06-PAGE-HOME.md](06-PAGE-HOME.md)** até **[10-PAGE-FINANCES.md](10-PAGE-FINANCES.md)**
+1. **[01-PROJECT-OVERVIEW.md](01-PROJECT-OVERVIEW.md)** para entender o que é BodyLog
+2. **[02-ARCHITECTURE.md](02-ARCHITECTURE.md)** para ver como frontend e Supabase se falam
+3. Explore as páginas específicas em **[06](06-PAGE-HOME.md)**–**[10-PAGE-FINANCES.md](10-PAGE-FINANCES.md)**
 
 ### Para Desenvolvedores (Implementar novas features)
-1. Revise **[11-TECH-STACK.md](11-TECH-STACK.md)** para conhecer as ferramentas
-2. Se adicionar página: **[14-QUICK-GUIDES.md](14-QUICK-GUIDES.md)**
-3. Se for backend: **[04-BACKEND.md](04-BACKEND.md)** + **[17-LINE-BY-LINE-CODE.md](17-LINE-BY-LINE-CODE.md)**
-4. Se for database: **[03-DATABASE.md](03-DATABASE.md)**
+1. **[11-TECH-STACK.md](11-TECH-STACK.md)** para conhecer as ferramentas
+2. Nova página: **[14-QUICK-GUIDES.md](14-QUICK-GUIDES.md)**
+3. Nova tabela/query: **[03-DATABASE.md](03-DATABASE.md)** + **[04-BACKEND.md](04-BACKEND.md)**
 
 ### Para Manutenção
-1. **[12-SETUP-LOCAL.md](12-SETUP-LOCAL.md)** - para ambiente de desenvolvimento
-2. **[15-MAINTENANCE.md](15-MAINTENANCE.md)** - para operações rotineiras
-3. **[13-DEPLOYMENT.md](13-DEPLOYMENT.md)** - para deploy em produção
+1. **[12-SETUP-LOCAL.md](12-SETUP-LOCAL.md)** — ambiente de desenvolvimento
+2. **[15-MAINTENANCE.md](15-MAINTENANCE.md)** — operações rotineiras
+3. **[13-DEPLOYMENT.md](13-DEPLOYMENT.md)** — deploy em produção
 
 ### Para Refatoração/Melhorias
-1. **[16-IMPROVEMENTS.md](16-IMPROVEMENTS.md)** - ideias e roadmap
-2. **[17-LINE-BY-LINE-CODE.md](17-LINE-BY-LINE-CODE.md)** - visão detalhada por linhas para refatorar com segurança
-
----
-
-## 💡 Princípios da Documentação
-
-Esta documentação foi escrita com os seguintes princípios:
-
-✅ **Extremamente Detalhada**
-- Cada conceito é explicado múltiplas vezes de ângulos diferentes
-- Exemplos de código para cada padrão
-- Explicações linha por linha onde necessário
-
-✅ **Clara & Acessível**
-- Assumindo que o leitor nunca viu o projeto
-- Sem jargão técnico não explicado
-- Muitos exemplos práticos
-
-✅ **Bem Estruturada**
-- Arquivos separados por tema
-- Índices e cross-links
-- Progressão lógica de conceitos
-
-✅ **Orientada à Manutenção de Longo Prazo**
-- Fácil de encontrar respostas
-- Fácil de atualizar quando código muda
-- Boas práticas documentadas
+- **[16-IMPROVEMENTS.md](16-IMPROVEMENTS.md)** — ideias e roadmap
 
 ---
 
 ## 📞 Estrutura do Projeto em 30 Segundos
 
 ```
-BodyLog é um dashboard pessoal com 4 seções:
+BodyLog é um dashboard pessoal com 5 seções:
 ├── HOME: Visão geral com KPIs
-├── BODY: Registro e análise de métricas corporais (peso, gordura, músculo, etc)
+├── BODY: Registro e análise de métricas corporais
 ├── EXERCISES: Registro de treinos com análise de frequência
-├── GOALS: Sistema de metas com pontuação mensal
+├── GOALS: iframe embutindo o app externo MakeIt (não tem dados próprios)
 └── FINANCES: Organizador financeiro com orçamentos e investimentos
 
 Stack:
-├── Frontend: HTML + CSS + JavaScript vanilla (sem frameworks)
-├── Backend: Python + FastAPI
-└── Database: PostgreSQL (hospedado Render.com)
+├── Frontend: HTML + CSS + JavaScript vanilla (sem frameworks, sem build)
+└── Dados: Supabase (Postgres + PostgREST + Row Level Security)
+    — sem servidor de aplicação próprio
 
 Hospedagem:
-├── Frontend: Render.com (HTML/CSS/JS estático)
-└── Backend: Render.com (Python FastAPI)
+├── Frontend: qualquer host de arquivos estáticos
+└── Dados: projeto Supabase (sempre online, sem deploy recorrente)
 ```
 
 ---
@@ -227,29 +102,32 @@ Hospedagem:
 
 | Data | Versão | Alterações |
 |------|--------|-----------|
-| Mar 2026 | 1.1 | Split de manutenção/melhorias + guia linha a linha de todos os códigos |
+| Jul 2026 | 2.0 | Migração completa pra Supabase (backend Python removido); Goals virou iframe mask do MakeIt; resumo anual novo em Finances |
+| Mar 2026 | 1.1 | Split de manutenção/melhorias + guia linha a linha |
 | Mar 2026 | 1.0 | Documentação inicial completa |
 
 ---
 
 ## ❓ Perguntas Frequentes
 
-**P: Onde começo se quero adicionar uma nova funcionalidade?**  
-R: Vá para [14-QUICK-GUIDES.md](14-QUICK-GUIDES.md) e depois abra a documentação específica da página afetada (06 a 10).
+**P: Onde começo se quero adicionar uma nova funcionalidade?**
+R: [14-QUICK-GUIDES.md](14-QUICK-GUIDES.md), depois a documentação específica da página afetada (06 a 10).
 
-**P: Como faço deploy em produção?**  
-R: Veja [13-DEPLOYMENT.md](13-DEPLOYMENT.md).
+**P: Como faço deploy em produção?**
+R: [13-DEPLOYMENT.md](13-DEPLOYMENT.md) — é só publicar a pasta `FrontEnd/` como site estático; o Supabase já está sempre no ar.
 
-**P: Qual é a senha/PIN de acesso?**  
-R: Veja as variáveis de ambiente em [13-DEPLOYMENT.md](13-DEPLOYMENT.md).
+**P: Onde fica a lógica que antes era o backend?**
+R: Em `FrontEnd/shared/js/api.js`, documentado em [04-BACKEND.md](04-BACKEND.md).
 
-**P: Como rodo tudo localmente?**  
-R: Siga o passo a passo em [12-SETUP-LOCAL.md](12-SETUP-LOCAL.md).
+**P: Qual é a senha/PIN de acesso do Finances?**
+R: Constante `FINANCES_PIN` em `FrontEnd/shared/js/nav.js` — é só uma cortina de UI, não é segurança real.
 
-**P: Como começo a implementar sem conhecer o código?**  
-R: Comece por [01-PROJECT-OVERVIEW.md](01-PROJECT-OVERVIEW.md), depois [02-ARCHITECTURE.md](02-ARCHITECTURE.md) e use [17-LINE-BY-LINE-CODE.md](17-LINE-BY-LINE-CODE.md) para navegar por arquivo e linha.
+**P: Como rodo tudo localmente?**
+R: [12-SETUP-LOCAL.md](12-SETUP-LOCAL.md) — só precisa servir os arquivos estáticos, não tem banco local.
+
+**P: E a seção Goals, como funciona?**
+R: [09-PAGE-GOALS.md](09-PAGE-GOALS.md) — é um iframe pro app MakeIt, não tem dados próprios no BodyLog.
 
 ---
 
-**Boa documentação! 🚀**  
-*Qualquer dúvida, consulte os arquivos específicos. Tudo que você precisa saber está aqui.*
+**Boa documentação! 🚀**

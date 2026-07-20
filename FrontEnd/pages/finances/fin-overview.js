@@ -65,6 +65,7 @@ function renderFinOverview() {
   _renderChartEvolucao()
   _renderDespDrill(despGrupos)
   _renderValidador(ano, mes)
+  _renderValidadorAnual(ano)
 
   const mesLabel = new Date(ano, mes - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
   _renderCreditoPanel(ano, mes, mesLabel)
@@ -354,105 +355,16 @@ function _renderValidador(ano, mes) {
   const lancMes = window.finLancamentos.filter(l => l.data.startsWith(mesStr))
   const orcMes  = _effectiveOrcamento(ano, mes).filter(o => o.mes !== null)
 
-  const isTypeRoot = id => window.finCodigos.find(c => c.id === id)?.cd_pai == null
-
-  // Constrói árvore hierárquica para um tipo (receita | despesa) usando apenas os nós ativos
-  const buildTree = (tipo) => {
-    const orcTipo  = orcMes.filter(o => window.finCodigos.find(c => c.id === o.cd_financa)?.tipo === tipo)
-    const activeIds = new Set([
-      ...orcTipo.map(o => o.cd_financa),
-      ...lancMes.filter(l => window.finCodigos.find(c => c.id === l.cd_financa)?.tipo === tipo).map(l => l.cd_financa)
-    ])
-    if (!activeIds.size) return { roots: [], totalOrc: 0, totalReal: 0 }
-
-    const orcById  = {}
-    orcTipo.forEach(o => { orcById[o.cd_financa] = Number(o.valor_orcado) })
-    const realById = {}
-    lancMes.filter(l => window.finCodigos.find(c => c.id === l.cd_financa)?.tipo === tipo)
-           .forEach(l => { realById[l.cd_financa] = (realById[l.cd_financa] || 0) + Number(l.valor) })
-
-    const nodes = {}
-    const getNode = id => {
-      if (!nodes[id]) {
-        const cod = window.finCodigos.find(c => c.id === id)
-        nodes[id] = { id, nome: cod?.nome || String(id), cd_pai: cod?.cd_pai,
-                      dirOrc: 0, dirReal: 0, totalOrc: 0, totalReal: 0, children: {} }
-      }
-      return nodes[id]
-    }
-
-    activeIds.forEach(id => {
-      getNode(id).dirOrc  = orcById[id]  || 0
-      getNode(id).dirReal = realById[id] || 0
-      let cur = id
-      while (true) {
-        const cod = window.finCodigos.find(c => c.id === cur)
-        if (!cod || cod.cd_pai == null || isTypeRoot(cod.cd_pai)) break
-        getNode(cod.cd_pai)
-        cur = cod.cd_pai
-      }
-    })
-
-    // Liga pai → filhos (ignora nó raiz de tipo)
-    Object.values(nodes).forEach(n => {
-      if (n.cd_pai != null && !isTypeRoot(n.cd_pai) && nodes[n.cd_pai])
-        nodes[n.cd_pai].children[n.id] = n
-    })
-
-    // Agrega totais bottom-up
-    const computeTotals = n => {
-      n.totalOrc  = n.dirOrc
-      n.totalReal = n.dirReal
-      Object.values(n.children).forEach(c => {
-        computeTotals(c)
-        n.totalOrc  += c.totalOrc
-        n.totalReal += c.totalReal
-      })
-    }
-    const roots = Object.values(nodes).filter(n => n.cd_pai != null && isTypeRoot(n.cd_pai))
-    roots.forEach(computeTotals)
-    roots.sort((a, b) => b.totalOrc - a.totalOrc)
-    return { roots, totalOrc: roots.reduce((s, n) => s + n.totalOrc, 0), totalReal: roots.reduce((s, n) => s + n.totalReal, 0) }
+  const orcMap = (tipo) => {
+    const map = {}
+    orcMes.filter(o => window.finCodigos.find(c => c.id === o.cd_financa)?.tipo === tipo)
+          .forEach(o => { map[o.cd_financa] = Number(o.valor_orcado) })
+    return map
   }
+  const renderTree = (nodes, netGoodPos, depth, pfx) => _renderFinValidadorTree(nodes, netGoodPos, depth, pfx)
 
-  // Renderer recursivo de nós da árvore
-  const renderTree = (nodes, netGoodPos, depth, pfx) =>
-    nodes.map(node => {
-      const uid   = `${pfx}-${node.id}`
-      const net   = node.totalReal - node.totalOrc
-      const kids  = Object.values(node.children).sort((a, b) => b.totalOrc - a.totalOrc)
-      const pad   = `${(depth + 1) * 14}px`
-      const netClr = net === 0 ? 'var(--text-muted)'
-                   : (net > 0) === netGoodPos ? 'var(--accent)' : 'var(--danger)'
-      const orcTd  = `<td class="fin-val-tbl-num">${node.totalOrc > 0 ? _fmtBRL(node.totalOrc) : '—'}</td>`
-      const realTd = `<td class="fin-val-tbl-num">${_fmtBRL(node.totalReal)}</td>`
-      const netTd  = `<td class="fin-val-tbl-num" style="color:${netClr}">${net !== 0 ? _fmtBRL(net) : '—'}</td>`
-
-      if (!kids.length) {
-        return `<tr class="fin-val-tbl-child">
-          <td class="fin-val-tbl-name" style="padding-left:${pad}">${node.nome}</td>
-          ${orcTd}${realTd}${netTd}
-        </tr>`
-      }
-      const childHtml  = renderTree(kids, netGoodPos, depth + 1, pfx)
-      const innerCols  = `<colgroup><col style="width:100%"><col style="width:110px"><col style="width:110px"><col style="width:110px"></colgroup>`
-      return `
-        <tr class="fin-val-tbl-hd" onclick="toggleFinValAcc('${uid}')">
-          <td class="fin-val-tbl-label-cell" style="padding-left:${pad}">
-            <span class="fin-val-acc-arrow" id="fin-val-acc-arrow-${uid}">▶</span>
-            <span style="margin-left:6px">${node.nome}</span>
-          </td>
-          ${orcTd}${realTd}${netTd}
-        </tr>
-        <tr id="fin-val-acc-${uid}" style="display:none">
-          <td colspan="4" class="fin-val-tbl-children-wrap">
-            <table class="fin-val-tbl-children">${innerCols}<tbody>${childHtml}</tbody></table>
-          </td>
-        </tr>`
-    }).join('')
-
-  const rec       = buildTree('receita')
-  const desp      = buildTree('despesa')
+  const rec       = _buildFinValidadorTree('receita', lancMes, orcMap('receita'))
+  const desp      = _buildFinValidadorTree('despesa', lancMes, orcMap('despesa'))
   const saldoOrc  = rec.totalOrc   - desp.totalOrc
   const saldoReal = rec.totalReal  - desp.totalReal
   const saldoNet  = saldoReal      - saldoOrc
@@ -487,27 +399,7 @@ function _renderValidador(ano, mes) {
       }).join('')
     : `<tr class="fin-val-tbl-child"><td colspan="4" style="color:var(--text-muted)">Nenhum lançamento de investimento no período.</td></tr>`
 
-  // Linha de accordion de nível 1 (Entradas / Saídas / Investimentos)
-  const topRow = (id, lbl, cls, totalOrc, totalReal, childHtml, netGoodPos) => {
-    const net    = totalReal - totalOrc
-    const netClr = net === 0 ? 'var(--text-muted)'
-                 : (net > 0) === netGoodPos ? 'var(--accent)' : 'var(--danger)'
-    return `
-      <tr class="fin-val-tbl-hd" onclick="toggleFinValAcc('${id}')">
-        <td class="fin-val-tbl-label-cell">
-          <span class="fin-val-acc-arrow" id="fin-val-acc-arrow-${id}">▶</span>
-          <span class="${cls}" style="margin-left:6px">${lbl}</span>
-        </td>
-        <td class="fin-val-tbl-num">${totalOrc > 0 ? _fmtBRL(totalOrc) : '—'}</td>
-        <td class="fin-val-tbl-num">${_fmtBRL(totalReal)}</td>
-        <td class="fin-val-tbl-num" style="color:${netClr}">${net !== 0 ? _fmtBRL(net) : '—'}</td>
-      </tr>
-      <tr id="fin-val-acc-${id}" style="display:none">
-        <td colspan="4" class="fin-val-tbl-children-wrap">
-          <table class="fin-val-tbl-children"><colgroup><col style="width:100%"><col style="width:110px"><col style="width:110px"><col style="width:110px"></colgroup><tbody>${childHtml}</tbody></table>
-        </td>
-      </tr>`
-  }
+  const topRow = _finValidadorTopRow
 
   container.innerHTML = `
     <table class="fin-val-table">
@@ -546,4 +438,136 @@ function toggleFinValAcc(id) {
   const open = body.style.display !== 'none'
   body.style.display = open ? 'none' : (body.tagName === 'TR' ? 'table-row' : 'block')
   if (arrow) arrow.textContent = open ? '▶' : '▼'
+}
+
+
+// Grupos que ficam de fora do "achatamento" — têm orçamento próprio, então fazem mais
+// sentido como uma linha só (soma de tudo dentro) do que espalhados item por item.
+const _ANNUAL_KEEP_GROUPED = new Set(['Travel'])
+
+// Junta todas as folhas (categorias sem filho) de uma árvore, sem os grupos intermediários
+// (ex.: pula "Bonus"/"Pontual" e vai direto pro gasto/entrada real) — exceto os grupos
+// listados em _ANNUAL_KEEP_GROUPED, que ficam consolidados numa única linha.
+function _flattenFinLeaves(nodes) {
+  let leaves = []
+  for (const n of nodes) {
+    const kids = Object.values(n.children)
+    if (!kids.length || _ANNUAL_KEEP_GROUPED.has(n.nome)) leaves.push(n)
+    else leaves = leaves.concat(_flattenFinLeaves(kids))
+  }
+  return leaves
+}
+
+function _flatFinRowsHtml(leaves, netGoodPos) {
+  return leaves
+    .slice()
+    .sort((a, b) => b.totalReal - a.totalReal || b.totalOrc - a.totalOrc)
+    .map(n => {
+      const net    = n.totalReal - n.totalOrc
+      const netClr = net === 0 ? 'var(--text-muted)' : (net > 0) === netGoodPos ? 'var(--accent)' : 'var(--danger)'
+      return `<tr class="fin-val-tbl-child">
+        <td class="fin-val-tbl-name">${n.nome}</td>
+        <td class="fin-val-tbl-num">${n.totalOrc > 0 ? _fmtBRL(n.totalOrc) : '—'}</td>
+        <td class="fin-val-tbl-num">${_fmtBRL(n.totalReal)}</td>
+        <td class="fin-val-tbl-num" style="color:${netClr}">${net !== 0 ? _fmtBRL(net) : '—'}</td>
+      </tr>`
+    }).join('')
+}
+
+// Uma tabela orçado×realizado (Entradas ou Saídas) do resumo anual — direto nos itens,
+// sem os grupos intermediários (Bonus, Pontual, etc).
+function _annualTypeTableHtml(roots, totalOrc, totalReal, netGoodPos) {
+  const net    = totalReal - totalOrc
+  const netClr = net === 0 ? 'var(--text-muted)' : (net > 0) === netGoodPos ? 'var(--accent)' : 'var(--danger)'
+  return `
+    <table class="fin-val-table">
+      <colgroup><col style="width:100%"><col style="width:100px"><col style="width:100px"><col style="width:100px"></colgroup>
+      <thead>
+        <tr class="fin-val-tbl-head">
+          <th></th>
+          <th class="fin-val-tbl-num">Orçado</th>
+          <th class="fin-val-tbl-num">Realizado</th>
+          <th class="fin-val-tbl-num">Net</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${_flatFinRowsHtml(_flattenFinLeaves(roots), netGoodPos)}
+        <tr class="fin-val-tbl-saldo">
+          <td>Total</td>
+          <td class="fin-val-tbl-num">${totalOrc > 0 ? _fmtBRL(totalOrc) : '—'}</td>
+          <td class="fin-val-tbl-num">${_fmtBRL(totalReal)}</td>
+          <td class="fin-val-tbl-num" style="color:${netClr}">${net !== 0 ? _fmtBRL(net) : '—'}</td>
+        </tr>
+      </tbody>
+    </table>`
+}
+
+// Orçado x realizado do ano inteiro (não só do mês) — visão rápida de "como está indo o ano".
+// Entradas e Saídas lado a lado; investimentos ficam de fora (só o saldo da Year Bills importa aqui).
+function _renderValidadorAnual(ano) {
+  const containerEnt = document.getElementById('fin-validador-anual-entradas')
+  const containerSai  = document.getElementById('fin-validador-anual-saidas')
+  const label         = document.getElementById('fin-val-anual-ano-label')
+  if (!containerEnt || !containerSai) return
+  if (label) label.textContent = String(ano)
+
+  const anoStr  = String(ano)
+  const lancAno = window.finLancamentos.filter(l => l.data.startsWith(anoStr))
+
+  // Orçado anual = só orçamentos cadastrados como anuais (mes=null), sem projeção
+  // a partir de orçamentos mensais recorrentes de outros anos.
+  const orcMapPorTipo = { receita: {}, despesa: {} }
+  _effectiveOrcamentoAnual(ano).forEach(o => {
+    const tipo = window.finCodigos.find(c => c.id === o.cd_financa)?.tipo
+    const map = orcMapPorTipo[tipo]
+    if (!map) return
+    map[o.cd_financa] = Number(o.valor_orcado)
+  })
+
+  const rec  = _buildFinValidadorTree('receita', lancAno, orcMapPorTipo.receita)
+  const desp = _buildFinValidadorTree('despesa', lancAno, orcMapPorTipo.despesa)
+
+  // Visão direta do ano: fora o previsível/recorrente (salário, despesas recorrentes) —
+  // os totais refletem só o que fica visível.
+  const recRootsVisiveis  = rec.roots.filter(n => n.nome !== 'Salario')
+  const recTotalOrc       = recRootsVisiveis.reduce((s, n) => s + n.totalOrc,  0)
+  const recTotalReal      = recRootsVisiveis.reduce((s, n) => s + n.totalReal, 0)
+
+  const despRootsVisiveis = desp.roots.filter(n => n.nome !== 'Recorrente')
+  const despTotalOrc      = despRootsVisiveis.reduce((s, n) => s + n.totalOrc,  0)
+  const despTotalReal     = despRootsVisiveis.reduce((s, n) => s + n.totalReal, 0)
+
+  containerEnt.innerHTML = _annualTypeTableHtml(recRootsVisiveis,  recTotalOrc,  recTotalReal,  true)
+  containerSai.innerHTML  = _annualTypeTableHtml(despRootsVisiveis, despTotalOrc, despTotalReal, false)
+
+  const saldoReal = recTotalReal - despTotalReal
+  const saldoOrc  = recTotalOrc  - despTotalOrc
+  _renderAnnualSummaryStrip(saldoReal, saldoOrc)
+}
+
+// Tira só o saldo do ano e o saldo atual da caixinha "Year Bills" — o resto de
+// investimentos fica só na aba Investimentos, pra não poluir o Overview.
+function _renderAnnualSummaryStrip(saldoReal, saldoOrc) {
+  const container = document.getElementById('fin-annual-summary-strip')
+  if (!container) return
+
+  const saldoClr = saldoReal >= 0 ? 'var(--accent)' : 'var(--danger)'
+  const saldoCardHtml = `<div class="fin-inv-card">
+    <div class="fin-inv-card-name">Saldo do ano</div>
+    <div class="fin-inv-card-saldo" style="color:${saldoClr}">${_fmtBRL(saldoReal)}</div>
+    <div class="fin-inv-card-meta">${saldoOrc > 0 ? `Orçado: ${_fmtBRL(saldoOrc)}` : ''}</div>
+  </div>`
+
+  const yearBills = window.finCodigos.find(c => c.tipo === 'investimento' && c.nome.trim().toLowerCase() === 'year bills')
+  const snaps     = yearBills ? window.finInvestimentos.filter(s => s.cd_financa === yearBills.id) : []
+  const hojeKey   = new Date().toISOString().slice(0, 7)
+  const cur       = snaps.length ? _snapLatestUpTo(snaps.slice().sort((a, b) => a.data.localeCompare(b.data)), hojeKey) : null
+
+  const yearBillsCardHtml = `<div class="fin-inv-card">
+    <div class="fin-inv-card-name">Year Bills</div>
+    <div class="fin-inv-card-saldo">${cur ? _fmtBRL(cur.saldo) : '—'}</div>
+    <div class="fin-inv-card-meta">${cur ? `Atualizado ${_fmtMonthYearShort(cur.data)}` : 'Sem saldo registrado'}</div>
+  </div>`
+
+  container.innerHTML = saldoCardHtml + yearBillsCardHtml
 }

@@ -2,50 +2,31 @@
 
 ## 🎯 Objetivo
 
-Permitir que você rode BodyLog **completamente** na sua máquina para desenvolvimento e teste, sem precisar da cloud.
+Rodar o BodyLog localmente pra desenvolvimento. Como não existe mais backend nem banco local, isso é bem mais simples do que era antes: só precisa servir os arquivos estáticos — o app já fala direto com o Supabase de produção.
 
 ---
 
 ## 📋 Pré-requisitos
 
-Antes de começar, você precisa de:
-
 ### 1. Git
 ```bash
 git --version
-# Se não tiver, baxe do https://git-scm.com
 ```
 
-### 2. Python 3.9+
-```bash
-python --version
-# Se não tiver, baixe do https://www.python.org
-# Na instalação, MARQUE: "Add Python to PATH"
-```
+### 2. Algo que sirva arquivos estáticos
+Qualquer um serve: `python -m http.server`, `npx serve`, a extensão Live Server do VS Code, etc. Este projeto já traz um script pronto usando Python (`start-local.ps1`).
 
-### 3. PostgreSQL 12+
-```bash
-psql --version
-# Se não tiver:
-# Windows: https://www.postgresql.org/download/windows/
-# macOS:   brew install postgresql
-# Linux:   apt-get install postgresql
-```
+### 3. Editor de Texto
+VS Code (recomendado) ou o que preferir.
 
-### 4. Editor de Texto
-- VS Code (recomendado): https://code.visualstudio.com
-- Sublime, Vim, Neovim, etc
+> Não precisa de PostgreSQL, Python com venv, `pip install`, nem `.env` de backend — tudo isso foi removido junto com o backend Python.
 
 ---
 
 ## 🚀 Passo 1: Clone o Repositório
 
 ```bash
-# Abra terminal
-
 git clone https://github.com/seuusuario/MeuSite.git
-# Ou descompacte o ZIP
-
 cd MeuSite
 ```
 
@@ -53,372 +34,100 @@ Estrutura esperada:
 ```
 MeuSite/
 ├── README.md
-├── bodylog.sql
-├── backend/
+├── supabase/
+│   └── schema.sql
 ├── FrontEnd/
-└── docs/
+├── docs/
+└── start-local.ps1
 ```
 
 ---
 
-## 🗄️ Passo 2: Setup do Database
+## 🎨 Passo 2: Suba o servidor estático
 
-### 2.1 Criar Database PostgreSQL
+### Windows (PowerShell) — usando o script pronto
+```powershell
+.\start-local.ps1
+# Servindo FrontEnd em http://127.0.0.1:8080 ...
+```
+O script (`start-local.ps1`) só faz `python -m http.server $Port` dentro de `FrontEnd/`. Pode passar outra porta: `.\start-local.ps1 -Port 3000`.
 
+### Qualquer sistema (manual)
 ```bash
-# Conexão ao PostgreSQL
-psql -U postgres
-
-# Digite sua senha (configurada na instalação)
-```
-
-**No psql prompt:**
-```sql
--- Criar database
-CREATE DATABASE bodylog;
-
--- Listar databases
-\l
-
--- Conectar (opcional)
-\c bodylog
-
--- Sair
-\q
-```
-
-### 2.2 Executar Script SQL (Popular Dados)
-
-```bash
-# No terminal (fora do psql)
-
-psql -U postgres -d bodylog -f bodylog.sql
-
-# Saída esperada:
-# CREATE TABLE
-# INSERT 0 ...
-# etc
-```
-
-### 2.3 Verificar Data
-
-```bash
-psql -U postgres -d bodylog
-
-# No psql:
-SELECT * FROM unidade_medida LIMIT 5;
-SELECT * FROM codigo_medida LIMIT 5;
-\q
-```
-
----
-
-## 🐍 Passo 3: Setup do Backend
-
-### 3.1 Criar Arquivo .env
-
-Crie arquivo `backend/.env`:
-
-```
-DATABASE_URL=postgresql://postgres:SUA_SENHA@localhost:5432/bodylog
-API_PORT=8001
-FINANCE_PIN=1234
-```
-
-**Substituir:**
-- `SUA_SENHA` → Senha que você colocou no PostgreSQL
-
-### 3.2 Criar Virtual Environment
-
-```bash
-# Ir para pasta backend
-cd backend
-
-# Criar venv
-python -m venv venv
-
-# Ativar venv
-# Windows:
-venv\Scripts\activate
-# macOS/Linux:
-source venv/bin/activate
-
-# Verificar (deve ter (venv) no prompt)
-which python  # ou where python no Windows
-```
-
-### 3.3 Instalar Dependências
-
-```bash
-# Ter venv ativado
-
-pip install -r requirements.txt
-
-# Saída esperada:
-# Successfully installed fastapi-0.135.1 uvicorn-0.41.0 ...
-```
-
-### 3.4 Rodar Backend
-
-```bash
-# Ter venv ativado, estar no backend/
-
-uvicorn main:app --reload --port 8001
-
-# Saída esperada:
-# INFO:     Uvicorn running on http://127.0.0.1:8001
-# INFO:     Application startup complete
-```
-
-**Não feche este terminal!** Deixe rodando.
-
-### 3.5 Testar Backend
-
-Abra outro terminal:
-
-```bash
-# Teste se API está rodando
-curl http://127.0.0.1:8001/api/checkins
-
-# Saída esperada:
-# []    (lista vazia, porque ainda não tem dados)
-```
-
----
-
-## 🎨 Passo 4: Setup do Frontend
-
-Open novo terminal (deixe backend rodando):
-
-```bash
-# Neste terminal, volte para pasta FrontEnd
 cd FrontEnd
-
-# Abrir em navegador (pode arrastar arquivo)
-# Opção 1: Double-click no index.html
-# Opção 2: Abrir em terminal:
-
-# macOS:
-open index.html
-
-# Windows (PowerShell):
-Start-Process index.html
-
-# Linux:
-xdg-open index.html
+python -m http.server 8080
+# ou: npx serve -l 8080
 ```
 
-**Resultado esperado:**
+### Abra no navegador
 ```
-Browser abre BodyLog
-Sidebar com: Overview, Body, Exercises, Goals, Finances
-Home carrega com gráficos/cards
+http://127.0.0.1:8080
 ```
+
+**Resultado esperado:** sidebar com Overview, Body, Finances, Exercises, Goals — Home carrega com dados reais (vindos do Supabase de produção, já que não há um "banco local" separado).
 
 ---
 
-## 🔧 Passo 5: Verificar Conexão Frontend ↔ Backend
+## 🔧 Passo 3: Verificar Conexão com o Supabase
 
-Abra **Developer Tools** (F12 no navegador):
-- Aba **Network**
-- Clique em "Body" na sidebar
-- Procure requisição GET para `/api/checkins`
-- Status deve ser **200 OK**
+Abra **Developer Tools** (F12):
+- Aba **Console**: não deve ter nenhum erro em vermelho na carga inicial
+- Aba **Network**: clique em "Body" na sidebar e procure requisições pra `https://jgqzclewwxmgjlqpxejc.supabase.co/rest/v1/...` — status deve ser **200**
 
-Se status for **0** ou erro:
-1. ✅ Backend está rodando em `http://127.0.0.1:8001`?
-2. ✅ CORS está habilitado em `main.py`?
-3. ✅ DATABASE_URL correto em `.env`?
+Se aparecer erro 401/403: a policy de RLS da tabela pode estar bloqueando, ou a chave em `FrontEnd/shared/js/supabase-client.js` está errada/expirada.
+
+Se aparecer erro de rede (`Failed to fetch`): confira sua conexão com a internet — diferente do setup antigo, não existe "backend local" pra funcionar offline; o app sempre precisa alcançar o Supabase.
 
 ---
 
 ## ✅ Checklist Completo
 
-- ✅ PostgreSQL rodando
-- ✅ Database `bodylog` criado
-- ✅ Tabelas populadas (bodylog.sql executado)
-- ✅ Python venv ativado
-- ✅ Backend rodando em `http://127.0.0.1:8001`
-- ✅ Frontend abrindo em navegador
-- ✅ Requisições HTTP funcionando (Network tab)
+- ✅ Repositório clonado
+- ✅ Servidor estático rodando (`start-local.ps1` ou equivalente)
+- ✅ Frontend abrindo no navegador em `http://127.0.0.1:8080`
+- ✅ Console sem erros
+- ✅ Requisições ao Supabase retornando 200 (aba Network)
 
 ---
 
 ## 🐛 Troubleshooting
 
-### Erro: "psql command not found"
-**Solução:** PostgreSQL não está instalado ou não está no PATH
-```bash
-# macOS:
-brew install postgresql
-
-# Windows:
-# Reinstalar PostgreSQL e marcar "Add to PATH"
-
-# Depois:
-psql --version
+### Porta já em uso
+```powershell
+.\start-local.ps1 -Port 8081
 ```
+ou pare o processo que já está escutando na porta (o script antigo tinha um parâmetro `-KillPort`; a versão atual, mais simples, não precisa disso — é só trocar de porta).
 
-### Erro: "password authentication failed"
-**Solução:** Senha do PostgreSQL incorreta
-```bash
-# Verificar se database:
-psql -U postgres -l
+### Página carrega mas nenhuma seção mostra dado
+1. Confira o Console (F12) por erros de JavaScript.
+2. Confira se `shared/js/supabase-client.js` está sendo carregado **antes** de `api.js` no `index.html` (ordem dos `<script>` importa).
+3. Teste uma query manualmente no Console: `await sb.from('checkins').select('*').limit(1)`.
 
-# Se erro de senha, resetar:
-# Windows: usar pg_admin (GUI)
-# Linux: sudo -u postgres psql
-```
+### Erro de CORS
+Não deveria acontecer — o Supabase já libera qualquer origem por padrão nas configurações do projeto. Se aparecer, confira se a URL/chave em `supabase-client.js` correspondem mesmo ao projeto Supabase certo.
 
-### Erro: "No module named 'fastapi'"
-**Solução:** Dependências não instaladas ou venv não ativo
-```bash
-# Verificar se venv está ativo (deve ter (venv) no prompt)
-# Se não:
-source venv/bin/activate  # ou venv\Scripts\activate no Windows
-
-# Depois instalar:
-pip install -r requirements.txt
-```
-
-### Erro: "Cannot GET /api/checkins" (404)
-**Solução:** Backend não está rodando
-```bash
-# Terminal 1: verificar se está rodando
-# Se não, rodar:
-uvicorn main:app --reload --port 8001
-```
-
-### Aplication startup failed
-**Solução:** Database_URL incorreto ou database não existe
-```bash
-# 1. Verificar .env:
-cat backend/.env
-
-# 2. Testar conexão:
-psql "postgresql://postgres:senha@localhost:5432/bodylog"
-
-# 3. Se não conectar:
-# Criar database:
-psql -U postgres -c "CREATE DATABASE bodylog"
-```
-
-### Gráficos não aparecem no Body
-**Solução:** Dados não existem no banco
-```bash
-# Adicionar check-in manualmente:
-# 1. Abrir Body
-# 2. Clicar "Nova Medida"
-# 3. Preencher dados (peso, gordura, altura)
-# 4. Clicar Salvar
-# 5. Gráfico deve aparecer
-```
+### Quero testar com dados diferentes dos de produção
+Não existe "banco local" separado. Se quiser isolar testes, crie um **segundo projeto Supabase** (gratuito), rode `supabase/schema.sql` nele, e troque temporariamente a URL/chave em `supabase-client.js` — lembrando de reverter antes de commitar.
 
 ---
 
 ## 📱 Testar no Celular (Mesma Rede)
 
-### 1. Descobre IP da Sua Máquina
-
-```bash
-# Windows (PowerShell):
-ipconfig  # Procurar "IPv4 Address", ex: 192.168.1.100
-
-# macOS/Linux:
-ifconfig  # Procurar "inet", ex: 192.168.1.100
+```powershell
+# Descobrir o IP da sua máquina
+ipconfig   # Windows, procure "IPv4 Address"
 ```
 
-### 2. Atualize API URL
-
-Em `FrontEnd/shared/js/api.js`:
-
-```javascript
-// Mudar isto:
-const API = "https://meusite-3.onrender.com"
-
-// Para:
-const API = "http://192.168.1.100:8001"  // Seu IP
-```
-
-### 3. Abra no Celular
-
-```
-http://192.168.1.100/index.html
-# (coloque o IP da sua máquina)
-```
-
----
-
-## 🧹 Limpar Dados (Reset)
-
-### Opção 1: Deletar Database
-
-```bash
-psql -U postgres
-
-# No psql:
-DROP DATABASE bodylog;
-CREATE DATABASE bodylog;
-\q
-
-# Depois, re-executar script:
-psql -U postgres -d bodylog -f bodylog.sql
-```
-
-### Opção 2: Deletar Tabelas Específicas
-
-```bash
-psql -U postgres -d bodylog
-
-# Deletar check-ins:
-DELETE FROM checkins;
-
-# Deletar treinos:
-DELETE FROM entrada_exercicio;
-
-# etc
-\q
-```
-
----
-
-## 💾 Backup de Dados
-
-### Exportar Database
-
-```bash
-# Fazer backup:
-pg_dump -U postgres bodylog > backup_bodylog.sql
-
-# Restaurar de backup:
-psql -U postgres -d bodylog -f backup_bodylog.sql
-```
+No celular (mesma rede Wi-Fi), acesse `http://SEU-IP:8080`. Como o app fala direto com o Supabase (não com `localhost`), não precisa editar nenhuma URL de API pra isso funcionar — diferente do setup antigo com backend local.
 
 ---
 
 ## 🚀 Próximos Passos
 
-Agora que tudo está rodando localmente:
-
-1. **Explore o código:**
-   - Abra `backend/main.py` e leia as rotas
-   - Abra `FrontEnd/pages/body/body.js` e entenda o padrão
-   - Abra `FrontEnd/shared/css/tokens.css` e veja os design tokens
-
-2. **Faça uma mudança pequena:**
-   - Mude a cor primária em `tokens.css`
-   - Recarregue o navegador (Ctrl+Shift+R para cache limpo)
-   - Veja a mudança!
-
-3. **Adicione um novo campo:**
-   - Veja [14-CREATING-NEW-PAGE.md](14-CREATING-NEW-PAGE.md)
-
-4. **Entenda a lógica:**
-   - Veja [04-BACKEND.md](04-BACKEND.md) para FastAPI
-   - Veja [05-FRONTEND.md](05-FRONTEND.md) para JS
+1. Explore `FrontEnd/shared/js/api.js` pra entender como cada tela busca dados.
+2. Veja [04-BACKEND.md](04-BACKEND.md) pra entender os padrões de query usados.
+3. Se quiser alterar o schema, veja [03-DATABASE.md](03-DATABASE.md) (seção "Como alterar o schema").
 
 ---
 
 ✅ **Próximo:** Veja [13-DEPLOYMENT.md](13-DEPLOYMENT.md) para publicar em produção.
-
-✅ **Depois:** Explore [14-CREATING-NEW-PAGE.md](14-CREATING-NEW-PAGE.md) para adicionar features.

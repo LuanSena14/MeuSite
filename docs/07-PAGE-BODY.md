@@ -111,11 +111,13 @@ Fluxo de salvar (`saveEntry`):
 5. Exibe toast de sucesso/erro.
 6. Reabilita botão no `finally`.
 
-## 10. Endpoint usado
+## 10. Fonte de dados (Supabase via `api.js`)
 
-- `GET /api/checkins`
-- `GET /api/medidas`
-- `POST /api/checkins`
+- `fetchCheckins()` — lê `checkins` + `codigo_medida`, agrupa por data
+- `fetchMedidas()` — lê a árvore de `codigo_medida`/`unidade_medida`
+- `postCheckin(date, medidas)` — insere linhas em `checkins`
+
+Nenhuma dessas funções chama um endpoint HTTP próprio — é tudo `supabase-js` direto (ver [04-BACKEND.md](04-BACKEND.md)).
 
 ## 11. Atenções de manutenção
 
@@ -123,7 +125,7 @@ Fluxo de salvar (`saveEntry`):
 2. Garantir consistência dos nomes de campo entre modal e `readForm()`.
 3. Validar unidades (cm vs m) antes de cálculos de IMC/FFMI.
 4. Não quebrar fallback de altura histórica.
-5. Testar estado vazio e estado parcial sem backend.
+5. Testar estado vazio e estado parcial sem conexão com o Supabase.
 
 ## 12. Testes manuais recomendados
 
@@ -131,4 +133,4 @@ Fluxo de salvar (`saveEntry`):
 2. Cadastrar check-in com gordura e altura para validar IMC/FFMI.
 3. Trocar métrica no seletor e confirmar atualização do gráfico.
 4. Abrir e fechar seção Body repetidamente para validar limpeza de charts.
-5. Simular backend fora do ar e verificar feedback de erro parcial.
+5. Simular falha de rede/Supabase (offline) e verificar feedback de erro parcial.

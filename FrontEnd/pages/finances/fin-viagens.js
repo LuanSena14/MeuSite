@@ -289,17 +289,17 @@ function _viagToggle(bodyId, header) {
 
 async function _viajemUnlink(cdLancamento) {
   if (!confirm('Desvincular este lançamento da viagem?')) return
-  const r = await fetch(`${API}/api/financas/viagens/${cdLancamento}`, { method: 'DELETE' })
-  if (r.ok) renderViagens()
+  try {
+    await unlinkViagem(cdLancamento)
+    renderViagens()
+  } catch (_) { alert('Erro de conexão') }
 }
 
 async function _viagemRenamePrompt(cdLancamento, nomeAtual) {
   const novo = prompt('Novo nome da viagem:', nomeAtual)
   if (!novo || novo === nomeAtual) return
-  const r = await fetch(`${API}/api/financas/viagens/${cdLancamento}`, {
-    method:  'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ nome_viagem: novo })
-  })
-  if (r.ok) renderViagens()
+  try {
+    await renameViagem(cdLancamento, novo)
+    renderViagens()
+  } catch (_) { alert('Erro de conexão') }
 }
