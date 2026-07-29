@@ -231,10 +231,52 @@ async function fetchLancamentos() {
 }
 
 async function postLancamento(body) {
-  const { error } = await sb.from('lancamento_financeiro').insert({
+  const { data, error } = await sb.from('lancamento_financeiro').insert({
     data: body.data, cd_financa: body.cd_financa, valor: body.valor,
     descricao: body.descricao ?? null, forma_pagamento: body.forma_pagamento ?? 'debito',
+  }).select('id').single()
+  _throwIfError(error)
+  return { ok: true, id: data.id }
+}
+
+async function fetchComprasParceladas() {
+  const { data, error } = await sb.from('compra_parcelada').select(`
+    id, total_parcelas, data_primeira_parcela,
+    lancamento_financeiro!inner(id, data, valor, descricao, forma_pagamento, cd_financa),
+    parcela_compra(id, numero, vencimento, valor, pago_em)
+  `).order('data_primeira_parcela', { ascending: true })
+  _throwIfError(error)
+  const lookup = await _fetchAllCodigoFinanca()
+  return data.map(c => {
+    const l = c.lancamento_financeiro
+    const parcelas = (c.parcela_compra || []).sort((a, b) => a.numero - b.numero)
+    return {
+      id: c.id, lancamento_id: l.id, data_compra: l.data, total: Number(l.valor), descricao: l.descricao,
+      forma_pagamento: l.forma_pagamento, cd_financa: l.cd_financa,
+      categoria_nome: lookup.get(l.cd_financa)?.nome || '', total_parcelas: c.total_parcelas,
+      data_primeira_parcela: c.data_primeira_parcela, parcelas,
+    }
   })
+}
+
+async function postCompraParcelada(body) {
+  const lanc = await postLancamento(body)
+  try {
+    const { data: compra, error: e1 } = await sb.from('compra_parcelada').insert({
+      cd_lancamento: lanc.id, total_parcelas: body.total_parcelas, data_primeira_parcela: body.data_primeira_parcela,
+    }).select('id').single()
+    _throwIfError(e1)
+    const { error: e2 } = await sb.from('parcela_compra').insert(body.parcelas.map(p => ({ ...p, cd_compra: compra.id })))
+    _throwIfError(e2)
+    return { ok: true, id: compra.id }
+  } catch (err) {
+    await deleteLancamento(lanc.id)
+    throw err
+  }
+}
+
+async function patchParcelaCompraPaga(id, pagoEm) {
+  const { error } = await sb.from('parcela_compra').update({ pago_em: pagoEm }).eq('id', id)
   _throwIfError(error)
   return { ok: true }
 }

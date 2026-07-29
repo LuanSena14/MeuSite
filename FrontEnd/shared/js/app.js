@@ -54,12 +54,13 @@ const SECTION_SCRIPTS = {
     'pages/goals/goals.js?v=24',
   ],
   finances: [
-    'pages/finances/fin-core.js?v=5',
+    'pages/finances/fin-core.js?v=6',
     'pages/finances/fin-overview.js?v=3',
     'pages/finances/fin-lancamentos.js?v=5',
+    'pages/finances/fin-parceladas.js?v=1',
     'pages/finances/fin-investimentos.js?v=27',
     'pages/finances/fin-viagens.js?v=5',
-    'pages/finances/fin-modals.js?v=4',
+    'pages/finances/fin-modals.js?v=5',
   ],
 }
 

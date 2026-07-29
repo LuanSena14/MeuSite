@@ -76,6 +76,17 @@
   cursor: pointer;
 }
 .fin-toolbar-actions { display: flex; gap: 8px; }
+.fin-parcelas-month { margin-bottom: 16px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.fin-parcelas-month h3 { margin: 0 0 8px; font-size: .9rem; }
+.fin-parcelas-month-value { color: var(--danger); font-size: 1.35rem; font-weight: 700; }
+.fin-parcelas-month-note { color: var(--text-muted); font-size: .8rem; }
+.fin-compra-card { border: 1px solid var(--border); background: var(--surface); border-radius: 10px; margin-bottom: 12px; overflow: hidden; }
+.fin-compra-head { display: grid; grid-template-columns: 1fr auto; gap: 12px; padding: 14px 16px; cursor: pointer; }
+.fin-compra-title { font-weight: 700; }.fin-compra-meta { color: var(--text-muted); font-size: .8rem; margin-top: 4px; }
+.fin-compra-values { text-align: right; font-variant-numeric: tabular-nums; }.fin-compra-open { color: var(--danger); font-size: .82rem; margin-top: 4px; }
+.fin-compra-parcelas { border-top: 1px solid var(--border); padding: 4px 16px 12px; }.fin-parcela-paga { color: var(--text-muted); text-decoration: line-through; }
+.fin-parcela-status { border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--text); cursor: pointer; font: inherit; font-size: .75rem; padding: 4px 8px; }
+.fin-parcela-status:hover { border-color: var(--accent); color: var(--accent); }
 .fin-hidden { display: none; }
 .fin-chart-box-320 { height: 320px; position: relative; }
 .fin-list-mt16 { margin-top: 16px; }

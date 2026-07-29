@@ -12,6 +12,7 @@ window.finLancamentos   = []   // [{id, data, cd_financa, categoria_nome, grupo_
 window.finOrcamento     = []   // [{id, ano, mes, cd_financa, valor_orcado, forma_pagamento}]
 window.finInvestimentos = []   // [{id, data, cd_financa, nome, saldo}]
 window.finViagens       = []   // [{nome_viagem, total, num_lancamentos, lancamentos}]
+window.finComprasParceladas = []
 
 let _finActiveTab        = 'overview'
 let _finChartsInstances  = {}
@@ -44,6 +45,7 @@ function _finHasAnyData() {
     || window.finOrcamento.length > 0
     || window.finInvestimentos.length > 0
     || window.finViagens.length > 0
+    || window.finComprasParceladas.length > 0
 }
 
 function _finSectionFeedbackHtml(icon, title, sub, details = '', isError = false) {
@@ -99,12 +101,13 @@ async function initFinancesSection(forceRefresh = false) {
   _finSetSectionState('loading')
 
   try {
-    const [codigos, lanc, orc, inv, viag] = await Promise.all([
+    const [codigos, lanc, orc, inv, viag, compras] = await Promise.all([
       fetchFinancasCodigos(),
       fetchLancamentos(),
       fetchOrcamento(),
       fetchInvestimentos(),
       fetchViagens(),
+      fetchComprasParceladas(),
     ])
 
     window.finCodigos       = codigos || []
@@ -112,6 +115,7 @@ async function initFinancesSection(forceRefresh = false) {
     window.finOrcamento     = orc     || []
     window.finInvestimentos = inv     || []
     window.finViagens       = viag    || []
+    window.finComprasParceladas = compras || []
     _finDataLoadedAt = Date.now()
   } catch (err) {
     const detail = err?.message || String(err)
@@ -155,6 +159,7 @@ function switchFinTab(tab) {
   if (tab === 'lancamentos')   renderLancamentos()
   if (tab === 'investimentos') renderInvestimentos()
   if (tab === 'viagens')       renderViagens()
+  if (tab === 'parceladas')    renderComprasParceladas()
 }
 
 

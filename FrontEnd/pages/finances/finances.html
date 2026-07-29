@@ -10,6 +10,7 @@
 <div class="fin-tabs">
     <button class="fin-tab active" data-tab="overview"      onclick="switchFinTab('overview')">Overview</button>
     <button class="fin-tab"        data-tab="lancamentos"   onclick="switchFinTab('lancamentos')">Lançamentos</button>
+    <button class="fin-tab"        data-tab="parceladas"    onclick="switchFinTab('parceladas')">Compras parceladas</button>
     <button class="fin-tab"        data-tab="investimentos" onclick="switchFinTab('investimentos')">Investimentos</button>
     <button class="fin-tab"        data-tab="viagens"       onclick="switchFinTab('viagens')">Viagens</button>
   </div>
@@ -127,6 +128,15 @@
     </div>
   </div>
 
+<div class="fin-panel" id="fin-panel-parceladas">
+    <div class="fin-toolbar">
+      <div class="fin-resumo-row" id="fin-parcelas-resumo"></div>
+      <button class="btn-add" onclick="openFinModal('lancamento')">+ Nova compra</button>
+    </div>
+    <div class="fin-parcelas-month" id="fin-parcelas-month"></div>
+    <div id="fin-compras-parceladas-list"></div>
+  </div>
+
 <div class="fin-panel" id="fin-panel-investimentos">
     <div class="fin-toolbar">
       <input type="month" id="fin-inv-filter-mes" class="ex-filter-input" oninput="_markInvMesFilterTouched();renderInvestimentos()">
@@ -203,6 +213,24 @@
             <label class="form-label">Categoria</label>
             <select id="fin-lanc-cat" class="form-input"></select>
           </div>
+        </div>
+        <div class="fin-form-row">
+          <div>
+            <label class="form-label">Forma da compra</label>
+            <select id="fin-lanc-modalidade" class="form-input" onchange="toggleLancamentoParcelado()">
+              <option value="vista" selected>À vista</option>
+              <option value="parcelado">Parcelado</option>
+            </select>
+          </div>
+          <div id="fin-lanc-parcelas-wrap" class="fin-hidden">
+            <label class="form-label">Quantidade de parcelas</label>
+            <input type="number" id="fin-lanc-parcelas" class="form-input" min="2" max="360" value="2">
+          </div>
+        </div>
+        <div id="fin-lanc-primeira-parcela-wrap" class="fin-hidden">
+          <label class="form-label">Data da primeira parcela</label>
+          <input type="date" id="fin-lanc-primeira-parcela" class="form-input">
+          <p class="fin-modal-hint">O valor total entra agora no compromisso financeiro e na reserva. As parcelas aparecem apenas no fluxo mensal.</p>
         </div>
         <label class="form-label">Valor (R$)</label>
         <input type="number" step="0.01" id="fin-lanc-valor" class="form-input" placeholder="0,00">

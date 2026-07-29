@@ -26,7 +26,11 @@ function openFinModal(type) {
 
   if (type === 'lancamento') {
     document.getElementById('fin-lanc-data').value = today
+    document.getElementById('fin-lanc-primeira-parcela').value = today
+    document.getElementById('fin-lanc-modalidade').value = 'vista'
+    document.getElementById('fin-lanc-parcelas').value = 2
     populateFinCatSelect('fin-lanc-cat', document.getElementById('fin-lanc-tipo').value)
+    toggleLancamentoParcelado()
   }
   if (type === 'orcamento') {
     const now = new Date()
@@ -56,6 +60,12 @@ function closeFinModal() {
   document.getElementById('fin-modal-overlay').classList.remove('open')
   const box = document.getElementById('fin-modal-box')
   if (box) box.classList.remove('fin-modal-wide')
+}
+
+function toggleLancamentoParcelado() {
+  const parcelado = document.getElementById('fin-lanc-modalidade')?.value === 'parcelado'
+  document.getElementById('fin-lanc-parcelas-wrap')?.classList.toggle('fin-hidden', !parcelado)
+  document.getElementById('fin-lanc-primeira-parcela-wrap')?.classList.toggle('fin-hidden', !parcelado)
 }
 
 function closeFinModalOutside(e) {
@@ -122,17 +132,44 @@ async function submitLancamento() {
   const valor     = parseFloat(document.getElementById('fin-lanc-valor').value)
   const descricao = document.getElementById('fin-lanc-desc').value.trim()
   const pagamento = document.getElementById('fin-lanc-pagamento').value || null
+  const modalidade = document.getElementById('fin-lanc-modalidade').value
+  const totalParcelas = Number(document.getElementById('fin-lanc-parcelas').value)
+  const primeiraParcela = document.getElementById('fin-lanc-primeira-parcela').value
 
   if (!data || !cd || isNaN(valor) || valor <= 0) {
     _showFinToastErro('Preencha data, categoria e valor.'); return
   }
 
-  const res = await postLancamento({ data, cd_financa: cd, valor, descricao: descricao || null, forma_pagamento: pagamento })
+  const tipo = document.getElementById('fin-lanc-tipo').value
+  if (modalidade === 'parcelado' && (tipo !== 'despesa' || !Number.isInteger(totalParcelas) || totalParcelas < 2 || !primeiraParcela)) {
+    _showFinToastErro('Para parcelar, informe uma despesa, ao menos 2 parcelas e a primeira data.'); return
+  }
+  let res
+  try {
+    res = modalidade === 'parcelado'
+      ? await postCompraParcelada({ data, cd_financa: cd, valor, descricao: descricao || null, forma_pagamento: pagamento, total_parcelas: totalParcelas, data_primeira_parcela: primeiraParcela, parcelas: _gerarParcelasCompra(valor, totalParcelas, primeiraParcela) })
+      : await postLancamento({ data, cd_financa: cd, valor, descricao: descricao || null, forma_pagamento: pagamento })
+  } catch (err) {
+    console.error('Erro ao salvar compra:', err)
+    _showFinToastErro('Erro ao salvar.'); return
+  }
   if (!res?.ok) { _showFinToastErro('Erro ao salvar.'); return }
 
   closeFinModal()
   await initFinancesSection()
-  _showFinToast('Lançamento adicionado!')
+  _showFinToast(modalidade === 'parcelado' ? 'Compra parcelada adicionada!' : 'Lançamento adicionado!')
+}
+
+function _gerarParcelasCompra(total, quantidade, primeiraData) {
+  const totalCentavos = Math.round(Number(total) * 100)
+  const base = Math.floor(totalCentavos / quantidade)
+  const resto = totalCentavos - (base * quantidade)
+  const [ano, mes, dia] = primeiraData.split('-').map(Number)
+  return Array.from({ length: quantidade }, (_, i) => {
+    const data = new Date(ano, mes - 1 + i, dia)
+    if (data.getDate() !== dia) data.setDate(0)
+    return { numero: i + 1, vencimento: data.toISOString().slice(0, 10), valor: (base + (i < resto ? 1 : 0)) / 100 }
+  })
 }
 
 async function submitOrcamento() {

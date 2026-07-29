@@ -96,6 +96,28 @@ create table if not exists relacionamento_lancamento_viagem (
   nome_viagem   varchar not null
 );
 
+-- Compras parceladas: o lançamento guarda o compromisso total no dia da compra;
+-- as parcelas abaixo servem exclusivamente para o calendário de fluxo de caixa.
+create table if not exists compra_parcelada (
+  id                   integer generated always as identity primary key,
+  cd_lancamento        integer not null unique references lancamento_financeiro(id) on delete cascade,
+  total_parcelas       integer not null check (total_parcelas > 1),
+  data_primeira_parcela date not null,
+  created_at           timestamptz not null default now()
+);
+
+create table if not exists parcela_compra (
+  id          integer generated always as identity primary key,
+  cd_compra   integer not null references compra_parcelada(id) on delete cascade,
+  numero      integer not null check (numero > 0),
+  vencimento  date not null,
+  valor       numeric(12,2) not null check (valor > 0),
+  pago_em     date,
+  unique (cd_compra, numero)
+);
+
+create index if not exists idx_parcela_compra_vencimento on parcela_compra(vencimento);
+
 -- =============================================================================
 -- RLS — uso pessoal, sem login: libera tudo para a chave anon/publishable
 -- =============================================================================
@@ -111,6 +133,8 @@ alter table orcamento_financeiro               enable row level security;
 alter table snapshot_investimento              enable row level security;
 alter table relacionamento_debito_investimento enable row level security;
 alter table relacionamento_lancamento_viagem   enable row level security;
+alter table compra_parcelada                    enable row level security;
+alter table parcela_compra                      enable row level security;
 
 do $$
 declare
@@ -122,7 +146,7 @@ begin
       'codigo_exercicio', 'entrada_exercicio',
       'codigo_financa', 'lancamento_financeiro', 'orcamento_financeiro',
       'snapshot_investimento', 'relacionamento_debito_investimento',
-      'relacionamento_lancamento_viagem'
+      'relacionamento_lancamento_viagem', 'compra_parcelada', 'parcela_compra'
     ])
   loop
     execute format('drop policy if exists "public_full_access" on %I', t);
